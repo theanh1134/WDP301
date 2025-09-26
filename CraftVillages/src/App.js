@@ -1,6 +1,12 @@
+import Header from "./component/Header";
+import Footer from "./component/Footer";
+import Login from "./component/Login";
 function App() {
     return (
-        <div>FER202 - Practical Exam given</div>
+        <div><Header/>
+        <Login/>
+        <Footer/>
+        </div>
     )
 }
 
