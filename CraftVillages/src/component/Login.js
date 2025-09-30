@@ -1,34 +1,67 @@
 // Login.js
-import React from 'react';
-import { Container, Row, Col, Form, Button } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Container, Form, Button, InputGroup } from 'react-bootstrap';
+import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from 'react-icons/fa';
 import 'bootstrap/dist/css/bootstrap.min.css';
 // Import hình ảnh
 import pic1 from '../assets/images/pic1.png';
 
 function Login() {
+    const [showPassword, setShowPassword] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+
+    const togglePasswordVisibility = () => {
+        setShowPassword(!showPassword);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        console.log('Login attempt with:', { email, password });
+        // Add login logic here
+    };
+
     const styles = {
         container: {
             minHeight: '100vh',
             display: 'flex',
             padding: 0,
             margin: 0,
-            maxWidth: '100%'
+            maxWidth: '100%',
+            fontFamily: '"Poppins", sans-serif'
         },
-        imageGrid: {
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gridTemplateRows: '1fr 1fr',
-            gap: '2px',
+        imageContainer: {
             width: '50%',
             height: '100vh',
             overflow: 'hidden',
-            objectFit:'cover'
+            position: 'relative'
         },
-        imageContainer: {
-            overflow: 'hidden',
-            // Đổi thành một grid cell lớn chiếm toàn bộ không gian bên trái
-            gridColumn: '1 / 3',
-            gridRow: '1 / 3'
+        overlay: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.5))',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            color: 'white',
+            padding: '0 50px',
+            textAlign: 'center'
+        },
+        overlayHeading: {
+            fontSize: '42px',
+            fontWeight: '700',
+            marginBottom: '20px',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+        },
+        overlayText: {
+            fontSize: '18px',
+            maxWidth: '80%',
+            lineHeight: '1.6',
+            textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
         },
         image: {
             width: '100%',
@@ -40,17 +73,34 @@ function Login() {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            padding: '0 50px'
+            padding: '0 50px',
+            background: 'linear-gradient(to right, #f9f9f9, #ffffff)'
         },
         formContent: {
             width: '100%',
-            maxWidth: '400px'
+            maxWidth: '450px',
+            background: 'white',
+            padding: '40px',
+            borderRadius: '15px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+        },
+        logo: {
+            width: '120px',
+            marginBottom: '20px'
         },
         heading: {
-            fontSize: '28px',
+            fontSize: '32px',
             fontWeight: 'bold',
-            marginBottom: '20px',
-            color: '#333'
+            marginBottom: '10px',
+            color: '#333',
+            position: 'relative'
+        },
+        headingUnderline: {
+            width: '50px',
+            height: '4px',
+            background: '#e74c3c',
+            marginBottom: '25px',
+            borderRadius: '2px'
         },
         subHeading: {
             fontSize: '16px',
@@ -58,85 +108,219 @@ function Login() {
             marginBottom: '30px'
         },
         formControl: {
+            height: '50px',
+            fontSize: '16px',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            padding: '10px 15px',
             marginBottom: '20px',
-            padding: '10px 0',
-            borderRadius: '0',
-            borderTop: 'none',
-            borderLeft: 'none',
-            borderRight: 'none',
-            borderBottom: '1px solid #ddd',
-            boxShadow: 'none'
+            transition: 'all 0.3s ease',
+            backgroundColor: '#f9f9f9'
+        },
+        formGroup: {
+            marginBottom: '20px',
+            position: 'relative'
+        },
+        inputIcon: {
+            color: '#aaa'
+        },
+        passwordToggle: {
+            background: 'none',
+            border: 'none',
+            color: '#aaa',
+            cursor: 'pointer'
         },
         loginButton: {
             backgroundColor: '#e74c3c',
             border: 'none',
-            borderRadius: '4px',
-            padding: '10px 0',
+            borderRadius: '8px',
+            height: '50px',
+            fontSize: '16px',
+            fontWeight: '600',
             width: '100%',
-            fontWeight: '500',
-            marginTop: '10px',
-            marginBottom: '20px'
+            marginTop: '20px',
+            marginBottom: '20px',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 4px 15px rgba(231, 76, 60, 0.3)'
         },
         forgotPassword: {
             textAlign: 'right',
             color: '#e74c3c',
             textDecoration: 'none',
+            fontSize: '15px',
+            fontWeight: '500',
+            display: 'block',
+            marginBottom: '10px',
+            transition: 'all 0.3s ease'
+        },
+        divider: {
+            display: 'flex',
+            alignItems: 'center',
+            margin: '25px 0'
+        },
+        dividerLine: {
+            flex: 1,
+            height: '1px',
+            background: '#ddd'
+        },
+        dividerText: {
+            padding: '0 15px',
+            color: '#999',
             fontSize: '14px'
+        },
+        socialLogin: {
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '20px',
+            marginTop: '15px'
+        },
+        socialButton: {
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid #ddd',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease'
+        },
+        signupLink: {
+            textAlign: 'center',
+            marginTop: '25px',
+            fontSize: '15px',
+            color: '#666'
+        },
+        signupLinkText: {
+            color: '#e74c3c',
+            fontWeight: '600',
+            textDecoration: 'none',
+            marginLeft: '5px'
         }
     };
 
     return (
         <Container fluid style={styles.container}>
-            {/* Left side - Single Image */}
-            <div style={styles.imageGrid}>
-                <div style={styles.imageContainer}>
-                    <img
-                        src={pic1}
-                        alt="Traditional craft village"
-                        style={styles.image}
-                    />
+            {/* Left side - Image */}
+            <div style={styles.imageContainer}>
+                <img
+                    src={pic1}
+                    alt="Traditional craft village"
+                    style={styles.image}
+                />
+                <div style={styles.overlay}>
+                    <h1 style={styles.overlayHeading}>Làng Nghề Truyền Thống</h1>
+                    <p style={styles.overlayText}>
+                        Khám phá và kết nối với nét đẹp văn hóa làng nghề Việt Nam. Đăng nhập để trải nghiệm hành trình văn hóa độc đáo.
+                    </p>
                 </div>
             </div>
 
             {/* Right side - Login Form */}
             <div style={styles.formContainer}>
                 <div style={styles.formContent}>
+                    {/* <img src="/logo.png" alt="Logo" style={styles.logo} /> */}
+                    
                     <h1 style={styles.heading}>Đăng Nhập</h1>
-                    <p style={styles.subHeading}>Enter your details below</p>
+                    <div style={styles.headingUnderline}></div>
+                    <p style={styles.subHeading}>Nhập thông tin của bạn để tiếp tục</p>
 
-                    <Form>
-                        <Form.Group>
-                            <Form.Control
-                                type="text"
-                                placeholder="Email or Phone Number"
-                                style={styles.formControl}
-                            />
+                    <Form onSubmit={handleSubmit}>
+                        <Form.Group className="mb-4">
+                            <InputGroup>
+                                <InputGroup.Text style={{
+                                    background: '#f9f9f9',
+                                    border: '1px solid #ddd',
+                                    borderRight: 'none',
+                                    borderRadius: '8px 0 0 8px'
+                                }}>
+                                    <FaEnvelope style={styles.inputIcon} />
+                                </InputGroup.Text>
+                                <Form.Control
+                                    type="email"
+                                    placeholder="Email hoặc số điện thoại"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    style={{
+                                        ...styles.formControl,
+                                        borderRadius: '0 8px 8px 0',
+                                        marginBottom: 0,
+                                        borderLeft: 'none'
+                                    }}
+                                />
+                            </InputGroup>
                         </Form.Group>
 
-                        <Form.Group>
-                            <Form.Control
-                                type="password"
-                                placeholder="Password"
-                                style={styles.formControl}
-                            />
+                        <Form.Group className="mb-4">
+                            <InputGroup>
+                                <InputGroup.Text style={{
+                                    background: '#f9f9f9',
+                                    border: '1px solid #ddd',
+                                    borderRight: 'none',
+                                    borderRadius: '8px 0 0 8px'
+                                }}>
+                                    <FaLock style={styles.inputIcon} />
+                                </InputGroup.Text>
+                                <Form.Control
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="Mật khẩu"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    style={{
+                                        ...styles.formControl,
+                                        borderRadius: '0 8px 8px 0',
+                                        marginBottom: 0,
+                                        borderLeft: 'none',
+                                        paddingRight: '40px'
+                                    }}
+                                />
+                                <Button
+                                    onClick={togglePasswordVisibility}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '10px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        zIndex: 10,
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#aaa'
+                                    }}
+                                >
+                                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                </Button>
+                            </InputGroup>
                         </Form.Group>
 
-                        <div className="d-flex justify-content-between align-items-center">
-                            <Button
-                                variant="primary"
-                                type="submit"
-                                style={styles.loginButton}
-                            >
-                                Log In
-                            </Button>
+                        <a href="/forgot-password" style={styles.forgotPassword}>
+                            Quên mật khẩu?
+                        </a>
 
-                            <a href="/forgot-password" style={styles.forgotPassword}>
-                                Forget Password?
-                            </a>
-                        </div>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            style={styles.loginButton}
+                            className="btn-hover"
+                        >
+                            Đăng Nhập
+                        </Button>
+
+                        
+
+                        <p style={styles.signupLink}>
+                            Chưa có tài khoản?
+                            <a href="/signup" style={styles.signupLinkText}>Đăng ký ngay</a>
+                        </p>
                     </Form>
                 </div>
             </div>
+
+            <style jsx>{`
+                .btn-hover:hover {
+                    background-color: #d63031 !important;
+                    transform: translateY(-2px);
+                }
+            `}</style>
         </Container>
     );
 }
