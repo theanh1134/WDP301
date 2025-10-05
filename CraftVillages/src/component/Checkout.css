@@ -1,0 +1,68 @@
+.checkout-page {
+    background-color: #fff;
+    min-height: 100vh;
+  }
+  
+  .header-banner {
+    height: 180px;
+    background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('https://i.pinimg.com/originals/3e/1c/41/3e1c41dba63ab7e3add0ad5cb6d6c4a4.jpg');
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .header-banner .overlay {
+    width: 100%;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .header-banner h1 {
+    font-size: 2.2rem;
+    margin-bottom: 5px;
+  }
+  
+  .form-label {
+    font-weight: 500;
+  }
+  
+  .form-control, .form-select {
+    padding: 0.6rem;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+  
+  .card {
+    border-radius: 6px;
+    border: 1px solid #eaeaea;
+  }
+  
+  .btn-outline-primary {
+    color: #0d6efd;
+    border-color: #0d6efd;
+    padding: 10px 20px;
+    transition: all 0.3s;
+  }
+  
+  .btn-outline-primary:hover {
+    background-color: #0d6efd;
+    color: white;
+  }
+  
+  @media (max-width: 768px) {
+    .header-banner {
+      height: 150px;
+    }
+    
+    .header-banner h1 {
+      font-size: 1.8rem;
+    }
+  }

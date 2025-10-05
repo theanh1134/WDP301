@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Container, Row, Col, Button, Form, Tabs, Tab, Card } from 'react-bootstrap';
 import { FaFacebook, FaInstagram, FaTwitter, FaShoppingCart, FaStar, FaStarHalfAlt, FaRegStar } from 'react-icons/fa';
 import { BsArrowLeft } from 'react-icons/bs';
+import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ProductDetail({ product, onBack }) {
     const [quantity, setQuantity] = useState(1);
+    const navigate = useNavigate();
 
     const increaseQuantity = () => {
         setQuantity(prev => prev + 1);
@@ -15,6 +17,12 @@ function ProductDetail({ product, onBack }) {
         if (quantity > 1) {
             setQuantity(prev => prev - 1);
         }
+    };
+
+    // Hàm xử lý khi người dùng bấm nút Compare
+    const handleCompare = () => {
+        // Chuyển hướng đến trang so sánh và truyền thông tin sản phẩm hiện tại
+        navigate('/compare', { state: { initialProduct: product } });
     };
 
     // Tạo component rating stars
@@ -50,7 +58,7 @@ function ProductDetail({ product, onBack }) {
             category: 'Nón lá thủ công truyền thống',
             price: 75000,
             oldPrice: 100000,
-            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg', // Thay thế đường dẫn này
+            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg',
             badge: 'Sale'
         },
         {
@@ -59,7 +67,7 @@ function ProductDetail({ product, onBack }) {
             category: 'Nón lá thủ công truyền thống',
             price: 75000,
             oldPrice: null,
-            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg', // Thay thế đường dẫn này
+            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg',
             badge: 'New'
         },
         {
@@ -68,7 +76,7 @@ function ProductDetail({ product, onBack }) {
             category: 'Luxury big sofa',
             price: 7000000,
             oldPrice: 14000000,
-            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg', // Thay thế đường dẫn này
+            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg',
             badge: 'Sale'
         },
         {
@@ -77,7 +85,7 @@ function ProductDetail({ product, onBack }) {
             category: 'Outdoor bar table and stool',
             price: 500000,
             oldPrice: null,
-            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg', // Thay thế đường dẫn này
+            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg',
             badge: 'New'
         }
     ];
@@ -461,7 +469,11 @@ function ProductDetail({ product, onBack }) {
                             <Button style={styles.addToCartBtn} className="add-to-cart-btn">
                                 Add To Cart
                             </Button>
-                            <Button style={styles.compareBtn} className="compare-btn">
+                            <Button 
+                                style={styles.compareBtn} 
+                                className="compare-btn"
+                                onClick={handleCompare}
+                            >
                                 + Compare
                             </Button>
                         </div>

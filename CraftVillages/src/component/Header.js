@@ -81,10 +81,10 @@ function Header() {
         
         {/* Navigation Links */}
         <Nav style={styles.navLinks}>
-          <StyledNavLink href="#trang-chu">Trang chủ</StyledNavLink>
+          <StyledNavLink href="/">Trang chủ</StyledNavLink>
           <StyledNavLink href="#cua-hang">Cửa hàng</StyledNavLink>
-          <StyledNavLink href="#thong-tin">Thông tin</StyledNavLink>
-          <StyledNavLink href="#lien-he">Liên hệ</StyledNavLink>
+          <StyledNavLink href="/blog">Thông tin</StyledNavLink>
+          <StyledNavLink href="/contact">Liên hệ</StyledNavLink>
         </Nav>
         
         {/* Icons on right */}
@@ -95,7 +95,7 @@ function Header() {
           <NavIcon>
             <FaSearch />
           </NavIcon>
-          <NavIcon>
+          <NavIcon href='/cart'>
             <FaShoppingCart />
           </NavIcon>
         </div>

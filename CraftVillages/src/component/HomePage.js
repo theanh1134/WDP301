@@ -3,7 +3,10 @@ import React, { useState } from 'react';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
 import { FaShoppingCart, FaSearch, FaEye } from 'react-icons/fa';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import ProductDetail from './ProductDetail'; // Giả sử bạn đã có component ProductDetail
+import USPBanner from './USPBanner';
+import ProductDetail from './ProductDetail'; 
+import Header from './Header';
+import Footer from './Footer';
 
 function HomePage() {
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -508,6 +511,8 @@ function HomePage() {
                     }
                 `}
             </style>
+            {/* Header */}
+            <Header/>
 
             {/* Hero Section */}
             <div style={styles.heroSection}>
@@ -643,7 +648,12 @@ function HomePage() {
                     </div>
                 </Container>
             </section>
+            {/* USP Banner Section */}
+            <USPBanner/>
+            {/* Footer */}
+            <Footer/>
         </Container>
+
     );
 }
 
