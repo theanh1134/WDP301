@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Table, Button, Form, Image, Card, InputGroup, Alert } from 'react-bootstrap';
-import { FaTrash, FaArrowLeft, FaShoppingBag, FaTruck, FaUndo, FaShieldAlt, FaHeart, FaTags, FaGift } from 'react-icons/fa';
+import { Container, Row, Col, Table, Button, Form, Image, Card, InputGroup, Alert, Toast } from 'react-bootstrap';
+import { FaTrash, FaArrowLeft, FaShoppingBag, FaTruck, FaUndo, FaShieldAlt, FaHeart, FaTags, FaGift, FaPlus, FaMinus, FaCheckCircle } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Header from './Header';
@@ -25,7 +25,7 @@ function Cart() {
             description: 'Nón lá Huế truyền thống được làm thủ công từ lá cọ và khung tre'
         },
         {
-            id: 2, 
+            id: 2,
             name: 'Nón lá truyền thống',
             image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg',
             price: 120000,
@@ -46,33 +46,71 @@ function Cart() {
     const [promoApplied, setPromoApplied] = useState(false);
     const [discount, setDiscount] = useState(0);
     const [showPromoError, setShowPromoError] = useState(false);
+    const [removingItems, setRemovingItems] = useState(new Set());
+    const [updatingItems, setUpdatingItems] = useState(new Set());
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Enhanced functions with animations
+    const showNotification = (message) => {
+        setToastMessage(message);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+    };
 
     const updateQuantity = (id, newQuantity) => {
         if (newQuantity > 0) {
-            const updatedCart = cartItems.map(item => {
-                if (item.id === id) {
-                    return {
-                        ...item,
-                        quantity: newQuantity,
-                        total: item.price * newQuantity
-                    };
-                }
-                return item;
-            });
-            setCartItems(updatedCart);
+            setUpdatingItems(prev => new Set([...prev, id]));
+
+            // Simulate API call delay for smooth animation
+            setTimeout(() => {
+                const updatedCart = cartItems.map(item => {
+                    if (item.id === id) {
+                        return {
+                            ...item,
+                            quantity: newQuantity,
+                            total: item.price * newQuantity
+                        };
+                    }
+                    return item;
+                });
+                setCartItems(updatedCart);
+                setUpdatingItems(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(id);
+                    return newSet;
+                });
+                showNotification('Đã cập nhật số lượng sản phẩm');
+            }, 300);
         }
     };
 
     const removeItem = (id) => {
-        const updatedCart = cartItems.filter(item => item.id !== id);
-        setCartItems(updatedCart);
+        const item = cartItems.find(item => item.id === id);
+        setRemovingItems(prev => new Set([...prev, id]));
+
+        // Animate removal
+        setTimeout(() => {
+            const updatedCart = cartItems.filter(item => item.id !== id);
+            setCartItems(updatedCart);
+            setRemovingItems(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(id);
+                return newSet;
+            });
+            showNotification(`Đã xóa ${item?.name} khỏi giỏ hàng`);
+        }, 500);
     };
 
     const moveToWishlist = (id) => {
-        // Giả lập thêm vào wishlist và xóa khỏi giỏ hàng
-        removeItem(id);
-        // Hiển thị thông báo thành công
-        alert('Đã thêm sản phẩm vào danh sách yêu thích');
+        const item = cartItems.find(item => item.id === id);
+        setRemovingItems(prev => new Set([...prev, id]));
+
+        setTimeout(() => {
+            removeItem(id);
+            showNotification(`Đã thêm ${item?.name} vào danh sách yêu thích`);
+        }, 300);
     };
 
     const getSubtotal = () => {
@@ -112,32 +150,38 @@ function Cart() {
 
 
     const styles = {
+        // Enhanced Header Banner
         headerBanner: {
-            background: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(https://i.pinimg.com/originals/3e/1c/41/3e1c41dba63ab7e3add0ad5cb6d6c4a4.jpg)',
+            background: 'linear-gradient(135deg, rgba(184, 134, 11, 0.8), rgba(212, 175, 55, 0.6)), url(https://i.pinimg.com/originals/3e/1c/41/3e1c41dba63ab7e3add0ad5cb6d6c4a4.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            height: '220px',
+            height: '280px',
             position: 'relative',
-            marginBottom: '40px',
+            marginBottom: '50px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            alignItems: 'center'
+            alignItems: 'center',
+            overflow: 'hidden'
         },
         cartTitle: {
-            fontSize: '2.5rem',
-            fontWeight: 'bold',
+            fontSize: '3rem',
+            fontWeight: '800',
             color: 'white',
-            marginBottom: '5px'
+            marginBottom: '10px',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+            animation: 'fadeInUp 1s ease-out'
         },
         breadcrumb: {
             color: 'white',
-            opacity: 0.9
+            opacity: 0.95,
+            fontSize: '1.1rem'
         },
         breadcrumbLink: {
             color: 'white',
             textDecoration: 'none',
-            transition: 'all 0.3s'
+            transition: 'all 0.3s ease',
+            position: 'relative'
         },
         productImage: {
             width: '90px',
@@ -274,252 +318,419 @@ function Cart() {
     };
 
     return (
-        <div><Header/>
-        <div className="cart-page pb-5" style={{ backgroundColor: '#fafafa' }}>
-            <div style={styles.headerBanner}>
-                <h1 style={styles.cartTitle}>Giỏ hàng</h1>
-                <div style={styles.breadcrumb}>
-                    <Link to="/" style={styles.breadcrumbLink}>Trang Chủ</Link> &gt; <span>Giỏ hàng</span>
-                </div>
-            </div>
+        <div>
+            <Header />
 
-            <Container>
-                {cartItems.length === 0 ? (
-                    <div style={styles.emptyCartContainer}>
-                        <div style={styles.emptyCartIcon}>
-                            <FaShoppingBag />
-                        </div>
-                        <h3>Giỏ hàng của bạn đang trống</h3>
-                        <p className="mb-4 text-muted">Thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm</p>
-                        <Link to="/products">
-                            <Button variant="primary" size="lg">
-                                Tiếp tục mua sắm
-                            </Button>
-                        </Link>
+            {/* Enhanced CSS Animations */}
+            <style>
+                {`
+                    @keyframes fadeInUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(30px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+
+                    @keyframes slideOut {
+                        from {
+                            opacity: 1;
+                            transform: translateX(0) scale(1);
+                        }
+                        to {
+                            opacity: 0;
+                            transform: translateX(-100px) scale(0.8);
+                        }
+                    }
+
+                    @keyframes bounce {
+                        0%, 20%, 50%, 80%, 100% {
+                            transform: translateY(0);
+                        }
+                        40% {
+                            transform: translateY(-10px);
+                        }
+                        60% {
+                            transform: translateY(-5px);
+                        }
+                    }
+
+                    @keyframes pulse {
+                        0% { transform: scale(1); }
+                        50% { transform: scale(1.05); }
+                        100% { transform: scale(1); }
+                    }
+
+                    .cart-item {
+                        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                        animation: fadeInUp 0.6s ease-out;
+                    }
+
+                    .cart-item.removing {
+                        animation: slideOut 0.5s ease-in-out forwards;
+                    }
+
+                    .cart-item.updating {
+                        animation: pulse 0.3s ease-in-out;
+                    }
+
+                    .cart-item:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+                    }
+
+                    .quantity-btn {
+                        transition: all 0.2s ease;
+                    }
+
+                    .quantity-btn:hover {
+                        transform: scale(1.1);
+                        background-color: #b8860b !important;
+                        border-color: #b8860b !important;
+                    }
+
+                    .remove-btn {
+                        transition: all 0.3s ease;
+                    }
+
+                    .remove-btn:hover {
+                        transform: scale(1.1);
+                        background-color: #e74c3c !important;
+                        border-color: #e74c3c !important;
+                    }
+
+                    .promo-success {
+                        animation: bounce 0.6s ease-out;
+                    }
+
+                    .checkout-btn {
+                        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                        position: relative;
+                        overflow: hidden;
+                    }
+
+                    .checkout-btn:hover {
+                        transform: translateY(-3px);
+                        box-shadow: 0 12px 35px rgba(184, 134, 11, 0.4);
+                    }
+
+                    .checkout-btn::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: -100%;
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+                        transition: left 0.6s ease;
+                    }
+
+                    .checkout-btn:hover::before {
+                        left: 100%;
+                    }
+
+                    .toast-notification {
+                        position: fixed;
+                        top: 100px;
+                        right: 20px;
+                        z-index: 1050;
+                        animation: fadeInUp 0.3s ease-out;
+                    }
+                `}
+            </style>
+
+            <div className="cart-page pb-5" style={{ backgroundColor: '#fafafa' }}>
+                <div style={styles.headerBanner}>
+                    <h1 style={styles.cartTitle}>Giỏ hàng</h1>
+                    <div style={styles.breadcrumb}>
+                        <Link to="/" style={styles.breadcrumbLink}>Trang Chủ</Link> &gt; <span>Giỏ hàng</span>
                     </div>
-                ) : (
-                    <Row>
-                        <Col lg={8} className="mb-4">
-                            <div className="d-flex justify-content-between align-items-center mb-4">
-                                <h4 className="mb-0">Giỏ hàng của bạn ({getItemCount()} sản phẩm)</h4>
-                                <Link to="/products" style={styles.continueShoppingBtn}>
-                                    <FaArrowLeft style={{ marginRight: '8px' }} /> Tiếp tục mua sắm
-                                </Link>
+                </div>
+
+                <Container>
+                    {cartItems.length === 0 ? (
+                        <div style={styles.emptyCartContainer}>
+                            <div style={styles.emptyCartIcon}>
+                                <FaShoppingBag />
                             </div>
+                            <h3>Giỏ hàng của bạn đang trống</h3>
+                            <p className="mb-4 text-muted">Thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm</p>
+                            <Link to="/products">
+                                <Button variant="primary" size="lg">
+                                    Tiếp tục mua sắm
+                                </Button>
+                            </Link>
+                        </div>
+                    ) : (
+                        <Row>
+                            <Col lg={8} className="mb-4">
+                                <div className="d-flex justify-content-between align-items-center mb-4">
+                                    <h4 className="mb-0">Giỏ hàng của bạn ({getItemCount()} sản phẩm)</h4>
+                                    <Link to="/products" style={styles.continueShoppingBtn}>
+                                        <FaArrowLeft style={{ marginRight: '8px' }} /> Tiếp tục mua sắm
+                                    </Link>
+                                </div>
 
-                            <Card className="mb-4 border-0 shadow-sm">
-                                <Card.Body className="p-0">
-                                    <Table responsive className="mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th style={styles.tableHeader}>Sản phẩm</th>
-                                                <th style={styles.tableHeader}>Giá</th>
-                                                <th style={styles.tableHeader}>Số lượng</th>
-                                                <th style={styles.tableHeader}>Đơn giá</th>
-                                                <th style={styles.tableHeader}></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {cartItems.map(item => {
-                                                const discountPercent = item.originalPrice > item.price
-                                                    ? Math.round((1 - item.price / item.originalPrice) * 100)
-                                                    : 0;
+                                <Card className="mb-4 border-0 shadow-sm">
+                                    <Card.Body className="p-0">
+                                        <Table responsive className="mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th style={styles.tableHeader}>Sản phẩm</th>
+                                                    <th style={styles.tableHeader}>Giá</th>
+                                                    <th style={styles.tableHeader}>Số lượng</th>
+                                                    <th style={styles.tableHeader}>Đơn giá</th>
+                                                    <th style={styles.tableHeader}></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {cartItems.map(item => {
+                                                    const discountPercent = item.originalPrice > item.price
+                                                        ? Math.round((1 - item.price / item.originalPrice) * 100)
+                                                        : 0;
 
-                                                return (
-                                                    <tr key={item.id}>
-                                                        <td style={styles.tableCell}>
-                                                            <div className="d-flex align-items-center">
-                                                                <Image src={item.image} alt={item.name} style={styles.productImage} />
-                                                                <div className="ms-3">
-                                                                    <Link to={`/product/${item.id}`} className="text-decoration-none">
-                                                                        <h6 className="mb-1">{item.name}</h6>
-                                                                    </Link>
-                                                                    {!item.inStock && (
-                                                                        <div className="text-danger small">Hết hàng</div>
+                                                    return (
+                                                        <tr
+                                                            key={item.id}
+                                                            className={`cart-item ${removingItems.has(item.id) ? 'removing' : ''} ${updatingItems.has(item.id) ? 'updating' : ''}`}
+                                                        >
+                                                            <td style={styles.tableCell}>
+                                                                <div className="d-flex align-items-center">
+                                                                    <Image src={item.image} alt={item.name} style={styles.productImage} />
+                                                                    <div className="ms-3">
+                                                                        <Link to={`/product/${item.id}`} className="text-decoration-none">
+                                                                            <h6 className="mb-1">{item.name}</h6>
+                                                                        </Link>
+                                                                        {!item.inStock && (
+                                                                            <div className="text-danger small">Hết hàng</div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td style={styles.tableCell}>
+                                                                <div>
+                                                                    <span>{item.price.toLocaleString()} VND</span>
+                                                                    {discountPercent > 0 && (
+                                                                        <>
+                                                                            <span style={styles.discountedPrice}>{item.originalPrice.toLocaleString()} VND</span>
+                                                                            <span style={styles.discountBadge}>-{discountPercent}%</span>
+                                                                        </>
                                                                     )}
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                        <td style={styles.tableCell}>
-                                                            <div>
-                                                                <span>{item.price.toLocaleString()} VND</span>
-                                                                {discountPercent > 0 && (
-                                                                    <>
-                                                                        <span style={styles.discountedPrice}>{item.originalPrice.toLocaleString()} VND</span>
-                                                                        <span style={styles.discountBadge}>-{discountPercent}%</span>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td style={styles.tableCell}>
-                                                            <InputGroup className="quantity-selector" style={styles.quantityInput}>
-                                                                <Button
-                                                                    variant="outline-secondary"
-                                                                    size="sm"
-                                                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                                                    disabled={item.quantity <= 1}
-                                                                    aria-label="Giảm số lượng"
-                                                                >-</Button>
-                                                                <Form.Control
-                                                                    className="text-center border-0"
-                                                                    value={item.quantity}
-                                                                    onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                                                                    aria-label="Số lượng sản phẩm"
-                                                                    min="1"
-                                                                />
-                                                                <Button
-                                                                    variant="outline-secondary"
-                                                                    size="sm"
-                                                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                                                    aria-label="Tăng số lượng"
-                                                                >+</Button>
-                                                            </InputGroup>
-                                                        </td>
-                                                        <td style={styles.tableCell}>
-                                                            <strong>{item.total.toLocaleString()} VND</strong>
-                                                        </td>
-                                                        <td style={styles.tableCell}>
-                                                            <div className="d-flex flex-column align-items-center">
-                                                                <button
-                                                                    style={styles.removeButton}
-                                                                    onClick={() => removeItem(item.id)}
-                                                                    aria-label="Xóa sản phẩm"
-                                                                >
-                                                                    <FaTrash />
-                                                                </button>
-                                                                <button
-                                                                    style={styles.wishlistButton}
-                                                                    onClick={() => moveToWishlist(item.id)}
-                                                                    aria-label="Thêm vào danh sách yêu thích"
-                                                                >
-                                                                    <FaHeart className="me-1" /> Lưu
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </Table>
-                                </Card.Body>
-                            </Card>
+                                                            </td>
+                                                            <td style={styles.tableCell}>
+                                                                <InputGroup className="quantity-selector" style={styles.quantityInput}>
+                                                                    <Button
+                                                                        variant="outline-secondary"
+                                                                        size="sm"
+                                                                        className="quantity-btn"
+                                                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                                                        disabled={item.quantity <= 1 || updatingItems.has(item.id)}
+                                                                        aria-label="Giảm số lượng"
+                                                                        style={{
+                                                                            borderColor: '#b8860b',
+                                                                            color: '#b8860b'
+                                                                        }}
+                                                                    >
+                                                                        <FaMinus />
+                                                                    </Button>
+                                                                    <Form.Control
+                                                                        className="text-center border-0"
+                                                                        value={updatingItems.has(item.id) ? '...' : item.quantity}
+                                                                        onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
+                                                                        aria-label="Số lượng sản phẩm"
+                                                                        min="1"
+                                                                        disabled={updatingItems.has(item.id)}
+                                                                        style={{
+                                                                            fontWeight: '600',
+                                                                            fontSize: '1rem'
+                                                                        }}
+                                                                    />
+                                                                    <Button
+                                                                        variant="outline-secondary"
+                                                                        size="sm"
+                                                                        className="quantity-btn"
+                                                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                                                        disabled={updatingItems.has(item.id)}
+                                                                        aria-label="Tăng số lượng"
+                                                                        style={{
+                                                                            borderColor: '#b8860b',
+                                                                            color: '#b8860b'
+                                                                        }}
+                                                                    >
+                                                                        <FaPlus />
+                                                                    </Button>
+                                                                </InputGroup>
+                                                            </td>
+                                                            <td style={styles.tableCell}>
+                                                                <strong>{item.total.toLocaleString()} VND</strong>
+                                                            </td>
+                                                            <td style={styles.tableCell}>
+                                                                <div className="d-flex flex-column align-items-center">
+                                                                    <button
+                                                                        style={styles.removeButton}
+                                                                        onClick={() => removeItem(item.id)}
+                                                                        aria-label="Xóa sản phẩm"
+                                                                    >
+                                                                        <FaTrash />
+                                                                    </button>
+                                                                    <button
+                                                                        style={styles.wishlistButton}
+                                                                        onClick={() => moveToWishlist(item.id)}
+                                                                        aria-label="Thêm vào danh sách yêu thích"
+                                                                    >
+                                                                        <FaHeart className="me-1" /> Lưu
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </Table>
+                                    </Card.Body>
+                                </Card>
 
-                            <Card className="mb-4 border-0 shadow-sm">
-                                <Card.Body>
-                                    <h5 className="mb-3">Mã khuyến mãi</h5>
-                                    {showPromoError && (
-                                        <Alert variant="danger" className="py-2">
-                                            Mã khuyến mãi không hợp lệ
-                                        </Alert>
-                                    )}
-                                    {promoApplied && (
-                                        <Alert variant="success" className="py-2">
-                                            Đã áp dụng mã giảm giá WELCOME10!
-                                        </Alert>
-                                    )}
-                                    <InputGroup>
-                                        <Form.Control
-                                            placeholder="Nhập mã khuyến mãi"
-                                            value={promoCode}
-                                            onChange={(e) => setPromoCode(e.target.value)}
-                                            style={styles.promoCode}
-                                        />
-                                        <Button
-                                            variant="outline-secondary"
-                                            onClick={handlePromoCodeApply}
-                                        >
-                                            Áp dụng
-                                        </Button>
-                                    </InputGroup>
-                                    <div className="text-muted mt-2 small">
-                                        <FaTags className="me-2" />
-                                        Thử mã "WELCOME10" để được giảm 10% đơn hàng
-                                    </div>
-                                </Card.Body>
-                            </Card>
-
-                        </Col>
-
-                        <Col lg={4}>
-                            <Card className="border-0 shadow-sm mb-4">
-                                <Card.Body style={styles.summaryCard}>
-                                    <h3 style={styles.summaryTitle}>Tổng giỏ hàng</h3>
-
-                                    <div style={styles.summaryRow}>
-                                        <span>Tạm tính ({getItemCount()} sản phẩm)</span>
-                                        <span>{getSubtotal().toLocaleString()} VND</span>
-                                    </div>
-
-                                    {discount > 0 && (
-                                        <div style={styles.summaryRow}>
-                                            <span>Giảm giá</span>
-                                            <span className="text-danger">-{discount.toLocaleString()} VND</span>
+                                <Card className="mb-4 border-0 shadow-sm">
+                                    <Card.Body>
+                                        <h5 className="mb-3">Mã khuyến mãi</h5>
+                                        {showPromoError && (
+                                            <Alert variant="danger" className="py-2">
+                                                Mã khuyến mãi không hợp lệ
+                                            </Alert>
+                                        )}
+                                        {promoApplied && (
+                                            <Alert variant="success" className="py-2">
+                                                Đã áp dụng mã giảm giá WELCOME10!
+                                            </Alert>
+                                        )}
+                                        <InputGroup>
+                                            <Form.Control
+                                                placeholder="Nhập mã khuyến mãi"
+                                                value={promoCode}
+                                                onChange={(e) => setPromoCode(e.target.value)}
+                                                style={styles.promoCode}
+                                            />
+                                            <Button
+                                                variant="outline-secondary"
+                                                onClick={handlePromoCodeApply}
+                                            >
+                                                Áp dụng
+                                            </Button>
+                                        </InputGroup>
+                                        <div className="text-muted mt-2 small">
+                                            <FaTags className="me-2" />
+                                            Thử mã "WELCOME10" để được giảm 10% đơn hàng
                                         </div>
-                                    )}
+                                    </Card.Body>
+                                </Card>
 
-                                    <div style={styles.summaryRow}>
-                                        <span>Phí vận chuyển</span>
-                                        <span>Miễn phí</span>
-                                    </div>
+                            </Col>
 
-                                    <div style={{ ...styles.summaryRow, fontWeight: '500' }}>
-                                        <span>Tiết kiệm</span>
-                                        <span className="text-success">{getSavings().toLocaleString()} VND</span>
-                                    </div>
+                            <Col lg={4}>
+                                <Card className="border-0 shadow-sm mb-4">
+                                    <Card.Body style={styles.summaryCard}>
+                                        <h3 style={styles.summaryTitle}>Tổng giỏ hàng</h3>
 
-                                    <div style={styles.summaryTotal}>
-                                        <span>Tổng cộng</span>
-                                        <span>{getTotal().toLocaleString()} VND</span>
-                                    </div>
+                                        <div style={styles.summaryRow}>
+                                            <span>Tạm tính ({getItemCount()} sản phẩm)</span>
+                                            <span>{getSubtotal().toLocaleString()} VND</span>
+                                        </div>
 
-                                    <Button
-                                        style={styles.checkoutButton}
-                                        href="/checkout"
-                                        className="hover-effect"
-                                    >
-                                        Thanh toán
-                                    </Button>
+                                        {discount > 0 && (
+                                            <div style={styles.summaryRow}>
+                                                <span>Giảm giá</span>
+                                                <span className="text-danger">-{discount.toLocaleString()} VND</span>
+                                            </div>
+                                        )}
 
-                                    <div className="text-center mt-3">
-                                        <small className="text-muted">Bằng cách thanh toán, bạn đồng ý với <a href="/terms" className="text-decoration-none">Điều khoản</a> của chúng tôi</small>
-                                    </div>
-                                </Card.Body>
-                            </Card>
+                                        <div style={styles.summaryRow}>
+                                            <span>Phí vận chuyển</span>
+                                            <span>Miễn phí</span>
+                                        </div>
 
-                            <Card className="border-0 shadow-sm mb-4">
-                                <Card.Body>
-                                    <h5 className="mb-3 fw-bold">Thông tin vận chuyển</h5>
-                                    <div style={styles.benefitItem}>
-                                        <FaTruck style={styles.benefitIcon} />
-                                        <span>Miễn phí vận chuyển cho đơn hàng từ 500.000đ</span>
-                                    </div>
-                                    <div style={styles.benefitItem}>
-                                        <FaUndo style={styles.benefitIcon} />
-                                        <span>Đổi trả trong 30 ngày nếu không hài lòng</span>
-                                    </div>
-                                    <div style={styles.benefitItem}>
-                                        <FaShieldAlt style={styles.benefitIcon} />
-                                        <span>Thanh toán an toàn & bảo mật</span>
-                                    </div>
-                                    <div style={styles.benefitItem}>
-                                        <FaGift style={styles.benefitIcon} />
-                                        <span>Hỗ trợ gói quà và thêm thiệp</span>
-                                    </div>
-                                </Card.Body>
-                            </Card>
+                                        <div style={{ ...styles.summaryRow, fontWeight: '500' }}>
+                                            <span>Tiết kiệm</span>
+                                            <span className="text-success">{getSavings().toLocaleString()} VND</span>
+                                        </div>
 
-                            <Card className="border-0 shadow-sm mb-4 bg-light">
-                                <Card.Body className="py-3">
-                                    <h6 className="mb-0">Cần hỗ trợ?</h6>
-                                    <p className="mb-0 small">Gọi <a href="tel:1900123456" className="text-decoration-none">1900 123 456</a> (8h-20h)</p>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                    </Row>
+                                        <div style={styles.summaryTotal}>
+                                            <span>Tổng cộng</span>
+                                            <span>{getTotal().toLocaleString()} VND</span>
+                                        </div>
+
+                                        <Button
+                                            style={styles.checkoutButton}
+                                            href="/checkout"
+                                            className="hover-effect"
+                                        >
+                                            Thanh toán
+                                        </Button>
+
+                                        <div className="text-center mt-3">
+                                            <small className="text-muted">Bằng cách thanh toán, bạn đồng ý với <a href="/terms" className="text-decoration-none">Điều khoản</a> của chúng tôi</small>
+                                        </div>
+                                    </Card.Body>
+                                </Card>
+
+                                <Card className="border-0 shadow-sm mb-4">
+                                    <Card.Body>
+                                        <h5 className="mb-3 fw-bold">Thông tin vận chuyển</h5>
+                                        <div style={styles.benefitItem}>
+                                            <FaTruck style={styles.benefitIcon} />
+                                            <span>Miễn phí vận chuyển cho đơn hàng từ 500.000đ</span>
+                                        </div>
+                                        <div style={styles.benefitItem}>
+                                            <FaUndo style={styles.benefitIcon} />
+                                            <span>Đổi trả trong 30 ngày nếu không hài lòng</span>
+                                        </div>
+                                        <div style={styles.benefitItem}>
+                                            <FaShieldAlt style={styles.benefitIcon} />
+                                            <span>Thanh toán an toàn & bảo mật</span>
+                                        </div>
+                                        <div style={styles.benefitItem}>
+                                            <FaGift style={styles.benefitIcon} />
+                                            <span>Hỗ trợ gói quà và thêm thiệp</span>
+                                        </div>
+                                    </Card.Body>
+                                </Card>
+
+                                <Card className="border-0 shadow-sm mb-4 bg-light">
+                                    <Card.Body className="py-3">
+                                        <h6 className="mb-0">Cần hỗ trợ?</h6>
+                                        <p className="mb-0 small">Gọi <a href="tel:1900123456" className="text-decoration-none">1900 123 456</a> (8h-20h)</p>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        </Row>
+                    )}
+                    <Footer />
+                </Container>
+
+                {/* Toast Notification */}
+                {showToast && (
+                    <div className="toast-notification">
+                        <Alert
+                            variant="success"
+                            className="d-flex align-items-center"
+                            style={{
+                                background: 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)',
+                                border: 'none',
+                                color: 'white',
+                                borderRadius: '10px',
+                                boxShadow: '0 8px 25px rgba(46, 204, 113, 0.3)'
+                            }}
+                        >
+                            <FaCheckCircle className="me-2" />
+                            {toastMessage}
+                        </Alert>
+                    </div>
                 )}
-                <Footer/>
-            </Container>
-        </div></div>
+            </div>
+        </div>
     );
 }
 

@@ -4,7 +4,9 @@ import { FaFacebook, FaInstagram, FaTwitter, FaShoppingCart, FaStar, FaStarHalfA
 import { BsArrowLeft } from 'react-icons/bs';
 import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
-
+import Header from './Header';
+import Footer from './Footer';
+import UspBanner from './USPBanner';
 function ProductDetail({ product, onBack }) {
     const [quantity, setQuantity] = useState(1);
     const navigate = useNavigate();
@@ -346,6 +348,8 @@ function ProductDetail({ product, onBack }) {
     };
 
     return (
+        <>
+        <Header/>
         <Container>
             <style>
                 {`
@@ -393,9 +397,7 @@ function ProductDetail({ product, onBack }) {
 
             {/* Breadcrumb */}
             <div style={styles.breadcrumb}>
-                <button onClick={onBack} style={styles.backButton}>
-                    <BsArrowLeft /> <span>Home</span>
-                </button>
+
                 <span style={styles.breadcrumbItem}>Shop</span>
                 <span style={{...styles.breadcrumbItem, ...styles.breadcrumbActive}}>{product.name}</span>
             </div>
@@ -600,6 +602,9 @@ function ProductDetail({ product, onBack }) {
                 </div>
             </section>
         </Container>
+        <UspBanner/>
+        <Footer/>
+        </>
     );
 }
 

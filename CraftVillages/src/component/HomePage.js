@@ -1,15 +1,52 @@
 // HomePage.js
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
-import { FaShoppingCart, FaSearch, FaEye } from 'react-icons/fa';
+import { FaShoppingCart, FaSearch, FaEye, FaHeart, FaArrowRight, FaStar } from 'react-icons/fa';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import USPBanner from './USPBanner';
-import ProductDetail from './ProductDetail'; 
+import ProductDetail from './ProductDetail';
 import Header from './Header';
 import Footer from './Footer';
 
 function HomePage() {
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [scrollY, setScrollY] = useState(0);
+    const [isVisible, setIsVisible] = useState({});
+    const heroRef = useRef(null);
+    const statsRef = useRef(null);
+
+    // Parallax scroll effect
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrollY(window.scrollY);
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Intersection Observer for animations
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        setIsVisible(prev => ({
+                            ...prev,
+                            [entry.target.id]: true
+                        }));
+                    }
+                });
+            },
+            { threshold: 0.1 }
+        );
+
+        // Observe elements
+        const elements = document.querySelectorAll('[data-animate]');
+        elements.forEach(el => observer.observe(el));
+
+        return () => observer.disconnect();
+    }, []);
 
     // Dữ liệu danh mục sản phẩm
     const categories = [
@@ -214,49 +251,128 @@ function HomePage() {
             paddingBottom: "10px"
         },
 
-        // Hero Section
+        // Enhanced Hero Section
         heroSection: {
-            backgroundColor: "#fdf9e6",
+            background: "linear-gradient(135deg, #fdf9e6 0%, #f8f4e6 50%, #f3efe6 100%)",
             padding: "0",
-            overflow: "hidden"
+            overflow: "hidden",
+            position: "relative",
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center"
+        },
+        heroOverlay: {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "radial-gradient(circle at 30% 70%, rgba(184, 134, 11, 0.1) 0%, transparent 50%)",
+            pointerEvents: "none"
         },
         heroContent: {
-            padding: "50px 60px"
+            padding: "80px 60px",
+            position: "relative",
+            zIndex: 2
         },
         subtitle: {
-            fontSize: "16px",
-            color: "#666",
-            marginBottom: "10px"
+            fontSize: "18px",
+            color: "#b8860b",
+            marginBottom: "15px",
+            fontWeight: "500",
+            letterSpacing: "0.5px",
+            textTransform: "uppercase",
+            opacity: 0,
+            transform: "translateY(30px)",
+            animation: "fadeInUp 1s ease-out 0.2s forwards"
         },
         mainTitle: {
-            fontSize: "36px",
-            fontWeight: "700",
-            color: "#b8860b", // Golden color for title
-            marginBottom: "15px",
-            lineHeight: "1.2"
+            fontSize: "48px",
+            fontWeight: "800",
+            background: "linear-gradient(135deg, #b8860b 0%, #d4af37 50%, #b8860b 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            marginBottom: "20px",
+            lineHeight: "1.2",
+            opacity: 0,
+            transform: "translateY(30px)",
+            animation: "fadeInUp 1s ease-out 0.4s forwards"
         },
         heroDescription: {
-            fontSize: "18px",
-            color: "#555",
-            marginBottom: "30px"
+            fontSize: "20px",
+            color: "#666",
+            marginBottom: "40px",
+            lineHeight: "1.6",
+            opacity: 0,
+            transform: "translateY(30px)",
+            animation: "fadeInUp 1s ease-out 0.6s forwards"
         },
         exploreButton: {
-            backgroundColor: "#b8860b",
-            borderColor: "#b8860b",
-            padding: "10px 25px",
+            background: "linear-gradient(135deg, #b8860b 0%, #d4af37 100%)",
+            border: "none",
+            padding: "15px 35px",
             fontWeight: "600",
             letterSpacing: "1px",
-            borderRadius: "4px",
-            transition: "all 0.3s ease"
+            borderRadius: "50px",
+            fontSize: "16px",
+            color: "white",
+            cursor: "pointer",
+            transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: "0 8px 25px rgba(184, 134, 11, 0.3)",
+            position: "relative",
+            overflow: "hidden",
+            opacity: 0,
+            transform: "translateY(30px)",
+            animation: "fadeInUp 1s ease-out 0.8s forwards"
         },
         heroImageContainer: {
-            height: "100%",
-            overflow: "hidden"
+            height: "100vh",
+            overflow: "hidden",
+            position: "relative"
         },
         heroImage: {
             width: "100%",
             height: "100%",
-            objectFit: "cover"
+            objectFit: "cover",
+            transform: `translateY(${scrollY * 0.5}px)`,
+            transition: "transform 0.1s ease-out"
+        },
+        heroImageOverlay: {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "linear-gradient(45deg, rgba(184, 134, 11, 0.1) 0%, rgba(212, 175, 55, 0.05) 100%)"
+        },
+        statsContainer: {
+            position: "absolute",
+            bottom: "40px",
+            left: "60px",
+            display: "flex",
+            gap: "40px",
+            opacity: 0,
+            transform: "translateY(30px)",
+            animation: "fadeInUp 1s ease-out 1s forwards"
+        },
+        statItem: {
+            textAlign: "center",
+            color: "#333"
+        },
+        statNumber: {
+            fontSize: "32px",
+            fontWeight: "800",
+            color: "#b8860b",
+            display: "block",
+            lineHeight: "1"
+        },
+        statLabel: {
+            fontSize: "14px",
+            color: "#666",
+            marginTop: "5px",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px"
         },
 
         // Categories Section
@@ -295,31 +411,37 @@ function HomePage() {
             color: "#333"
         },
 
-        // Products Section
+        // Enhanced Products Section
         productsSection: {
-            padding: "60px 0",
-            backgroundColor: "#f9f9f9"
+            padding: "80px 0",
+            background: "linear-gradient(180deg, #ffffff 0%, #fafafa 100%)",
+            position: "relative"
         },
         productCard: {
             border: "none",
-            borderRadius: "8px",
+            borderRadius: "20px",
             overflow: "hidden",
-            transition: "all 0.3s ease",
-            boxShadow: "0 5px 15px rgba(0, 0, 0, 0.05)",
-            marginBottom: "20px",
+            transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08)",
+            marginBottom: "30px",
             height: "100%",
-            cursor: "pointer"
+            cursor: "pointer",
+            background: "rgba(255, 255, 255, 0.9)",
+            backdropFilter: "blur(10px)",
+            position: "relative",
+            transform: "translateY(0)"
         },
         productImageContainer: {
             position: "relative",
-            height: "200px",
-            overflow: "hidden"
+            height: "250px",
+            overflow: "hidden",
+            borderRadius: "20px 20px 0 0"
         },
         productImage: {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            transition: "transform 0.5s ease"
+            transition: "all 0.6s cubic-bezier(0.4, 0, 0.2, 1)"
         },
         productOverlay: {
             position: "absolute",
@@ -327,29 +449,64 @@ function HomePage() {
             left: "0",
             right: "0",
             bottom: "0",
-            backgroundColor: "rgba(0, 0, 0, 0.2)",
+            background: "linear-gradient(135deg, rgba(184, 134, 11, 0.9) 0%, rgba(212, 175, 55, 0.8) 100%)",
             display: "flex",
-            alignItems: "center",
+            flexDirection: "column",
             justifyContent: "center",
+            alignItems: "center",
             opacity: "0",
-            transition: "opacity 0.3s ease"
+            transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+            backdropFilter: "blur(5px)"
         },
         productActions: {
             display: "flex",
-            gap: "10px"
+            gap: "15px",
+            transform: "translateY(20px)",
+            transition: "transform 0.4s ease"
         },
         actionBtn: {
-            width: "40px",
-            height: "40px",
+            width: "50px",
+            height: "50px",
             borderRadius: "50%",
-            backgroundColor: "white",
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
             border: "none",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#333",
-            transition: "all 0.3s ease",
+            color: "#b8860b",
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            fontSize: "18px",
+            boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             padding: "0"
+        },
+        quickViewText: {
+            color: "white",
+            fontSize: "16px",
+            fontWeight: "600",
+            marginBottom: "20px",
+            textAlign: "center",
+            transform: "translateY(20px)",
+            transition: "transform 0.4s ease"
+        },
+        wishlistButton: {
+            position: "absolute",
+            top: "15px",
+            right: "15px",
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            border: "none",
+            borderRadius: "50%",
+            width: "40px",
+            height: "40px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+            fontSize: "16px",
+            color: "#999",
+            zIndex: "2",
+            opacity: "0",
+            transform: "scale(0.8)"
         },
         productBadge: {
             position: "absolute",
@@ -423,33 +580,97 @@ function HomePage() {
             {/* Embedded CSS for hover effects and dynamic styles */}
             <style>
                 {`
-                    /* Hover Effects */
+                    /* Enhanced Animations */
+                    @keyframes fadeInUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(30px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+
+                    @keyframes float {
+                        0%, 100% { transform: translateY(0px); }
+                        50% { transform: translateY(-10px); }
+                    }
+
+                    @keyframes shimmer {
+                        0% { background-position: -200px 0; }
+                        100% { background-position: calc(200px + 100%) 0; }
+                    }
+
+                    /* Enhanced Hover Effects */
                     .explore-button:hover {
-                        background-color: #a67c00 !important;
-                        border-color: #a67c00 !important;
-                        transform: translateY(-2px);
+                        background: linear-gradient(135deg, #a67c00 0%, #b8860b 100%) !important;
+                        transform: translateY(-3px) scale(1.05);
+                        box-shadow: 0 12px 35px rgba(184, 134, 11, 0.4) !important;
                     }
-                    
+
+                    .explore-button:hover::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: -100%;
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+                        animation: shimmer 0.6s ease-in-out;
+                    }
+
                     .category-card:hover {
-                        transform: translateY(-5px);
-                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+                        transform: translateY(-8px) scale(1.02);
+                        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
                     }
-                    
+
                     .category-card:hover .category-image {
-                        transform: scale(1.05);
+                        transform: scale(1.1);
                     }
-                    
+
                     .product-card:hover {
-                        transform: translateY(-5px);
-                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+                        transform: translateY(-12px) scale(1.02);
+                        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+                        z-index: 10;
                     }
-                    
+
                     .product-card:hover .product-image {
-                        transform: scale(1.05);
+                        transform: scale(1.1);
                     }
-                    
+
                     .product-card:hover .product-overlay {
                         opacity: 1;
+                    }
+
+                    .product-card:hover .product-actions {
+                        transform: translateY(0);
+                    }
+
+                    .product-card:hover .quick-view-text {
+                        transform: translateY(0);
+                    }
+
+                    .product-card:hover .wishlist-button {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+
+                    .action-btn:hover {
+                        transform: scale(1.1);
+                        background-color: #b8860b !important;
+                        color: white !important;
+                    }
+
+                    .wishlist-button:hover {
+                        background-color: #e74c3c !important;
+                        color: white !important;
+                        transform: scale(1.1) !important;
+                    }
+
+                    /* Parallax Hero */
+                    .hero-parallax {
+                        will-change: transform;
                     }
                     
                     .action-btn:hover {
@@ -512,25 +733,61 @@ function HomePage() {
                 `}
             </style>
             {/* Header */}
-            <Header/>
+            <Header />
 
-            {/* Hero Section */}
-            <div style={styles.heroSection}>
-                <Row className="mx-0">
+            {/* Enhanced Hero Section */}
+            <div style={styles.heroSection} ref={heroRef}>
+                <div style={styles.heroOverlay}></div>
+                <Row className="mx-0 h-100">
                     <Col md={6} className="d-flex align-items-center">
                         <div style={styles.heroContent} className="hero-content">
-                            <div style={styles.subtitle}>Bộ sưu tập từ Hội</div>
-                            <h1 style={styles.mainTitle} className="main-title">Tinh hoa làng nghề – Gắn kết hôm nay</h1>
-                            <p style={styles.heroDescription} className="hero-description">Trải nghiệm văn hóa tinh hoa dân tộc</p>
-                            <Button style={styles.exploreButton} className="explore-button">KHÁM PHÁ</Button>
+                            <div style={styles.subtitle} data-animate id="hero-subtitle">
+                                ✨ Bộ sưu tập từ Hội
+                            </div>
+                            <h1 style={styles.mainTitle} className="main-title" data-animate id="hero-title">
+                                Tinh hoa làng nghề – Gắn kết hôm nay
+                            </h1>
+                            <p style={styles.heroDescription} className="hero-description" data-animate id="hero-desc">
+                                Trải nghiệm văn hóa tinh hoa dân tộc qua những sản phẩm thủ công độc đáo,
+                                được chế tác bởi những nghệ nhân tài hoa nhất Việt Nam
+                            </p>
+                            <Button
+                                style={styles.exploreButton}
+                                className="explore-button position-relative"
+                                data-animate
+                                id="hero-button"
+                            >
+                                KHÁM PHÁ NGAY <FaArrowRight className="ms-2" />
+                            </Button>
+
+                            {/* Stats Counter */}
+                            <div style={styles.statsContainer} ref={statsRef} data-animate id="hero-stats">
+                                <div style={styles.statItem}>
+                                    <span style={styles.statNumber}>500+</span>
+                                    <span style={styles.statLabel}>Sản phẩm</span>
+                                </div>
+                                <div style={styles.statItem}>
+                                    <span style={styles.statNumber}>50+</span>
+                                    <span style={styles.statLabel}>Nghệ nhân</span>
+                                </div>
+                                <div style={styles.statItem}>
+                                    <span style={styles.statNumber}>1000+</span>
+                                    <span style={styles.statLabel}>Khách hàng</span>
+                                </div>
+                            </div>
                         </div>
                     </Col>
                     <Col md={6} className="p-0">
                         <div style={styles.heroImageContainer}>
-                            <img 
+                            <div style={styles.heroImageOverlay}></div>
+                            <img
                                 src="https://i.pinimg.com/736x/b9/f0/83/b9f0831841c5c0f7c5b2bbc64ceadaf2.jpg"
-                                alt="Sản phẩm làng nghề" 
-                                style={styles.heroImage}
+                                alt="Sản phẩm làng nghề"
+                                style={{
+                                    ...styles.heroImage,
+                                    transform: `translateY(${scrollY * 0.5}px)`
+                                }}
+                                className="hero-parallax"
                             />
                         </div>
                     </Col>
@@ -546,9 +803,9 @@ function HomePage() {
                             <Col key={category.id} md={4} className="mb-4">
                                 <div style={styles.categoryCard} className="category-card">
                                     <div style={styles.categoryImageContainer} className="category-image-container">
-                                        <img 
-                                            src={category.image} 
-                                            alt={category.name} 
+                                        <img
+                                            src={category.image}
+                                            alt={category.name}
                                             style={styles.categoryImage}
                                             className="category-image"
                                         />
@@ -568,59 +825,84 @@ function HomePage() {
                     <Row className="mt-4">
                         {products.map(product => (
                             <Col key={product.id} md={3} sm={6} className="mb-4">
-                                <Card 
-                                    style={styles.productCard} 
+                                <Card
+                                    style={styles.productCard}
                                     className="product-card"
                                     onClick={() => handleProductClick(product)}
+                                    data-animate
+                                    id={`product-${product.id}`}
                                 >
                                     <div style={styles.productImageContainer} className="product-image-container">
+                                        {/* Enhanced Badge */}
                                         {product.badge && (
-                                            <div 
+                                            <div
                                                 style={{
                                                     ...styles.productBadge,
-                                                    ...(product.badge === 'Sale' ? styles.saleBadge : 
+                                                    ...(product.badge === 'Sale' ? styles.saleBadge :
                                                         product.badge === 'New' ? styles.newBadge : styles.cartBadge)
                                                 }}
                                             >
                                                 {product.badge}
                                             </div>
                                         )}
-                                        <Card.Img 
-                                            variant="top" 
-                                            src={product.image} 
+
+                                        {/* Wishlist Button */}
+                                        <Button
+                                            style={styles.wishlistButton}
+                                            className="wishlist-button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                alert(`Đã thêm ${product.name} vào danh sách yêu thích`);
+                                            }}
+                                            title="Thêm vào yêu thích"
+                                        >
+                                            <FaHeart />
+                                        </Button>
+
+                                        <Card.Img
+                                            variant="top"
+                                            src={product.image}
                                             style={styles.productImage}
                                             className="product-image"
+                                            alt={product.name}
                                         />
+
+                                        {/* Enhanced Overlay */}
                                         <div style={styles.productOverlay} className="product-overlay">
-                                            <div style={styles.productActions}>
-                                                <Button 
-                                                    style={styles.actionBtn} 
+                                            <div style={styles.quickViewText} className="quick-view-text">
+                                                Xem nhanh sản phẩm
+                                            </div>
+                                            <div style={styles.productActions} className="product-actions">
+                                                <Button
+                                                    style={styles.actionBtn}
                                                     className="action-btn"
                                                     onClick={(e) => {
-                                                        e.stopPropagation(); // Ngăn không cho sự kiện lan sang card
-                                                        // Xử lý thêm vào giỏ hàng
+                                                        e.stopPropagation();
                                                         alert(`Đã thêm ${product.name} vào giỏ hàng`);
                                                     }}
+                                                    title="Thêm vào giỏ hàng"
                                                 >
                                                     <FaShoppingCart />
                                                 </Button>
-                                                <Button 
-                                                    style={styles.actionBtn} 
+                                                <Button
+                                                    style={styles.actionBtn}
                                                     className="action-btn"
                                                     onClick={(e) => {
-                                                        e.stopPropagation(); // Ngăn không cho sự kiện lan sang card
-                                                        // Xử lý tìm kiếm nhanh
+                                                        e.stopPropagation();
+                                                        // Quick search functionality
                                                     }}
+                                                    title="Tìm kiếm tương tự"
                                                 >
                                                     <FaSearch />
                                                 </Button>
-                                                <Button 
-                                                    style={styles.actionBtn} 
+                                                <Button
+                                                    style={styles.actionBtn}
                                                     className="action-btn"
                                                     onClick={(e) => {
-                                                        e.stopPropagation(); // Ngăn không cho sự kiện lan sang card
+                                                        e.stopPropagation();
                                                         handleProductClick(product);
                                                     }}
+                                                    title="Xem chi tiết"
                                                 >
                                                     <FaEye />
                                                 </Button>
@@ -649,9 +931,9 @@ function HomePage() {
                 </Container>
             </section>
             {/* USP Banner Section */}
-            <USPBanner/>
+            <USPBanner />
             {/* Footer */}
-            <Footer/>
+            <Footer />
         </Container>
 
     );

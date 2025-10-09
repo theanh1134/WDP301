@@ -8,6 +8,7 @@ import Cart from './component/Cart';
 import Checkout from './component/Checkout';
 import ContactPage from './component/ContactPage';
 import TradeCraftsPage from './component/TradeCraftsPage';
+import Login from './component/Login'
 
 function App() {
     // Dữ liệu mẫu cho sản phẩm
@@ -36,6 +37,7 @@ function App() {
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path='/contact' element={<ContactPage/>}/> 
                 <Route path='/blog' element={<TradeCraftsPage/>}/> 
+                <Route path='/login' element={<Login/>}/> 
                 
                 {/* Các route khác */}
             </Routes>
