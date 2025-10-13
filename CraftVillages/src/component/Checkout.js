@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Form, Button, Card, Badge, InputGroup } from 'react-bootstrap';
 import { FaLock, FaInfoCircle, FaCreditCard, FaMoneyBillWave } from 'react-icons/fa';
 import './Checkout.css';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 function Checkout() {
     const [paymentMethod, setPaymentMethod] = useState('bank');
@@ -18,6 +20,28 @@ function Checkout() {
         email: '',
         notes: ''
     });
+    const [cartDetail, setCartDetail] = useState({})
+
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        getApiDetail();
+    },[])
+
+    const getApiDetail = async () => {
+    
+        const value = localStorage.getItem("user");
+        const user = value ? JSON.parse(value) : null;
+    
+        try {
+        const res = await axios.get(`http://localhost:9999/carts/${user?.id}`);
+        const data = res.data.cart;
+        console.log(res.data.cart)
+        setCartDetail(data);
+        } catch (err) {
+        console.error("Error fetching product detail:", err);
+        }
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -27,16 +51,27 @@ function Checkout() {
         }));
     };
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         const form = event.currentTarget;
         event.preventDefault();
 
         if (form.checkValidity() === false) {
             event.stopPropagation();
         } else {
-            // Process checkout
-            console.log('Processing order...', formData, paymentMethod);
-            // Redirect or show success message
+            const payload = {
+                "fullName": formData.fullName,
+                "shippingAddress": {
+                    "recipientName": formData.fullName,
+                    "phoneNumber": formData.phone,
+                    "fullAddress": `${formData.address}, ${formData.province}, ${formData.city}`
+                },
+                "paymentMethod": paymentMethod.toUpperCase()
+            }
+
+            const res = await axios.post(`http://localhost:9999/orders/${cartDetail.userId}/checkout`, payload);
+            if(res.status === 201) {
+                navigate('/cart')
+            } 
         }
 
         setValidated(true);
@@ -69,7 +104,7 @@ function Checkout() {
                         {/* Left Column - Customer Information */}
                         <Col lg={7} className="mb-4">
                             <Form.Group className="mb-3">
-                                <Form.Label>Họ và tên</Form.Label>
+                                <Form.Label>Họ và tên <span style={{color:"red"}}>*</span></Form.Label>
                                 <Form.Control
                                     required
                                     type="text"
@@ -82,7 +117,7 @@ function Checkout() {
                                 </Form.Control.Feedback>
                             </Form.Group>
 
-                            <Form.Group className="mb-3">
+                            {/* <Form.Group className="mb-3">
                                 <Form.Label>Tên công ty (Tùy chọn)</Form.Label>
                                 <Form.Control
                                     type="text"
@@ -90,9 +125,9 @@ function Checkout() {
                                     value={formData.companyName}
                                     onChange={handleChange}
                                 />
-                            </Form.Group>
+                            </Form.Group> */}
 
-                            <Form.Group className="mb-3">
+                            {/* <Form.Group className="mb-3">
                                 <Form.Label>Quốc gia / Khu vực</Form.Label>
                                 <Form.Select
                                     required
@@ -108,10 +143,10 @@ function Checkout() {
                                 <Form.Control.Feedback type="invalid">
                                     Vui lòng chọn quốc gia.
                                 </Form.Control.Feedback>
-                            </Form.Group>
+                            </Form.Group> */}
 
                             <Form.Group className="mb-3">
-                                <Form.Label>Địa chỉ</Form.Label>
+                                <Form.Label>Địa chỉ <span style={{color:"red"}}>*</span></Form.Label>
                                 <Form.Control
                                     required
                                     type="text"
@@ -139,21 +174,21 @@ function Checkout() {
                             </Form.Group>
 
                             <Form.Group className="mb-3">
-                                <Form.Label>Tỉnh</Form.Label>
+                                <Form.Label>Tỉnh <span style={{color:"red"}}>*</span></Form.Label>
                                 <Form.Select
                                     required
                                     name="province"
                                     value={formData.province}
                                     onChange={handleChange}
                                 >
-                                    <option value="Western Province">Western Province</option>
+                                    <option value="">-- Chọn tỉnh/thành phố --</option>
                                     <option value="Hà Nội">Hà Nội</option>
                                     <option value="Hồ Chí Minh">Hồ Chí Minh</option>
                                     <option value="Đà Nẵng">Đà Nẵng</option>
                                 </Form.Select>
                             </Form.Group>
 
-                            <Form.Group className="mb-3">
+                            {/* <Form.Group className="mb-3">
                                 <Form.Label>ZIP code</Form.Label>
                                 <Form.Control
                                     type="text"
@@ -161,10 +196,10 @@ function Checkout() {
                                     value={formData.zipCode}
                                     onChange={handleChange}
                                 />
-                            </Form.Group>
+                            </Form.Group> */}
 
                             <Form.Group className="mb-3">
-                                <Form.Label>Số điện thoại</Form.Label>
+                                <Form.Label>Số điện thoại <span style={{color:"red"}}>*</span></Form.Label>
                                 <Form.Control
                                     required
                                     type="tel"
@@ -177,7 +212,7 @@ function Checkout() {
                                 </Form.Control.Feedback>
                             </Form.Group>
 
-                            <Form.Group className="mb-4">
+                            {/* <Form.Group className="mb-4">
                                 <Form.Label>Email</Form.Label>
                                 <Form.Control
                                     required
@@ -189,7 +224,7 @@ function Checkout() {
                                 <Form.Control.Feedback type="invalid">
                                     Vui lòng nhập email hợp lệ.
                                 </Form.Control.Feedback>
-                            </Form.Group>
+                            </Form.Group> */}
 
                             <Form.Group className="mb-3">
                                 <Form.Label>Thông tin bổ sung</Form.Label>
@@ -210,23 +245,23 @@ function Checkout() {
                                 <Card.Body>
                                     <h4 className="mb-4">Sản phẩm</h4>
 
-                                    {orderItems.map(item => (
-                                        <div key={item.id} className="d-flex justify-content-between mb-2">
+                                    {cartDetail?.items?.map(item => (
+                                        <div key={item.productId} className="d-flex justify-content-between mb-2">
                                             <div>
-                                                {item.name} <span className="text-muted">x {item.quantity}</span>
+                                                {item.productName} <span className="text-muted">x {item.quantity}</span>
                                             </div>
-                                            <div>{item.price.toLocaleString()} VND</div>
+                                            <div>{item?.priceAtAdd?.toLocaleString()} VND</div>
                                         </div>
                                     ))}
 
                                     <div className="d-flex justify-content-between mb-2 mt-3">
                                         <div className="text-muted">Hóa đơn</div>
-                                        <div>{calculateTotal().toLocaleString()} VND</div>
+                                        <div>{cartDetail?.subtotal?.toLocaleString()} VND</div>
                                     </div>
 
                                     <div className="d-flex justify-content-between fw-bold mt-3 pt-3 border-top">
                                         <div>Tổng</div>
-                                        <div className="text-primary">{calculateTotal().toLocaleString()} VND</div>
+                                        <div className="text-primary">{cartDetail?.estimatedTotal?.toLocaleString()} VND</div>
                                     </div>
 
                                     <div className="mt-4">

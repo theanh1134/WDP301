@@ -27,6 +27,10 @@ app.get('/', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 
+const indexRoutes = require('./routes/index.js');
+
+app.use("/", indexRoutes);    
+
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 9999;
