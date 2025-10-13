@@ -8,6 +8,7 @@ import ProductDetail from './ProductDetail';
 import Header from './Header';
 import Footer from './Footer';
 
+
 function HomePage() {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [scrollY, setScrollY] = useState(0);
@@ -756,6 +757,7 @@ function HomePage() {
                                 className="explore-button position-relative"
                                 data-animate
                                 id="hero-button"
+                                href='/login'
                             >
                                 KHÁM PHÁ NGAY <FaArrowRight className="ms-2" />
                             </Button>

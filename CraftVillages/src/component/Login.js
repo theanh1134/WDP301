@@ -1,10 +1,11 @@
 // Login.js
 import React, { useState } from 'react';
-import { Container, Form, Button, InputGroup } from 'react-bootstrap';
+import { Container, Form, Button, InputGroup, Alert } from 'react-bootstrap';
 import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from 'react-icons/fa';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Header from './Header';
 import Footer from './Footer';
+import authService from '../services/authService';
 // Import hình ảnh
 import pic1 from '../assets/images/pic1.png';
 import pic2 from '../assets/images/login.jpg';
@@ -13,15 +14,36 @@ function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const togglePasswordVisibility = () => {
         setShowPassword(!showPassword);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Login attempt with:', { email, password });
-        // Add login logic here
+        setError('');
+        setIsLoading(true);
+
+        try {
+            const response = await authService.login(email, password);
+
+            if (response.success) {
+                // Check if user is email verified
+                if (response.data && response.data.user && !response.data.user.isEmailVerified) {
+                    setError('Vui lòng xác nhận email trước khi đăng nhập. Kiểm tra hộp thư của bạn.');
+                    return;
+                }
+
+                // Redirect to home page or dashboard
+                window.location.href = '/';
+            }
+        } catch (error) {
+            setError(error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const styles = {
@@ -231,6 +253,12 @@ function Login() {
                         <div style={styles.headingUnderline}></div>
                         <p style={styles.subHeading}>Nhập thông tin của bạn để tiếp tục</p>
 
+                        {error && (
+                            <Alert variant="danger" className="mb-3">
+                                {error}
+                            </Alert>
+                        )}
+
                         <Form onSubmit={handleSubmit}>
                             <Form.Group className="mb-4">
                                 <InputGroup>
@@ -307,16 +335,19 @@ function Login() {
                                 type="submit"
                                 style={styles.loginButton}
                                 className="btn-hover"
+                                disabled={isLoading}
                             >
-                                Đăng Nhập
+                                {isLoading ? 'Đang đăng nhập...' : 'Đăng Nhập'}
                             </Button>
 
 
 
                             <p style={styles.signupLink}>
                                 Chưa có tài khoản?
-                                <a href="/signup" style={styles.signupLinkText}>Đăng ký ngay</a>
+                                <a href="/register" style={styles.signupLinkText}>Đăng ký ngay</a>
                             </p>
+
+
                         </Form>
                     </div>
                 </div>
@@ -329,7 +360,7 @@ function Login() {
             `}</style>
 
             </Container>
-            <Footer />
+
         </>
     );
 }

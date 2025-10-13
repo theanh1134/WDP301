@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Container, Row, Col, Form, Button } from 'react-bootstrap';
 import { FaMapMarkerAlt, FaPhoneAlt, FaClock } from 'react-icons/fa';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import Header from './Header';
 
 const ContactPage = () => {
     const [formData, setFormData] = useState({
@@ -46,6 +47,8 @@ const ContactPage = () => {
     };
 
     return (
+        <>
+        <Header/>
         <Container className="py-5">
             <Row className="justify-content-center text-center mb-5">
                 <Col md={8}>
@@ -166,6 +169,7 @@ const ContactPage = () => {
                 </Col>
             </Row>
         </Container>
+        </>
     );
 };
 
