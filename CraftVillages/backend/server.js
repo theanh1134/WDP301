@@ -31,11 +31,7 @@ app.use('/api', emailRoutes);
 
 const indexRoutes = require('./routes/index.js');
 
-app.use("/", indexRoutes);    
-
-const indexRoutes = require('./routes/index.js');
-
-app.use("/", indexRoutes);    
+app.use("/", indexRoutes);
 
 app.use(errorHandler);
 
