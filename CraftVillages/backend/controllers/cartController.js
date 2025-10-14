@@ -3,28 +3,43 @@ const Cart = require('../models/Cart');
 // [POST] /api/carts
 const addCart = async (req, res) => {
   try {
-    const { userId, sessionId, items, notes, currency } = req.body;
+    const { userId, items, notes, currency } = req.body;
 
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // 🔍 Tìm cart đang ACTIVE của user
     let cart = await Cart.findOne({
-      $or: [{ userId }, { sessionId }],
+      userId,
       status: 'ACTIVE',
     });
 
+    // 🛒 Nếu chưa có thì tạo mới
     if (!cart) {
       cart = new Cart({
-        userId: userId || null,
-        sessionId: sessionId || null,
+        userId,
         items: [],
         notes: notes || '',
         currency: currency || 'VND',
+        status: 'ACTIVE',
       });
+      await cart.save();
     }
 
+    // ➕ Nếu có items thì thêm item vào cart
     if (items && items.length > 0) {
       const item = items[0];
-      await cart.addItem(item);
+
+      if (typeof cart.addItem === 'function') {
+        await cart.addItem(item);
+      } else {
+        cart.items.push(item);
+        await cart.save();
+      }
     }
 
+    // ✅ Trả kết quả
     res.status(200).json({
       message: 'Cart updated successfully',
       cart,
@@ -37,6 +52,7 @@ const addCart = async (req, res) => {
     });
   }
 };
+
 
 // [GET] /api/cart/:userId
 const getCartByUserId = async (req, res) => {

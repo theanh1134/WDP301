@@ -63,8 +63,9 @@ function Cart() {
     const value = localStorage.getItem("user");
     const user = value ? JSON.parse(value) : null;
 
+    const a = "68ecbfd70c4c63b9aa2fe139"
       try {
-        const res = await axios.get(`http://localhost:9999/carts/${user?.id}`);
+        const res = await axios.get(`http://localhost:9999/carts/${a}`);
         const data = res.data.cart;
         console.log(res.data.cart)
         setCartDetail(data);
