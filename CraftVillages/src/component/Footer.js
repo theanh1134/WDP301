@@ -1,9 +1,42 @@
 // Footer.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Container, Row, Col, Form, Button } from 'react-bootstrap';
+import { Container, Row, Col, Button } from 'react-bootstrap';
+import authService from '../services/authService';
 
 function Footer() {
+    const navigate = useNavigate();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isEmailVerified, setIsEmailVerified] = useState(false);
+    
+    useEffect(() => {
+        const checkAuth = () => {
+            const token = localStorage.getItem('authToken');
+            const user = authService.getCurrentUser();
+
+            if (token && user) {
+                setIsAuthenticated(true);
+                setIsEmailVerified(user.isEmailVerified || false);
+            } else {
+                setIsAuthenticated(false);
+                setIsEmailVerified(false);
+            }
+        };
+
+        checkAuth();
+    }, []);
+    
+    const handleSellerRegistration = () => {
+        // Nếu đã đăng nhập và email đã xác thực, chuyển đến dashboard
+        if (isAuthenticated && isEmailVerified) {
+            navigate('/seller-dashboard');
+        } else {
+            // Nếu chưa đăng nhập hoặc email chưa xác thực, chuyển đến trang đăng ký
+            navigate('/seller-registration');
+        }
+    };
+
     const styles = {
         footer: {
             padding: '50px 0',
@@ -87,16 +120,18 @@ function Footer() {
                     <Col md={3}>
                         <div style={styles.sectionTitle}>New Seller</div>
                         <div style={styles.subscribeContainer}>
-                            <Form className="d-flex w-100">
-                                <Form.Control
-                                    type="email"
-                                    placeholder="Enter Your Email Address"
-                                    style={styles.subscribeInput}
-                                />
-                                <Button variant="link" style={styles.subscribeButton}>
-                                    SUBSCRIBE
-                                </Button>
-                            </Form>
+                            <Button 
+                                variant="danger" 
+                                onClick={handleSellerRegistration}
+                                className="w-100 py-2"
+                                style={{
+                                    borderRadius: '25px',
+                                    fontWeight: 'bold',
+                                    fontSize: '14px'
+                                }}
+                            >
+                               Bắt Đầu Bán Ngay
+                            </Button>
                         </div>
                     </Col>
                 </Row>

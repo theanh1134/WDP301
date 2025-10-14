@@ -12,6 +12,8 @@ import Login from './component/Login';
 import Register from './component/Register';
 import ForgotPassword from './component/ForgotPassword';
 import ResendVerification from './component/ResendVerification';
+import SellerRegistration from './component/SellerChannel/SellerRegistration';
+import SellerDashboard from './component/SellerChannel/SellerDashboard';
 import authService from './services/authService';
 
 function App() {
@@ -84,6 +86,8 @@ function App() {
                 <Route path='/register' element={<Register />} />
                 <Route path='/forgot-password' element={<ForgotPassword />} />
                 <Route path='/resend-verification' element={<ResendVerification />} />
+                <Route path='/seller-registration' element={<SellerRegistration />} />
+                <Route path='/seller-dashboard' element={<SellerDashboard />} />
 
                 {/* Các route khác */}
             </Routes>

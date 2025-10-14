@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const emailRoutes = require('./routes/emailRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -26,6 +27,7 @@ app.get('/', async (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api', emailRoutes);
 
 app.use(errorHandler);
 
