@@ -5,8 +5,10 @@ import { Link } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Header from './Header';
 import Footer from './Footer';
+import axios from 'axios';
 
 function Cart() {
+    const [cartDetail, setCartDetail] = useState({})
     const [cartItems, setCartItems] = useState([
         {
             id: 1,
@@ -52,6 +54,27 @@ function Cart() {
     const [toastMessage, setToastMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+    useEffect(() => {
+        getApiDetail();
+    },[])
+
+    const getApiDetail = async () => {
+
+    const value = localStorage.getItem("user");
+    const user = value ? JSON.parse(value) : null;
+
+    const a = "68ecbfd70c4c63b9aa2fe139"
+      try {
+        const res = await axios.get(`http://localhost:9999/carts/${a}`);
+        const data = res.data.cart;
+        console.log(res.data.cart)
+        setCartDetail(data);
+      } catch (err) {
+        console.error("Error fetching product detail:", err);
+      }
+      
+    };
+
     // Enhanced functions with animations
     const showNotification = (message) => {
         setToastMessage(message);
@@ -59,52 +82,32 @@ function Cart() {
         setTimeout(() => setShowToast(false), 3000);
     };
 
-    const updateQuantity = (id, newQuantity) => {
-        if (newQuantity > 0) {
-            setUpdatingItems(prev => new Set([...prev, id]));
+    const updateQuantity = async (id, newQuantity) => {
+        const payload = {
+            userId: cartDetail.userId, productId:id, quantity: newQuantity
+        }
 
-            // Simulate API call delay for smooth animation
-            setTimeout(() => {
-                const updatedCart = cartItems.map(item => {
-                    if (item.id === id) {
-                        return {
-                            ...item,
-                            quantity: newQuantity,
-                            total: item.price * newQuantity
-                        };
-                    }
-                    return item;
-                });
-                setCartItems(updatedCart);
-                setUpdatingItems(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(id);
-                    return newSet;
-                });
-                showNotification('Đã cập nhật số lượng sản phẩm');
-            }, 300);
+        const res = await axios.put(`http://localhost:9999/carts/quantity`, payload);
+
+        if (res.status === 200) {
+            getApiDetail();
+            showNotification('Đã cập nhật số lượng sản phẩm');
+
         }
     };
 
-    const removeItem = (id) => {
-        const item = cartItems.find(item => item.id === id);
-        setRemovingItems(prev => new Set([...prev, id]));
+    const removeItem = async (id) => {
+        const res = await axios.delete(`http://localhost:9999/carts/${cartDetail.userId}/item/${id}`);
 
         // Animate removal
-        setTimeout(() => {
-            const updatedCart = cartItems.filter(item => item.id !== id);
-            setCartItems(updatedCart);
-            setRemovingItems(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(id);
-                return newSet;
-            });
-            showNotification(`Đã xóa ${item?.name} khỏi giỏ hàng`);
-        }, 500);
+        if(res.status === 200) {
+            getApiDetail();
+            showNotification(`Đã xóa khỏi giỏ hàng`);
+        }
     };
 
     const moveToWishlist = (id) => {
-        const item = cartItems.find(item => item.id === id);
+        const item = cartItems.find(item => item.productId === id);
         setRemovingItems(prev => new Set([...prev, id]));
 
         setTimeout(() => {
@@ -123,13 +126,13 @@ function Cart() {
     };
 
     const getItemCount = () => {
-        return cartItems.reduce((count, item) => count + item.quantity, 0);
+        // return cartItems.reduce((count, item) => count + item.quantity, 0);
     };
 
     const getSavings = () => {
         return cartItems.reduce((sum, item) => {
             const originalTotal = item.originalPrice * item.quantity;
-            const currentTotal = item.price * item.quantity;
+            const currentTotal = item.priceAtAdd * item.quantity;
             return sum + (originalTotal - currentTotal);
         }, 0) + discount;
     };
@@ -451,7 +454,7 @@ function Cart() {
                 </div>
 
                 <Container>
-                    {cartItems.length === 0 ? (
+                    {cartDetail?.items?.length === 0 ? (
                         <div style={styles.emptyCartContainer}>
                             <div style={styles.emptyCartIcon}>
                                 <FaShoppingBag />
@@ -468,7 +471,7 @@ function Cart() {
                         <Row>
                             <Col lg={8} className="mb-4">
                                 <div className="d-flex justify-content-between align-items-center mb-4">
-                                    <h4 className="mb-0">Giỏ hàng của bạn ({getItemCount()} sản phẩm)</h4>
+                                    <h4 className="mb-0">Giỏ hàng của bạn ({cartDetail?.items?.length} sản phẩm)</h4>
                                     <Link to="/products" style={styles.continueShoppingBtn}>
                                         <FaArrowLeft style={{ marginRight: '8px' }} /> Tiếp tục mua sắm
                                     </Link>
@@ -487,38 +490,38 @@ function Cart() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {cartItems.map(item => {
-                                                    const discountPercent = item.originalPrice > item.price
-                                                        ? Math.round((1 - item.price / item.originalPrice) * 100)
-                                                        : 0;
+                                                {cartDetail?.items?.map(item => {
+                                                    {/* const discountPercent = item.originalPrice > item.priceAtAdd
+                                                        ? Math.round((1 - item.priceAtAdd / item.originalPrice) * 100)
+                                                        : 0; */}
 
                                                     return (
                                                         <tr
-                                                            key={item.id}
-                                                            className={`cart-item ${removingItems.has(item.id) ? 'removing' : ''} ${updatingItems.has(item.id) ? 'updating' : ''}`}
+                                                            key={item.productId}
+                                                            className={`cart-item ${removingItems.has(item.productId) ? 'removing' : ''} ${updatingItems.has(item.productId) ? 'updating' : ''}`}
                                                         >
                                                             <td style={styles.tableCell}>
                                                                 <div className="d-flex align-items-center">
-                                                                    <Image src={item.image} alt={item.name} style={styles.productImage} />
+                                                                    <Image src={item.thumbnailUrl} alt={item.productName} style={styles.productImage} />
                                                                     <div className="ms-3">
-                                                                        <Link to={`/product/${item.id}`} className="text-decoration-none">
-                                                                            <h6 className="mb-1">{item.name}</h6>
+                                                                        <Link to={`/products/${item.productId}`} className="text-decoration-none">
+                                                                            <h6 className="mb-1">{item.productName}</h6>
                                                                         </Link>
-                                                                        {!item.inStock && (
+                                                                        {/* {!item.inStock && (
                                                                             <div className="text-danger small">Hết hàng</div>
-                                                                        )}
+                                                                        )} */}
                                                                     </div>
                                                                 </div>
                                                             </td>
                                                             <td style={styles.tableCell}>
                                                                 <div>
-                                                                    <span>{item.price.toLocaleString()} VND</span>
-                                                                    {discountPercent > 0 && (
+                                                                    <span>{item.priceAtAdd?.toLocaleString()} VND</span>
+                                                                    {/* {discountPercent > 0 && ( */}
                                                                         <>
-                                                                            <span style={styles.discountedPrice}>{item.originalPrice.toLocaleString()} VND</span>
-                                                                            <span style={styles.discountBadge}>-{discountPercent}%</span>
+                                                                            {/* <span style={styles.discountedPrice}>{item.priceAtAddAtAdd.toLocaleString()} VND</span> */}
+                                                                            {/* <span style={styles.discountBadge}>-{discountPercent}%</span> */}
                                                                         </>
-                                                                    )}
+                                                                    {/* )} */}
                                                                 </div>
                                                             </td>
                                                             <td style={styles.tableCell}>
@@ -527,8 +530,8 @@ function Cart() {
                                                                         variant="outline-secondary"
                                                                         size="sm"
                                                                         className="quantity-btn"
-                                                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                                                        disabled={item.quantity <= 1 || updatingItems.has(item.id)}
+                                                                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                                                        disabled={item.quantity <= 1 || updatingItems.has(item.productId)}
                                                                         aria-label="Giảm số lượng"
                                                                         style={{
                                                                             borderColor: '#b8860b',
@@ -539,11 +542,11 @@ function Cart() {
                                                                     </Button>
                                                                     <Form.Control
                                                                         className="text-center border-0"
-                                                                        value={updatingItems.has(item.id) ? '...' : item.quantity}
-                                                                        onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
+                                                                        value={updatingItems.has(item.productId) ? '...' : item.quantity}
+                                                                        onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value) || 1)}
                                                                         aria-label="Số lượng sản phẩm"
                                                                         min="1"
-                                                                        disabled={updatingItems.has(item.id)}
+                                                                        disabled={updatingItems.has(item.productId)}
                                                                         style={{
                                                                             fontWeight: '600',
                                                                             fontSize: '1rem'
@@ -553,8 +556,8 @@ function Cart() {
                                                                         variant="outline-secondary"
                                                                         size="sm"
                                                                         className="quantity-btn"
-                                                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                                                        disabled={updatingItems.has(item.id)}
+                                                                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                                                        disabled={updatingItems.has(item.productId)}
                                                                         aria-label="Tăng số lượng"
                                                                         style={{
                                                                             borderColor: '#b8860b',
@@ -566,20 +569,20 @@ function Cart() {
                                                                 </InputGroup>
                                                             </td>
                                                             <td style={styles.tableCell}>
-                                                                <strong>{item.total.toLocaleString()} VND</strong>
+                                                                <strong>{(+item?.priceAtAdd *+item?.quantity ).toLocaleString()} VND</strong>
                                                             </td>
                                                             <td style={styles.tableCell}>
                                                                 <div className="d-flex flex-column align-items-center">
                                                                     <button
                                                                         style={styles.removeButton}
-                                                                        onClick={() => removeItem(item.id)}
+                                                                        onClick={() => removeItem(item.productId)}
                                                                         aria-label="Xóa sản phẩm"
                                                                     >
                                                                         <FaTrash />
                                                                     </button>
                                                                     <button
                                                                         style={styles.wishlistButton}
-                                                                        onClick={() => moveToWishlist(item.id)}
+                                                                        onClick={() => moveToWishlist(item.productId)}
                                                                         aria-label="Thêm vào danh sách yêu thích"
                                                                     >
                                                                         <FaHeart className="me-1" /> Lưu

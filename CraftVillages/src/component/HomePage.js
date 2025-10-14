@@ -7,14 +7,20 @@ import USPBanner from './USPBanner';
 import ProductDetail from './ProductDetail';
 import Header from './Header';
 import Footer from './Footer';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 
 function HomePage() {
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [products1, setProducts1] = useState([]);
+    const [page, setPage] = useState(1);
     const [scrollY, setScrollY] = useState(0);
     const [isVisible, setIsVisible] = useState({});
     const heroRef = useRef(null);
     const statsRef = useRef(null);
+
+    const navigate = useNavigate();
 
     // Parallax scroll effect
     useEffect(() => {
@@ -28,6 +34,8 @@ function HomePage() {
 
     // Intersection Observer for animations
     useEffect(() => {
+        apiGetProducts();
+
         const observer = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {
@@ -48,6 +56,13 @@ function HomePage() {
 
         return () => observer.disconnect();
     }, []);
+
+    const apiGetProducts = async () => {
+        const res = await axios.get(`http://localhost:9999/products?page=${page}`)
+        setPage(page+1)
+        // console.log(res.data.data.products)
+        setProducts1([...products1, ...res.data.data.products])
+    }
 
     // Dữ liệu danh mục sản phẩm
     const categories = [
@@ -224,6 +239,7 @@ function HomePage() {
 
     // Hàm xử lý khi người dùng nhấp vào sản phẩm
     const handleProductClick = (product) => {
+        navigate(`/products/${product.id}`)
         setSelectedProduct(product);
         // Cuộn lên đầu trang khi chuyển đến trang chi tiết
         window.scrollTo(0, 0);
@@ -571,9 +587,9 @@ function HomePage() {
     };
 
     // Nếu có sản phẩm được chọn, hiển thị trang chi tiết sản phẩm
-    if (selectedProduct) {
-        return <ProductDetail product={selectedProduct} onBack={handleBack} />;
-    }
+    // if (selectedProduct) {
+        
+    // }
 
     // Nếu không có sản phẩm được chọn, hiển thị trang chủ
     return (
@@ -825,7 +841,7 @@ function HomePage() {
                 <Container>
                     <h2 style={styles.sectionTitle}>Sản Phẩm</h2>
                     <Row className="mt-4">
-                        {products.map(product => (
+                        {products1?.map(product => (
                             <Col key={product.id} md={3} sm={6} className="mb-4">
                                 <Card
                                     style={styles.productCard}
@@ -928,7 +944,7 @@ function HomePage() {
                         ))}
                     </Row>
                     <div className="text-center mt-4 mb-5">
-                        <Button style={styles.showMoreBtn} className="show-more-btn">Show More</Button>
+                        <Button style={styles.showMoreBtn} className="show-more-btn" onClick={apiGetProducts}>Show More</Button>
                     </div>
                 </Container>
             </section>
