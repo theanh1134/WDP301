@@ -416,7 +416,7 @@ function Register() {
                         <Form noValidate validated={validated} onSubmit={handleSubmit}>
                             {/* Account Type Selection */}
                             <div style={styles.accountTypeContainer}>
-                                <div style={styles.accountTypeLabel}>Loại tài khoản</div>
+                                
                                 <div style={styles.radioGroup}>
                                     <div
                                         style={{
@@ -443,7 +443,7 @@ function Register() {
                                         <label htmlFor="buyer" style={{
                                             ...styles.radioLabel,
                                             ...(accountType === 'buyer' ? styles.radioLabelSelected : {})
-                                        }}>Người Mua</label>
+                                        }}></label>
                                     </div>
                                     <div
                                         style={{
@@ -452,25 +452,9 @@ function Register() {
                                         }}
                                         onClick={() => setAccountType('seller')}
                                     >
-                                        <input
-                                            type="radio"
-                                            id="seller"
-                                            name="accountType"
-                                            value="seller"
-                                            checked={accountType === 'seller'}
-                                            onChange={(e) => setAccountType(e.target.value)}
-                                            style={styles.radioInput}
-                                        />
-                                        <FaUserTie
-                                            style={{
-                                                ...styles.radioIcon,
-                                                ...(accountType === 'seller' ? styles.radioIconSelected : {})
-                                            }}
-                                        />
-                                        <label htmlFor="seller" style={{
-                                            ...styles.radioLabel,
-                                            ...(accountType === 'seller' ? styles.radioLabelSelected : {})
-                                        }}>Người Bán</label>
+                                        
+                                        
+                                        
                                     </div>
                                 </div>
                             </div>

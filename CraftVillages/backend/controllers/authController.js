@@ -318,6 +318,33 @@ const resetPassword = async (req, res, next) => {
     }
 };
 
+// Change password with old password verification
+const changePassword = async (req, res, next) => {
+    try {
+        const { userId, oldPassword, newPassword } = req.body;
+        if (!userId || !oldPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const valid = await user.comparePassword(oldPassword);
+        if (!valid) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu cũ không chính xác' });
+        }
+
+        user.passwordHash = newPassword;
+        await user.save();
+
+        return res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     register,
     verifyEmail,
@@ -325,6 +352,7 @@ module.exports = {
     login,
     forgotPassword,
     verifyResetCode,
-    resetPassword
+    resetPassword,
+    changePassword
 };
 

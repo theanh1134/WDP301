@@ -9,40 +9,8 @@ const reviewerSchema = new mongoose.Schema({
     },
     fullName: {
         type: String,
-        required: [true, 'Reviewer name is required'],
+        required: [true, 'Full name is required'],
         trim: true
-    }
-}, {
-    _id: false
-});
-
-// Nested schema for review images
-const reviewImageSchema = new mongoose.Schema({
-    url: {
-        type: String,
-        required: [true, 'Image URL is required'],
-        trim: true
-    }
-}, {
-    _id: false
-});
-
-// Nested schema for seller reply
-const sellerReplySchema = new mongoose.Schema({
-    replyId: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        auto: true
-    },
-    content: {
-        type: String,
-        required: [true, 'Reply content is required'],
-        trim: true,
-        maxlength: [1000, 'Reply cannot exceed 1000 characters']
-    },
-    repliedAt: {
-        type: Date,
-        default: Date.now
     }
 }, {
     _id: false
@@ -59,6 +27,11 @@ const reviewSchema = new mongoose.Schema({
         ref: 'Shop',
         required: [true, 'Shop ID is required']
     },
+    orderId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order',
+        required: [true, 'Order ID is required']
+    },
     reviewer: {
         type: reviewerSchema,
         required: true
@@ -67,13 +40,13 @@ const reviewSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Review title is required'],
         trim: true,
-        maxlength: [100, 'Title cannot exceed 100 characters']
+        maxLength: [100, 'Title cannot exceed 100 characters']
     },
     content: {
         type: String,
         required: [true, 'Review content is required'],
         trim: true,
-        maxlength: [2000, 'Review content cannot exceed 2000 characters']
+        maxLength: [500, 'Content cannot exceed 500 characters']
     },
     rating: {
         type: Number,
@@ -81,38 +54,35 @@ const reviewSchema = new mongoose.Schema({
         min: [1, 'Rating must be at least 1'],
         max: [5, 'Rating cannot exceed 5']
     },
-    images: {
-        type: [reviewImageSchema],
-        default: [],
-        validate: [
-            {
-                validator: function(images) {
-                    return images.length <= 10;
-                },
-                message: 'Cannot upload more than 10 images'
-            }
-        ]
-    },
+    images: [{
+        type: String, // URL to uploaded image
+        default: []
+    }],
     verifiedPurchase: {
         type: Boolean,
-        default: false
+        default: true // Since review comes from order
     },
     helpfulCount: {
         type: Number,
-        default: 0,
-        min: [0, 'Helpful count cannot be negative']
+        default: 0
     },
     status: {
         type: String,
-        enum: {
-            values: ['PENDING', 'VISIBLE', 'HIDDEN', 'REPORTED'],
-            message: '{VALUE} is not a valid review status'
-        },
+        enum: ['PENDING', 'VISIBLE', 'HIDDEN', 'DELETED'],
         default: 'VISIBLE'
     },
-    sellerReply: {
-        type: sellerReplySchema,
-        default: null
+    editCount: {
+        type: Number,
+        default: 0,
+        max: 1 // Chỉ được chỉnh sửa 1 lần
+    },
+    canEdit: {
+        type: Boolean,
+        default: true
+    },
+    canDelete: {
+        type: Boolean,
+        default: true
     }
 }, {
     timestamps: true
@@ -120,110 +90,47 @@ const reviewSchema = new mongoose.Schema({
 
 // Indexes for quick lookups
 reviewSchema.index({ productId: 1, status: 1, createdAt: -1 });
-reviewSchema.index({ shopId: 1, status: 1 });
-reviewSchema.index({ 'reviewer.userId': 1, status: 1 });
-reviewSchema.index({ rating: 1 });
+reviewSchema.index({ shopId: 1, status: 1, createdAt: -1 });
+reviewSchema.index({ 'reviewer.userId': 1, createdAt: -1 });
+reviewSchema.index({ orderId: 1 }, { unique: true }); // One review per order
 
-// Virtual for checking if review can be edited
-reviewSchema.virtual('isEditable').get(function() {
-    const editWindow = 72; // hours
-    const now = new Date();
-    const hoursElapsed = (now - this.createdAt) / (1000 * 60 * 60);
-    return hoursElapsed <= editWindow;
-});
+// Static method to get product reviews
+reviewSchema.statics.getProductReviews = function (productId, status = 'VISIBLE') {
+    return this.find({ productId, status }).sort({ createdAt: -1 });
+};
 
-// Ensure virtuals are included in JSON
-reviewSchema.set('toJSON', { virtuals: true });
-reviewSchema.set('toObject', { virtuals: true });
+// Static method to get shop reviews
+reviewSchema.statics.getShopReviews = function (shopId, status = 'VISIBLE') {
+    return this.find({ shopId, status }).sort({ createdAt: -1 });
+};
 
-// Static method to get product rating stats
-reviewSchema.statics.getProductRatingStats = async function(productId) {
+// Static method to calculate average rating
+reviewSchema.statics.getAverageRating = function (productId) {
     return this.aggregate([
-        { $match: { 
-            productId: new mongoose.Types.ObjectId(productId),
-            status: 'VISIBLE'
-        }},
-        { $group: {
-            _id: null,
-            averageRating: { $avg: '$rating' },
-            totalReviews: { $sum: 1 },
-            ratingCounts: {
-                $push: '$rating'
-            }
-        }},
-        { $project: {
-            _id: 0,
-            averageRating: { $round: ['$averageRating', 1] },
-            totalReviews: 1,
-            ratingDistribution: {
-                5: { $size: { $filter: { input: '$ratingCounts', as: 'rating', cond: { $eq: ['$$rating', 5] } } } },
-                4: { $size: { $filter: { input: '$ratingCounts', as: 'rating', cond: { $eq: ['$$rating', 4] } } } },
-                3: { $size: { $filter: { input: '$ratingCounts', as: 'rating', cond: { $eq: ['$$rating', 3] } } } },
-                2: { $size: { $filter: { input: '$ratingCounts', as: 'rating', cond: { $eq: ['$$rating', 2] } } } },
-                1: { $size: { $filter: { input: '$ratingCounts', as: 'rating', cond: { $eq: ['$$rating', 1] } } } }
-            }
-        }}
+        { $match: { productId: mongoose.Types.ObjectId(productId), status: 'VISIBLE' } },
+        { $group: { _id: null, averageRating: { $avg: '$rating' }, totalReviews: { $sum: 1 } } }
     ]);
 };
 
-// Instance method to mark review as helpful
-reviewSchema.methods.markHelpful = function() {
+// Instance method to increment helpful count
+reviewSchema.methods.incrementHelpful = async function () {
     this.helpfulCount += 1;
     return this.save();
 };
 
-// Instance method to add seller reply
-reviewSchema.methods.addSellerReply = function(content) {
-    if (this.sellerReply) {
-        throw new Error('Review already has a seller reply');
-    }
-    
-    this.sellerReply = {
-        content,
-        repliedAt: new Date()
-    };
-    
-    return this.save();
-};
+// Pre-save middleware to update canEdit and canDelete
+reviewSchema.pre('save', function (next) {
+    // Kiểm tra thời gian tạo để xác định có thể xóa không (3 ngày)
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-// Instance method to report review
-reviewSchema.methods.report = function(reason) {
-    this.status = 'REPORTED';
-    this.reportReason = reason;
-    return this.save();
-};
+    this.canDelete = this.createdAt > threeDaysAgo;
 
-// Static method to get shop review summary
-reviewSchema.statics.getShopReviewStats = async function(shopId) {
-    return this.aggregate([
-        { $match: { 
-            shopId: new mongoose.Types.ObjectId(shopId),
-            status: 'VISIBLE'
-        }},
-        { $group: {
-            _id: null,
-            averageRating: { $avg: '$rating' },
-            totalReviews: { $sum: 1 },
-            verifiedReviews: {
-                $sum: { $cond: ['$verifiedPurchase', 1, 0] }
-            }
-        }},
-        { $project: {
-            _id: 0,
-            averageRating: { $round: ['$averageRating', 1] },
-            totalReviews: 1,
-            verifiedReviews: 1,
-            verifiedPercentage: {
-                $round: [
-                    { $multiply: [
-                        { $divide: ['$verifiedReviews', '$totalReviews'] },
-                        100
-                    ]},
-                    1
-                ]
-            }
-        }}
-    ]);
-};
+    // Kiểm tra số lần chỉnh sửa
+    this.canEdit = this.editCount < 1;
+
+    next();
+});
 
 module.exports = mongoose.model('Review', reviewSchema);
+

@@ -9,13 +9,39 @@ const addCart = async (req, res) => {
       return res.status(400).json({ message: 'User ID is required' });
     }
 
-    // 🔍 Tìm cart đang ACTIVE của user
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Items array is required and must not be empty' });
+    }
+
+    // Validate each item
+    for (const item of items) {
+      if (!item.productId) {
+        return res.status(400).json({ message: 'Product ID is required for each item' });
+      }
+      if (!item.shopId) {
+        return res.status(400).json({ message: 'Shop ID is required for each item' });
+      }
+      if (!item.productName) {
+        return res.status(400).json({ message: 'Product name is required for each item' });
+      }
+      if (!item.thumbnailUrl) {
+        return res.status(400).json({ message: 'Thumbnail URL is required for each item' });
+      }
+      if (!item.priceAtAdd || item.priceAtAdd < 0) {
+        return res.status(400).json({ message: 'Valid price is required for each item' });
+      }
+      if (!item.quantity || item.quantity < 1) {
+        return res.status(400).json({ message: 'Valid quantity is required for each item' });
+      }
+    }
+
+    // 🔍 Find active cart
     let cart = await Cart.findOne({
       userId,
       status: 'ACTIVE',
     });
 
-    // 🛒 Nếu chưa có thì tạo mới
+    // 🛒 Create new cart if doesn't exist
     if (!cart) {
       cart = new Cart({
         userId,
@@ -24,22 +50,21 @@ const addCart = async (req, res) => {
         currency: currency || 'VND',
         status: 'ACTIVE',
       });
-      await cart.save();
     }
 
-    // ➕ Nếu có items thì thêm item vào cart
-    if (items && items.length > 0) {
-      const item = items[0];
-
-      if (typeof cart.addItem === 'function') {
-        await cart.addItem(item);
-      } else {
-        cart.items.push(item);
-        await cart.save();
-      }
+    // ➕ Add items to cart
+    const item = items[0];
+    try {
+      await cart.addItem(item);
+    } catch (err) {
+      console.error('Error adding item to cart:', err);
+      return res.status(400).json({
+        message: 'Failed to add item to cart',
+        error: err.message
+      });
     }
 
-    // ✅ Trả kết quả
+    // ✅ Return result
     res.status(200).json({
       message: 'Cart updated successfully',
       cart,

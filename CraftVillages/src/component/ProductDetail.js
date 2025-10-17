@@ -14,30 +14,101 @@ import Header from "./Header";
 import Footer from "./Footer";
 import UspBanner from "./USPBanner";
 import axios from "axios";
-// import "../assets/css/productDetail.css";
+import authService from '../services/authService';
+import { toast } from 'react-toastify';
+import { useCart } from '../contexts/CartContext';
+import reviewService from '../services/reviewService';
 
 function ProductDetail() {
   const { id } = useParams();
   const [quantity, setQuantity] = useState(1);
   const [productDetail, setProductDetail] = useState({});
+  const [relatedProducts, setRelatedProducts] = useState([]); // Thêm state cho related products
+  const [loadingRelated, setLoadingRelated] = useState(false); // Thêm loading state
+  const [reviews, setReviews] = useState([]); // State cho reviews
+  const [loadingReviews, setLoadingReviews] = useState(false); // Loading state cho reviews
+  const [reviewStats, setReviewStats] = useState({ totalReviews: 0, averageRating: 0 }); // Stats cho reviews
   const navigate = useNavigate();
 
   useEffect(() => {
     const getApiDetail = async () => {
+      if (!id) {
+        console.log('No product ID provided');
+        return;
+      }
+
       try {
+        console.log('Fetching product details for ID:', id);
         const res = await axios.get(`http://localhost:9999/products/${id}`);
         const data = res.data.data;
-        console.log(res.data)
+        console.log('Product data:', data);
         setProductDetail({
           ...data,
           tags: Array.isArray(data.tags) ? data.tags : [],
         });
       } catch (err) {
         console.error("Error fetching product detail:", err);
+        if (err.response?.status === 404) {
+          navigate('/');
+        }
       }
-      
     };
     getApiDetail();
+  }, [id, navigate]);
+
+  // Thêm useEffect để lấy related products ngẫu nhiên
+  useEffect(() => {
+    const getRelatedProducts = async () => {
+      try {
+        setLoadingRelated(true);
+        // Lấy tất cả sản phẩm từ database
+        const res = await axios.get(`http://localhost:9999/products`);
+
+        // Đảm bảo allProducts là array - API trả về res.data.data.products
+        const allProducts = Array.isArray(res.data.data?.products) ? res.data.data.products : [];
+        console.log('All products:', allProducts);
+
+        // Lọc bỏ sản phẩm hiện tại và lấy ngẫu nhiên 4 sản phẩm
+        const filtered = allProducts
+          .filter(product => product._id !== id)
+          .sort(() => Math.random() - 0.5) // Xáo trộn ngẫu nhiên
+          .slice(0, 4);
+
+        setRelatedProducts(filtered);
+      } catch (err) {
+        console.error("Error fetching related products:", err);
+        setRelatedProducts([]);
+      } finally {
+        setLoadingRelated(false);
+      }
+    };
+
+    getRelatedProducts();
+  }, [id]);
+
+  // Load reviews cho sản phẩm
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (!id) return;
+
+      try {
+        setLoadingReviews(true);
+        const reviewData = await reviewService.getProductReviews(id);
+        setReviews(reviewData.reviews || []);
+        setReviewStats({
+          totalReviews: reviewData.totalReviews || 0,
+          averageRating: reviewData.averageRating || 0
+        });
+      } catch (error) {
+        console.error('Error loading reviews:', error);
+        setReviews([]);
+        setReviewStats({ totalReviews: 0, averageRating: 0 });
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    loadReviews();
   }, [id]);
 
   const increaseQuantity = () => setQuantity((prev) => prev + 1);
@@ -45,7 +116,14 @@ function ProductDetail() {
     setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
 
   const handleCompare = () => {
-    navigate("/compare", { state: { initialProduct: productDetail } });
+    const productWithCategory = {
+      ...productDetail,
+      category: {
+        _id: productDetail.categoryId,
+        name: productDetail.categoryName || 'Unknown Category'
+      }
+    };
+    navigate("/compare", { state: { initialProduct: productWithCategory } });
   };
 
   const renderRatingStars = (rating) => {
@@ -64,77 +142,70 @@ function ProductDetail() {
     return stars;
   };
 
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [error, setError] = useState(null);
+
+  const { addToCart, refreshCart } = useCart();
+
   const handleAddToCart = async () => {
-  try {
-    const value = localStorage.getItem("user");
-    const user = value ? JSON.parse(value) : null;
+    try {
+      const user = authService.getCurrentUser();
 
-    const payload = {
-      userId: user?.id,
-      items: [
-        {
-          productId: productDetail.id,
-          shopId: productDetail.shopId,
-          productName: productDetail.name,
-          thumbnailUrl: productDetail.image,
-          priceAtAdd: productDetail.price,
-          quantity: quantity,
-        },
-      ],
-    };
+      if (!user) {
+        toast.warning("Vui lòng đăng nhập để thêm vào giỏ hàng");
+        navigate("/login");
+        return;
+      }
 
-    const res = await axios.post(`http://localhost:9999/carts/`, payload);
+      setAddingToCart(true);
+      setError(null);
 
-      console.log(res);
+      const cartItem = {
+        productId: id,
+        shopId: productDetail.shopId || "68edaeaf7bddb31f3e0ed6f4",
+        productName: productDetail.name,
+        thumbnailUrl: productDetail.image,
+        priceAtAdd: productDetail.price,
+        quantity: quantity,
+      };
 
-      navigate("/cart")
-  } catch (error) {
-    console.error("Error adding to cart:", error);
-  }
-};
+      await addToCart(cartItem);
+      await refreshCart();
 
-  const relatedProducts = [
-    {
-      id: 1,
-      name: "Nón lá truyền thống",
-      category: "Nón lá thủ công truyền thống",
-      price: 75000,
-      oldPrice: 100000,
-      image:
-        "https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg",
-      badge: "Sale",
-    },
-    {
-      id: 2,
-      name: "Leviosa",
-      category: "Nón lá thủ công truyền thống",
-      price: 75000,
-      oldPrice: null,
-      image:
-        "https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg",
-      badge: "New",
-    },
-    {
-      id: 3,
-      name: "Lolito",
-      category: "Luxury big sofa",
-      price: 7000000,
-      oldPrice: 14000000,
-      image:
-        "https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg",
-      badge: "Sale",
-    },
-    {
-      id: 4,
-      name: "Respira",
-      category: "Outdoor bar table and stool",
-      price: 500000,
-      oldPrice: null,
-      image:
-        "https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg",
-      badge: "New",
-    },
-  ];
+      toast.success("Đã thêm sản phẩm vào giỏ hàng!");
+      navigate("/cart");
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Không thể thêm vào giỏ hàng. Vui lòng thử lại.";
+      toast.error(errorMessage);
+      setError(errorMessage);
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  // Hàm xử lý click vào related product
+  const handleRelatedProductClick = (productId) => {
+    // Điều hướng đúng route /products/:id
+    navigate(`/products/${productId}`);
+    window.scrollTo(0, 0); // Scroll to top
+  };
+
+  // Hàm hiển thị badge cho sản phẩm
+  const getProductBadge = (product) => {
+    if (product.discount && product.discount > 0) {
+      return { text: `${product.discount}%`, type: 'sale' };
+    }
+    // Kiểm tra sản phẩm mới (ví dụ: trong vòng 30 ngày)
+    const productDate = new Date(product.createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - productDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays <= 30) {
+      return { text: 'New', type: 'new' };
+    }
+    return null;
+  };
 
   const styles = {
     breadcrumb: {
@@ -324,10 +395,12 @@ function ProductDetail() {
       marginBottom: "20px",
       height: "100%",
       cursor: "pointer",
+      transition: "transform 0.3s ease",
     },
     relatedProductImage: {
       height: "200px",
       objectFit: "cover",
+      width: "100%",
     },
     relatedProductBadge: {
       position: "absolute",
@@ -388,6 +461,18 @@ function ProductDetail() {
       marginBottom: "20px",
       cursor: "pointer",
     },
+    loadingText: {
+      textAlign: "center",
+      fontSize: "16px",
+      color: "#666",
+      padding: "40px 0",
+    },
+    noProductsText: {
+      textAlign: "center",
+      fontSize: "16px",
+      color: "#999",
+      padding: "40px 0",
+    },
   };
 
   return (
@@ -396,54 +481,52 @@ function ProductDetail() {
       <Container>
         <style>
           {`
-                    .nav-tabs .nav-link {
-                        color: #666;
-                        border: 1px solid #dee2e6;
-                        padding: 10px 20px;
-                        font-weight: 500;
-                    }
+            .nav-tabs .nav-link {
+              color: #666;
+              border: 1px solid #dee2e6;
+              padding: 10px 20px;
+              font-weight: 500;
+            }
 
-                    .nav-tabs .nav-link.active {
-                        color: #b8860b;
-                        background-color: #fff;
-                        border-bottom-color: transparent;
-                    }
+            .nav-tabs .nav-link.active {
+              color: #b8860b;
+              background-color: #fff;
+              border-bottom-color: transparent;
+            }
 
-                    .product-card:hover {
-                        transform: translateY(-5px);
-                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-                    }
+            .product-card:hover {
+              transform: translateY(-5px);
+              box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            }
 
-                    .add-to-cart-btn:hover, .compare-btn:hover, .show-more-btn:hover {
-                        transform: translateY(-2px);
-                    }
+            .add-to-cart-btn:hover, .compare-btn:hover, .show-more-btn:hover {
+              transform: translateY(-2px);
+            }
 
-                    .add-to-cart-btn:hover {
-                        background-color: #a67c00 !important;
-                    }
+            .add-to-cart-btn:hover {
+              background-color: #a67c00 !important;
+            }
 
-                    .compare-btn:hover {
-                        background-color: #b8860b !important;
-                        color: white !important;
-                    }
+            .compare-btn:hover {
+              background-color: #b8860b !important;
+              color: white !important;
+            }
 
-                    .show-more-btn:hover {
-                        background-color: #b8860b !important;
-                        color: white !important;
-                    }
+            .show-more-btn:hover {
+              background-color: #b8860b !important;
+              color: white !important;
+            }
 
-                    .thumbnail:hover {
-                        border-color: #b8860b !important;
-                    }
-                `}
+            .thumbnail:hover {
+              border-color: #b8860b !important;
+            }
+          `}
         </style>
 
         {/* Breadcrumb */}
         <div style={styles.breadcrumb}>
           <span style={styles.breadcrumbItem}>Shop</span>
-          <span
-            style={{ ...styles.breadcrumbItem, ...styles.breadcrumbActive }}
-          >
+          <span style={{ ...styles.breadcrumbItem, ...styles.breadcrumbActive }}>
             {productDetail?.name}
           </span>
         </div>
@@ -485,20 +568,19 @@ function ProductDetail() {
               <h1 style={styles.productTitle}>{productDetail?.name}</h1>
 
               <div style={styles.productRating}>
-                {renderRatingStars(productDetail?.rating || 4.5)}
+                {renderRatingStars(reviewStats.averageRating || productDetail?.rating || 4.5)}
                 <span style={styles.ratingText}>
-                  {productDetail?.rating || 4.5} sao ({productDetail?.reviews || 10} customer
-                  reviews)
+                  {reviewStats.averageRating ? reviewStats.averageRating.toFixed(1) : (productDetail?.rating || 4.5)} sao ({reviewStats.totalReviews || productDetail?.reviews || 0} đánh giá)
                 </span>
               </div>
 
               <div style={{ marginBottom: "20px" }}>
                 <span style={styles.productPrice}>
-                  {productDetail?.price?.toLocaleString()} VND
+                  {((productDetail?.price || 0) * quantity).toLocaleString()} VND
                 </span>
                 {productDetail?.oldPrice && (
                   <span style={styles.productOldPrice}>
-                    {productDetail?.oldPrice?.toLocaleString()} VND
+                    {((productDetail?.oldPrice || 0) * quantity).toLocaleString()} VND
                   </span>
                 )}
               </div>
@@ -525,9 +607,19 @@ function ProductDetail() {
               </div>
 
               <div style={{ marginBottom: "30px" }}>
-                <Button style={styles.addToCartBtn} className="add-to-cart-btn" onClick={handleAddToCart}>
-                  Add To Cart
+                <Button
+                  style={styles.addToCartBtn}
+                  className="add-to-cart-btn"
+                  onClick={handleAddToCart}
+                  disabled={addingToCart}
+                >
+                  {addingToCart ? 'Adding...' : 'Add To Cart'}
                 </Button>
+                {error && (
+                  <div className="text-danger mt-2">
+                    {error}
+                  </div>
+                )}
                 <Button
                   style={styles.compareBtn}
                   className="compare-btn"
@@ -584,7 +676,7 @@ function ProductDetail() {
                   {productDetail?.longDescription ||
                     `Nón lá Việt Nam truyền thống là một sản phẩm điêu khắc tinh tế, chắc mảnh, tỉ mỉ được công dân Việt Nam làm thủ công theo triết lý âm dương ngũ hành.
                                 
-                                Mỗi chiếc nón lá Việt được làm thủ công qua nhiều công đoạn: chọn lá, phơi lá, xếp lá, may, căng, chụp, chà và cuối cùng là vẽ. Nhờ vào đôi bàn tay khéo léo của các nghệ nhân và sử dụng 100% nguyên liệu tự nhiên, chúng tôi làm ra một chiếc nón lá truyền thống chắc mảnh, tỉ mỉ, chứa đựng cả tâm hồn dân tộc.`}
+                    Mỗi chiếc nón lá Việt được làm thủ công qua nhiều công đoạn: chọn lá, phơi lá, xếp lá, may, căng, chụp, chà và cuối cùng là vẽ. Nhờ vào đôi bàn tay khéo léo của các nghệ nhân và sử dụng 100% nguyên liệu tự nhiên, chúng tôi làm ra một chiếc nón lá truyền thống chắc mảnh, tỉ mỉ, chứa đựng cả tâm hồn dân tộc.`}
                 </p>
                 <Row>
                   <Col md={6}>
@@ -603,7 +695,7 @@ function ProductDetail() {
                       src={
                         productDetail?.additionalImages
                           ? productDetail?.additionalImages[1] ||
-                            productDetail?.additionalImages[0]
+                          productDetail?.additionalImages[0]
                           : "/images/non-la-detail2.jpg"
                       }
                       alt={`${productDetail?.name} - Chi tiết 2`}
@@ -616,82 +708,229 @@ function ProductDetail() {
             <Tab eventKey="additional" title="Thông tin bổ sung">
               <div style={styles.tabContent}>
                 <p style={styles.productDetailText}>
-                  Thông tin bổ sung về sản phẩm {productDetail?.name} sẽ được cập nhật
-                  sau.
+                  Thông tin bổ sung về sản phẩm {productDetail?.name} sẽ được cập nhật sau.
                 </p>
               </div>
             </Tab>
             <Tab
               eventKey="reviews"
-              title={`Đánh giá (${productDetail?.reviews || 5})`}
+              title={`Đánh giá (${reviewStats.totalReviews || 0})`}
             >
               <div style={styles.tabContent}>
-                <p style={styles.productDetailText}>
-                  Hiện có {productDetail?.reviews || 5} đánh giá cho sản phẩm{" "}
-                  {productDetail?.name}.
-                </p>
-                {/* Có thể thêm hệ thống đánh giá chi tiết tại đây */}
+                {loadingReviews ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{ fontSize: '16px', color: '#666' }}>Đang tải đánh giá...</div>
+                  </div>
+                ) : reviews.length > 0 ? (
+                  <>
+                    {/* Tổng quan đánh giá */}
+                    <div style={{
+                      backgroundColor: '#f8f9fa',
+                      padding: '20px',
+                      borderRadius: '8px',
+                      marginBottom: '30px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '20px'
+                    }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#b8860b' }}>
+                          {reviewStats.averageRating ? reviewStats.averageRating.toFixed(1) : '0.0'}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '5px' }}>
+                          {renderRatingStars(reviewStats.averageRating || 0)}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666', marginTop: '5px' }}>
+                          {reviewStats.totalReviews} đánh giá
+                        </div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '10px' }}>
+                          Đánh giá từ khách hàng
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666' }}>
+                          Dựa trên {reviewStats.totalReviews} đánh giá thực tế từ khách hàng đã mua sản phẩm này.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Danh sách đánh giá */}
+                    <div>
+                      <h5 style={{ marginBottom: '20px', fontWeight: '600' }}>Đánh giá gần đây</h5>
+                      {reviews.map((review, index) => (
+                        <div key={review._id || index} style={{
+                          border: '1px solid #e9ecef',
+                          borderRadius: '8px',
+                          padding: '20px',
+                          marginBottom: '20px',
+                          backgroundColor: '#fff'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                backgroundColor: '#b8860b',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontWeight: 'bold',
+                                fontSize: '16px'
+                              }}>
+                                {review.reviewer?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: '600', fontSize: '16px' }}>
+                                  {review.reviewer?.fullName || 'Khách hàng'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
+                                  {renderRatingStars(review.rating)}
+                                  <span style={{ fontSize: '12px', color: '#666' }}>
+                                    {new Date(review.createdAt).toLocaleDateString('vi-VN')}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            {review.verifiedPurchase && (
+                              <div style={{
+                                backgroundColor: '#28a745',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}>
+                                Đã mua
+                              </div>
+                            )}
+                          </div>
+
+                          <div style={{ marginBottom: '10px' }}>
+                            <h6 style={{ fontWeight: '600', marginBottom: '5px' }}>{review.title}</h6>
+                            <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
+                              {review.content}
+                            </p>
+                          </div>
+
+                          {/* Hình ảnh đánh giá */}
+                          {review.images && review.images.length > 0 && (
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
+                              {console.log('Review images:', review.images)}
+                              {review.images.map((image, imgIndex) => (
+                                <img
+                                  key={imgIndex}
+                                  src={`http://localhost:9999${image}`}
+                                  alt={`Review image ${imgIndex + 1}`}
+                                  style={{
+                                    width: '80px',
+                                    height: '80px',
+                                    objectFit: 'cover',
+                                    borderRadius: '6px',
+                                    border: '1px solid #e9ecef'
+                                  }}
+                                  onError={(e) => {
+                                    console.error('Image load error:', image);
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Helpful count */}
+                          {review.helpfulCount > 0 && (
+                            <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                              {review.helpfulCount} người thấy hữu ích
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{ fontSize: '16px', color: '#666', marginBottom: '10px' }}>
+                      Chưa có đánh giá nào cho sản phẩm này
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#999' }}>
+                      Hãy là người đầu tiên đánh giá sản phẩm này!
+                    </div>
+                  </div>
+                )}
               </div>
             </Tab>
           </Tabs>
         </div>
 
-        {/* Related Products */}
+        {/* Related Products - Hiển thị sản phẩm ngẫu nhiên */}
         <section style={styles.relatedProductsSection}>
-          <h2 style={styles.sectionTitle}>Related Products</h2>
-          <Row className="mt-4">
-            {relatedProducts.map((productDetail) => (
-              <Col key={productDetail?.id} md={3} sm={6} className="mb-4">
-                <Card
-                  style={styles.relatedProductCard}
-                  className="product-card"
-                >
-                  <div style={{ position: "relative" }}>
-                    {productDetail?.badge && (
-                      <div
-                        style={{
-                          ...styles.relatedProductBadge,
-                          ...(productDetail?.badge === "Sale"
-                            ? styles.saleBadge
-                            : styles.newBadge),
-                        }}
-                      >
-                        {productDetail?.badge}
+          <h2 style={styles.sectionTitle}>Sản Phẩm Bạn Có Thể Thích</h2>
+
+          {loadingRelated ? (
+            <div style={styles.loadingText}>Đang tải sản phẩm...</div>
+          ) : relatedProducts.length > 0 ? (
+            <Row className="mt-4">
+              {relatedProducts.map((product) => {
+                const badge = getProductBadge(product);
+                return (
+                  <Col key={product._id} md={3} sm={6} className="mb-4">
+                    <Card
+                      style={styles.relatedProductCard}
+                      className="product-card"
+                      onClick={() => handleRelatedProductClick(product._id)}
+                    >
+                      <div style={{ position: "relative" }}>
+                        {badge && (
+                          <div
+                            style={{
+                              ...styles.relatedProductBadge,
+                              ...(badge.type === "sale"
+                                ? styles.saleBadge
+                                : styles.newBadge),
+                            }}
+                          >
+                            {badge.text}
+                          </div>
+                        )}
+                        <Card.Img
+                          variant="top"
+                          src={product.image || product.thumbnailUrl}
+                          alt={product.name}
+                          style={styles.relatedProductImage}
+                        />
                       </div>
-                    )}
-                    <Card.Img
-                      variant="top"
-                      src={productDetail?.image}
-                      style={styles.relatedProductImage}
-                    />
-                  </div>
-                  <Card.Body>
-                    <Card.Title style={styles.relatedProductName}>
-                      {productDetail?.name}
-                    </Card.Title>
-                    <p style={styles.relatedProductCategory}>
-                      {productDetail?.category}
-                    </p>
-                    <div>
-                      <span style={styles.relatedProductPrice}>
-                        {productDetail?.price?.toLocaleString()} VND
-                      </span>
-                      {productDetail?.oldPrice && (
-                        <span style={styles.relatedProductOldPrice}>
-                          {productDetail?.oldPrice?.toLocaleString()} VND
-                        </span>
-                      )}
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-          <div className="text-center mt-4 mb-5">
-            <Button style={styles.showMoreBtn} className="show-more-btn">
-              Show More
-            </Button>
-          </div>
+                      <Card.Body>
+                        <Card.Title style={styles.relatedProductName}>
+                          {product.name}
+                        </Card.Title>
+                        <p style={styles.relatedProductCategory}>
+                          {product.categoryName || product.category?.name || 'Sản phẩm'}
+                        </p>
+                        <div>
+                          <span style={styles.relatedProductPrice}>
+                            {product.price?.toLocaleString()} VND
+                          </span>
+                          {product.oldPrice && product.oldPrice > product.price && (
+                            <span style={styles.relatedProductOldPrice}>
+                              {product.oldPrice?.toLocaleString()} VND
+                            </span>
+                          )}
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                );
+              })}
+            </Row>
+          ) : (
+            <div style={styles.noProductsText}>
+              Không có sản phẩm liên quan
+            </div>
+          )}
+
+          
         </section>
       </Container>
       <UspBanner />

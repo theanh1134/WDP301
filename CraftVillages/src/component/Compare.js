@@ -5,6 +5,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Header from './Header';
+import compareService from '../services/compareService';
+import { toast } from 'react-toastify';
 
 // Animations
 const fadeIn = keyframes`
@@ -187,68 +189,99 @@ function Compare() {
     const navigate = useNavigate();
     const [compareProducts, setCompareProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [availableProducts, setAvailableProducts] = useState([]);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Nếu có sản phẩm ban đầu được truyền từ trang chi tiết sản phẩm
-        if (location.state && location.state.initialProduct) {
-            setCompareProducts([location.state.initialProduct]);
-        }
+        const loadInitialProduct = async () => {
+            // Nếu có sản phẩm ban đầu được truyền từ trang chi tiết sản phẩm
+            if (location.state && location.state.initialProduct) {
+                const initialProduct = location.state.initialProduct;
+                setCompareProducts([initialProduct]);
+
+                try {
+                    // Lấy các sản phẩm cùng loại để so sánh
+                    if (initialProduct.name) {
+                        setIsLoading(true);
+                        console.log('Fetching related products for:', initialProduct.name);
+                        const products = await compareService.getRelatedProducts(
+                            initialProduct.name,
+                            [initialProduct._id]
+                        );
+                        setAvailableProducts(products);
+                    }
+                } catch (err) {
+                    setError(err.message);
+                    toast.error('Không thể tải sản phẩm để so sánh');
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        loadInitialProduct();
     }, [location]);
 
-    // Danh sách sản phẩm có thể thêm vào để so sánh
-    const productOptions = [
-        {
-            id: 101,
-            name: 'Nón lá truyền thống',
-            price: 200000,
-            sku: 'TFCBUSDSL05H15',
-            origin: 'Cói, Tre, Hồ',
-            material: 'Cói, Tre, Hồ',
-            finish: 'Nguyên bản',
-            decoration: 'Không có họa tiết',
-            adjustable: 'No',
-            maxLoad: '250 KG',
-            manufacturerOrigin: 'India',
-            width: '285.32 cm',
-            height: '76 cm',
-            depth: '167.76 cm',
-            rating: 4.7,
-            reviews: 234,
-            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg'
-        },
-        {
-            id: 102,
-            name: 'Nón lá Huế',
-            price: 80000,
-            sku: 'D1UBUSDSLG8',
-            origin: 'Lá buông, Tre, Hồ',
-            material: 'Lá buông, Tre, Hồ',
-            finish: 'Bright Grey & Lion',
-            decoration: 'Có họa tiết vẽ hình Chợ Bến Thành',
-            color: 'Màu sắc nguyên bản, phần nón dâu bóng, bảo vệ',
-            adjustable: 'Yes',
-            maxLoad: '300 KG',
-            manufacturerOrigin: 'India',
-            width: '285.32 cm',
-            height: '76 cm',
-            depth: '167.76 cm',
-            rating: 4.2,
-            reviews: 141,
-            image: 'https://i.pinimg.com/736x/b5/96/d4/b596d46dabe0bc0e1271a366fa4e45eb.jpg'
+    const fetchRelatedProducts = async (categoryId, excludeIds = []) => {
+        try {
+            setIsLoading(true);
+            setError(null);
+            const products = await compareService.getRelatedProducts(categoryId, excludeIds);
+            setAvailableProducts(products);
+        } catch (err) {
+            setError(err.message);
+            toast.error('Không thể tải sản phẩm để so sánh');
+        } finally {
+            setIsLoading(false);
         }
-    ];
+    };
+
+    // Đảm bảo productOptions luôn là một mảng
+    const productOptions = Array.isArray(availableProducts) ? availableProducts : [];
 
     // Hàm xử lý thêm sản phẩm để so sánh
     const handleAddProductToCompare = (product) => {
         if (compareProducts.length >= 4) {
-            alert('Bạn chỉ có thể so sánh tối đa 4 sản phẩm cùng lúc!');
+            toast.warning('Bạn chỉ có thể so sánh tối đa 4 sản phẩm cùng lúc!');
             return;
         }
 
-        if (!compareProducts.find(p => p.id === product.id)) {
+        // Hàm helper để lấy loại sản phẩm từ tên
+        const getProductType = (productName) => {
+            productName = productName.toLowerCase();
+            if (productName.includes('ấm chén') || productName.includes('bộ trà')) return 'ấm chén';
+            if (productName.includes('tượng')) return 'tượng';
+            if (productName.includes('tranh')) return 'tranh';
+            if (productName.includes('túi')) return 'túi';
+            if (productName.includes('khăn')) return 'khăn';
+            if (productName.includes('nón') || productName.includes('mũ')) return 'nón';
+            if (productName.includes('giỏ')) return 'giỏ';
+            if (productName.includes('đèn')) return 'đèn';
+            if (productName.includes('hộp')) return 'hộp';
+            return 'khác';
+        };
+
+        // Kiểm tra sản phẩm cùng loại
+        const firstProduct = compareProducts[0];
+        console.log('First product:', firstProduct);
+        console.log('Product to compare:', product);
+
+        const firstProductType = getProductType(firstProduct?.name || '');
+        const productType = getProductType(product?.name || '');
+
+        console.log('Product types:', { firstProductType, productType });
+
+        if (firstProduct && firstProductType !== productType) {
+            toast.error(`Chỉ có thể so sánh các sản phẩm cùng loại! (${firstProductType})`);
+            return;
+        }
+
+        if (!compareProducts.find(p => p._id === product._id)) {
             setIsLoading(true);
             setTimeout(() => {
                 setCompareProducts(prev => [...prev, product]);
+                // Cập nhật danh sách sản phẩm có thể so sánh
+                fetchRelatedProducts(product.category?._id, [...compareProducts.map(p => p._id), product._id]);
                 setIsLoading(false);
             }, 300);
         }
@@ -256,7 +289,16 @@ function Compare() {
 
     // Hàm xử lý xóa sản phẩm khỏi so sánh
     const handleRemoveProduct = (productId) => {
-        setCompareProducts(prev => prev.filter(p => p.id !== productId));
+        const updatedProducts = compareProducts.filter(p => p._id !== productId);
+        setCompareProducts(updatedProducts);
+
+        // Nếu còn sản phẩm, cập nhật danh sách sản phẩm có thể so sánh
+        if (updatedProducts.length > 0) {
+            fetchRelatedProducts(
+                updatedProducts[0].category?._id,
+                updatedProducts.map(p => p._id)
+            );
+        }
     };
 
     // Hàm xử lý khi người dùng quay về trang trước
@@ -513,10 +555,10 @@ function Compare() {
 
                                             <Dropdown.Menu style={{ width: '100%' }}>
                                                 {productOptions
-                                                    .filter(prod => !compareProducts.find(p => p.id === prod.id))
+                                                    .filter(prod => !compareProducts.find(p => p._id === prod._id))
                                                     .map(prod => (
                                                         <Dropdown.Item
-                                                            key={prod.id}
+                                                            key={prod._id}
                                                             onClick={() => handleAddProductToCompare(prod)}
                                                             style={{
                                                                 padding: '12px 16px',
@@ -546,7 +588,7 @@ function Compare() {
                                                         </Dropdown.Item>
                                                     ))
                                                 }
-                                                {productOptions.filter(prod => !compareProducts.find(p => p.id === prod.id)).length === 0 && (
+                                                {productOptions.filter(prod => !compareProducts.find(p => p._id === prod._id)).length === 0 && (
                                                     <Dropdown.Item disabled style={{ textAlign: 'center', padding: '20px' }}>
                                                         <FaInfoCircle style={{ marginRight: '8px' }} />
                                                         Không có sản phẩm để thêm
@@ -620,7 +662,7 @@ function Compare() {
                                                                     }}
                                                                 />
                                                                 <RemoveButton
-                                                                    onClick={() => handleRemoveProduct(prod.id)}
+                                                                    onClick={() => handleRemoveProduct(prod._id)}
                                                                     title="Xóa khỏi so sánh"
                                                                 >
                                                                     <FaTimes />

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar, Nav, Container, Button, Badge } from 'react-bootstrap';
+import { Navbar, Nav, Container, Button, Badge, Dropdown, Image } from 'react-bootstrap';
 import { FaUser, FaSearch, FaShoppingCart, FaBars } from 'react-icons/fa';
 import styled, { keyframes } from 'styled-components';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { useCart } from '../contexts/CartContext';
+import authService from '../services/authService';
 
 // Keyframes for animations
 const slideDown = keyframes`
@@ -210,7 +212,8 @@ const CartBadge = styled(Badge)`
 
 function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const [cartItems, setCartItems] = useState(2); // Mock cart items count
+  const { cart, getCartItemsCount } = useCart();
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Handle scroll effect
   useEffect(() => {
@@ -221,6 +224,15 @@ function Header() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Load current user from localStorage/authService
+  useEffect(() => {
+    const user = authService.getCurrentUser?.() || null;
+    setCurrentUser(user);
+    const onStorage = () => setCurrentUser(authService.getCurrentUser?.() || null);
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   const styles = {
@@ -240,7 +252,7 @@ function Header() {
     <>
       {/* Add padding to body to compensate for fixed header */}
       <div style={{ paddingTop: scrolled ? '70px' : '85px' }}>
-        <StyledNavbar expand="lg" scrolled={scrolled} className="border-bottom">
+        <StyledNavbar expand="lg" scrolled={scrolled.toString()} className="border-bottom">
           <Container style={styles.navContainer}>
             {/* Logo */}
             <Navbar.Brand href="/" className="me-4">
@@ -264,24 +276,37 @@ function Header() {
                 <StyledNavLink href="/contact">Liên hệ</StyledNavLink>
               </Nav>
 
-              {/* Search Bar */}
-              <SearchBar className="d-none d-lg-flex">
-                <FaSearch className="search-icon" />
-                <input type="text" placeholder="Tìm kiếm sản phẩm..." />
-              </SearchBar>
+          
 
               {/* Icons on right */}
               <div style={styles.iconGroup}>
-                <NavIcon href='/login' title="Tài khoản">
-                  <FaUser />
-                </NavIcon>
+                {currentUser ? (
+                  <Dropdown align="end">
+                    <Dropdown.Toggle as={NavIcon} id="user-menu" title={currentUser.fullName || currentUser.name || currentUser.email}>
+                      <Image src={currentUser.avatarUrl || 'https://ui-avatars.com/api/?background=d4af37&color=fff&name=' + encodeURIComponent(currentUser.fullName || currentUser.name || 'U')} roundedCircle width={28} height={28} />
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu>
+                      <Dropdown.Header>
+                        {(currentUser.fullName || currentUser.name || currentUser.email)}
+                      </Dropdown.Header>
+                      <Dropdown.Item href="/profile">Trang cá nhân</Dropdown.Item>
+                      <Dropdown.Item href="/orders">Đơn hàng của tôi</Dropdown.Item>
+                      <Dropdown.Divider />
+                      <Dropdown.Item onClick={() => { authService.logout?.(); window.location.href = '/'; }}>Đăng xuất</Dropdown.Item>
+                    </Dropdown.Menu>
+                  </Dropdown>
+                ) : (
+                  <NavIcon href='/login' title="Tài khoản">
+                    <FaUser />
+                  </NavIcon>
+                )}
                 <NavIcon className="d-lg-none" title="Tìm kiếm">
                   <FaSearch />
                 </NavIcon>
                 <CartIcon href='/cart' title="Giỏ hàng" style={{ position: 'relative' }}>
                   <FaShoppingCart />
-                  {cartItems > 0 && (
-                    <CartBadge>{cartItems}</CartBadge>
+                  {cart?.items?.length > 0 && (
+                    <CartBadge>{getCartItemsCount()}</CartBadge>
                   )}
                 </CartIcon>
               </div>

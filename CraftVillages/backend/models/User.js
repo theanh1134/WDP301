@@ -39,8 +39,7 @@ const userSchema = new mongoose.Schema({
         default: true
     },
     addresses: [{
-        type: String,
-        trim: true
+        type: mongoose.Schema.Types.Mixed
     }],
     legalAgreements: [{
         type: String,

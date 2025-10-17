@@ -1,7 +1,7 @@
 // HomePage.js
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
-import { FaShoppingCart, FaSearch, FaEye, FaHeart, FaArrowRight, FaStar } from 'react-icons/fa';
+import { FaShoppingCart, FaSearch, FaEye, FaHeart, FaArrowRight, FaStar, FaFilter } from 'react-icons/fa';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import USPBanner from './USPBanner';
 import ProductDetail from './ProductDetail';
@@ -14,9 +14,19 @@ import { useNavigate } from 'react-router-dom';
 function HomePage() {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [products1, setProducts1] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [displayedProducts, setDisplayedProducts] = useState([]);
     const [page, setPage] = useState(1);
     const [scrollY, setScrollY] = useState(0);
     const [isVisible, setIsVisible] = useState({});
+    const [showFilters, setShowFilters] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [priceRange, setPriceRange] = useState([0, 10000000]);
+    const [selectedRating, setSelectedRating] = useState(0);
+    const [sortBy, setSortBy] = useState('default');
+    const [displayLimit, setDisplayLimit] = useState(8);
+    const [productsLoaded, setProductsLoaded] = useState(false);
     const heroRef = useRef(null);
     const statsRef = useRef(null);
 
@@ -58,11 +68,106 @@ function HomePage() {
     }, []);
 
     const apiGetProducts = async () => {
-        const res = await axios.get(`http://localhost:9999/products?page=${page}`)
-        setPage(page+1)
-        // console.log(res.data.data.products)
-        setProducts1([...products1, ...res.data.data.products])
+        try {
+            // Load tất cả sản phẩm từ database
+            const res = await axios.get(`http://localhost:9999/products?page=1&limit=1000`) // Load tối đa 1000 sản phẩm
+            console.log('All products loaded:', res.data.data.products.length);
+            const allProducts = res.data.data.products || [];
+            setProducts1(allProducts);
+            setFilteredProducts(allProducts);
+            setProductsLoaded(true);
+        } catch (error) {
+            console.error('Error loading products:', error);
+            setProducts1([]);
+            setFilteredProducts([]);
+            setProductsLoaded(true);
+        }
     }
+
+    // Load more products for display
+    const loadMoreProducts = () => {
+        setDisplayLimit(prev => prev + 8);
+    }
+
+    // Filter và sort products
+    useEffect(() => {
+        let filtered = [...products1];
+
+        // Search filter
+        if (searchTerm) {
+            filtered = filtered.filter(product =>
+                product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                product.origin?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // Category filter
+        if (selectedCategory) {
+            filtered = filtered.filter(product =>
+                product.categoryName === selectedCategory
+            );
+        }
+
+        // Price range filter
+        filtered = filtered.filter(product =>
+            product.price >= priceRange[0] && product.price <= priceRange[1]
+        );
+
+        // Rating filter
+        if (selectedRating > 0) {
+            filtered = filtered.filter(product =>
+                (product.rating || 0) >= selectedRating
+            );
+        }
+
+        // Sort
+        switch (sortBy) {
+            case 'price-low':
+                filtered.sort((a, b) => a.price - b.price);
+                break;
+            case 'price-high':
+                filtered.sort((a, b) => b.price - a.price);
+                break;
+            case 'rating':
+                filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                break;
+            case 'name':
+                filtered.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            default:
+                // Keep original order
+                break;
+        }
+
+        setFilteredProducts(filtered);
+
+        // Reset display limit khi có filter mới (chỉ reset khi đã load products và có thay đổi filter)
+        const hasActiveFilters = searchTerm || selectedCategory || selectedRating > 0 || sortBy !== 'default';
+        if (productsLoaded && hasActiveFilters) {
+            setDisplayLimit(8);
+        }
+    }, [products1, searchTerm, selectedCategory, priceRange, selectedRating, sortBy, productsLoaded]);
+
+    // Update displayed products based on display limit
+    useEffect(() => {
+        setDisplayedProducts(filteredProducts.slice(0, displayLimit));
+    }, [filteredProducts, displayLimit]);
+
+    // Get unique categories
+    const getUniqueCategories = () => {
+        const categories = [...new Set(products1.map(product => product.categoryName).filter(Boolean))];
+        return categories;
+    };
+
+    // Clear all filters
+    const clearFilters = () => {
+        setSearchTerm('');
+        setSelectedCategory('');
+        setPriceRange([0, 10000000]);
+        setSelectedRating(0);
+        setSortBy('default');
+        setDisplayLimit(8); // Reset display limit when clearing filters
+    };
 
     // Dữ liệu danh mục sản phẩm
     const categories = [
@@ -239,7 +344,12 @@ function HomePage() {
 
     // Hàm xử lý khi người dùng nhấp vào sản phẩm
     const handleProductClick = (product) => {
-        navigate(`/products/${product.id}`)
+        const productId = product._id || product.id;
+        if (!productId) {
+            console.error('No product ID found:', product);
+            return;
+        }
+        navigate(`/products/${productId}`);
         setSelectedProduct(product);
         // Cuộn lên đầu trang khi chuyển đến trang chi tiết
         window.scrollTo(0, 0);
@@ -331,6 +441,7 @@ function HomePage() {
             padding: "15px 35px",
             fontWeight: "600",
             letterSpacing: "1px",
+            marginBottom: "40px",
             borderRadius: "50px",
             fontSize: "16px",
             color: "white",
@@ -583,12 +694,199 @@ function HomePage() {
             fontWeight: "600",
             borderRadius: "4px",
             transition: "all 0.3s ease"
+        },
+
+        // Filter Section Styles
+        filterSection: {
+            backgroundColor: "#f8f9fa",
+            padding: "20px 0",
+            borderBottom: "1px solid #e9ecef"
+        },
+        filterTopBar: {
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "15px",
+            backgroundColor: "white",
+            borderRadius: "12px",
+            padding: "20px",
+            boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)"
+        },
+        sidebarFilter: {
+            backgroundColor: "white",
+            borderRadius: "12px",
+            padding: "20px",
+            boxShadow: "0 4px 15px rgba(0, 0, 0, 0.08)",
+            height: "fit-content",
+            position: "sticky",
+            top: "20px"
+        },
+        sidebarHeader: {
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "20px",
+            paddingBottom: "15px",
+            borderBottom: "1px solid #e9ecef"
+        },
+        sidebarTitle: {
+            fontSize: "18px",
+            fontWeight: "600",
+            color: "#333",
+            margin: "0"
+        },
+        closeSidebarBtn: {
+            backgroundColor: "transparent",
+            border: "none",
+            color: "#999",
+            fontSize: "20px",
+            padding: "0",
+            width: "30px",
+            height: "30px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "50%",
+            transition: "all 0.3s ease"
+        },
+        productsContent: {
+            paddingLeft: "20px"
+        },
+        searchContainer: {
+            position: "relative",
+            flex: "1",
+            minWidth: "250px"
+        },
+        searchInput: {
+            width: "100%",
+            padding: "12px 45px 12px 15px",
+            border: "2px solid #e9ecef",
+            borderRadius: "25px",
+            fontSize: "14px",
+            transition: "all 0.3s ease",
+            outline: "none"
+        },
+        searchIcon: {
+            position: "absolute",
+            right: "15px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#b8860b",
+            fontSize: "16px"
+        },
+        filterToggle: {
+            backgroundColor: "#b8860b",
+            border: "none",
+            color: "white",
+            padding: "10px 20px",
+            borderRadius: "25px",
+            fontWeight: "600",
+            transition: "all 0.3s ease",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+        },
+        sortSelect: {
+            padding: "10px 15px",
+            border: "2px solid #e9ecef",
+            borderRadius: "8px",
+            fontSize: "14px",
+            backgroundColor: "white",
+            color: "#333",
+            outline: "none",
+            transition: "all 0.3s ease"
+        },
+        filterGroup: {
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            marginBottom: "20px"
+        },
+        filterLabel: {
+            fontSize: "14px",
+            fontWeight: "600",
+            color: "#333",
+            marginBottom: "5px"
+        },
+        categorySelect: {
+            padding: "8px 12px",
+            border: "2px solid #e9ecef",
+            borderRadius: "6px",
+            fontSize: "14px",
+            backgroundColor: "white",
+            color: "#333",
+            outline: "none",
+            transition: "all 0.3s ease"
+        },
+        priceRangeContainer: {
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+        },
+        priceInput: {
+            padding: "8px 12px",
+            border: "2px solid #e9ecef",
+            borderRadius: "6px",
+            fontSize: "14px",
+            outline: "none",
+            transition: "all 0.3s ease"
+        },
+        ratingContainer: {
+            display: "flex",
+            gap: "5px",
+            alignItems: "center"
+        },
+        ratingStar: {
+            fontSize: "18px",
+            color: "#ddd",
+            cursor: "pointer",
+            transition: "all 0.2s ease"
+        },
+        ratingStarActive: {
+            color: "#ffc107"
+        },
+        clearFiltersBtn: {
+            backgroundColor: "transparent",
+            border: "2px solid #dc3545",
+            color: "#dc3545",
+            padding: "8px 20px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            fontWeight: "600",
+            transition: "all 0.3s ease",
+            marginTop: "15px"
+        },
+        resultsInfo: {
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "20px",
+            padding: "15px 20px",
+            backgroundColor: "white",
+            borderRadius: "8px",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)"
+        },
+        resultsCount: {
+            fontSize: "16px",
+            color: "#666",
+            fontWeight: "500"
+        },
+        noResults: {
+            textAlign: "center",
+            padding: "60px 20px",
+            color: "#999"
+        },
+        noResultsIcon: {
+            fontSize: "48px",
+            color: "#ddd",
+            marginBottom: "15px"
         }
     };
 
     // Nếu có sản phẩm được chọn, hiển thị trang chi tiết sản phẩm
     // if (selectedProduct) {
-        
+
     // }
 
     // Nếu không có sản phẩm được chọn, hiển thị trang chủ
@@ -698,6 +996,37 @@ function HomePage() {
                     .show-more-btn:hover {
                         background-color: #b8860b !important;
                         color: white !important;
+                    }
+
+                    /* Filter Styles */
+                    .search-input:focus {
+                        border-color: #b8860b !important;
+                        box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.1) !important;
+                    }
+
+                    .filter-toggle:hover {
+                        background-color: #a67c00 !important;
+                        transform: translateY(-2px);
+                    }
+
+                    .sort-select:focus, .category-select:focus, .price-input:focus {
+                        border-color: #b8860b !important;
+                        box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.1) !important;
+                    }
+
+                    .rating-star:hover {
+                        color: #ffc107 !important;
+                        transform: scale(1.1);
+                    }
+
+                    .clear-filters-btn:hover {
+                        background-color: #dc3545 !important;
+                        color: white !important;
+                    }
+
+                    .close-sidebar-btn:hover {
+                        background-color: #f8f9fa !important;
+                        color: #333 !important;
                     }
 
                     /* Media Queries */
@@ -836,116 +1165,286 @@ function HomePage() {
                 </Container>
             </section>
 
-            {/* Products Section */}
-            <section style={styles.productsSection}>
+            {/* Filter Section - Top Bar */}
+            <section style={styles.filterSection}>
                 <Container>
-                    <h2 style={styles.sectionTitle}>Sản Phẩm</h2>
-                    <Row className="mt-4">
-                        {products1?.map(product => (
-                            <Col key={product.id} md={3} sm={6} className="mb-4">
-                                <Card
-                                    style={styles.productCard}
-                                    className="product-card"
-                                    onClick={() => handleProductClick(product)}
-                                    data-animate
-                                    id={`product-${product.id}`}
-                                >
-                                    <div style={styles.productImageContainer} className="product-image-container">
-                                        {/* Enhanced Badge */}
-                                        {product.badge && (
-                                            <div
-                                                style={{
-                                                    ...styles.productBadge,
-                                                    ...(product.badge === 'Sale' ? styles.saleBadge :
-                                                        product.badge === 'New' ? styles.newBadge : styles.cartBadge)
-                                                }}
-                                            >
-                                                {product.badge}
-                                            </div>
-                                        )}
+                    <div style={styles.filterTopBar}>
+                        <div style={styles.searchContainer}>
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm sản phẩm..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={styles.searchInput}
+                                className="search-input"
+                            />
+                            <FaSearch style={styles.searchIcon} />
+                        </div>
+                        <Button
+                            style={styles.filterToggle}
+                            className="filter-toggle"
+                            onClick={() => setShowFilters(!showFilters)}
+                        >
+                            <FaFilter />
+                            {showFilters ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
+                        </Button>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            style={styles.sortSelect}
+                            className="sort-select"
+                        >
+                            <option value="default">Sắp xếp mặc định</option>
+                            <option value="price-low">Giá thấp đến cao</option>
+                            <option value="price-high">Giá cao đến thấp</option>
+                            <option value="rating">Đánh giá cao nhất</option>
+                            <option value="name">Tên A-Z</option>
+                        </select>
+                    </div>
+                </Container>
+            </section>
 
-                                        {/* Wishlist Button */}
+            {/* Products Section with Sidebar */}
+            <section style={styles.productsSection}>
+                <Container fluid>
+                    <Row>
+                        {/* Sidebar Filter */}
+                        {showFilters && (
+                            <Col md={3} lg={2} className="d-none d-md-block">
+                                <div style={styles.sidebarFilter}>
+                                    <div style={styles.sidebarHeader}>
+                                        <h4 style={styles.sidebarTitle}>Bộ lọc</h4>
                                         <Button
-                                            style={styles.wishlistButton}
-                                            className="wishlist-button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                alert(`Đã thêm ${product.name} vào danh sách yêu thích`);
-                                            }}
-                                            title="Thêm vào yêu thích"
+                                            style={styles.closeSidebarBtn}
+                                            className="close-sidebar-btn"
+                                            onClick={() => setShowFilters(false)}
                                         >
-                                            <FaHeart />
+                                            ×
                                         </Button>
+                                    </div>
 
-                                        <Card.Img
-                                            variant="top"
-                                            src={product.image}
-                                            style={styles.productImage}
-                                            className="product-image"
-                                            alt={product.name}
-                                        />
+                                    <div style={styles.filterGroup}>
+                                        <label style={styles.filterLabel}>Danh mục</label>
+                                        <select
+                                            value={selectedCategory}
+                                            onChange={(e) => setSelectedCategory(e.target.value)}
+                                            style={styles.categorySelect}
+                                            className="category-select"
+                                        >
+                                            <option value="">Tất cả danh mục</option>
+                                            {getUniqueCategories().map(category => (
+                                                <option key={category} value={category}>
+                                                    {category}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                                        {/* Enhanced Overlay */}
-                                        <div style={styles.productOverlay} className="product-overlay">
-                                            <div style={styles.quickViewText} className="quick-view-text">
-                                                Xem nhanh sản phẩm
-                                            </div>
-                                            <div style={styles.productActions} className="product-actions">
-                                                <Button
-                                                    style={styles.actionBtn}
-                                                    className="action-btn"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        alert(`Đã thêm ${product.name} vào giỏ hàng`);
-                                                    }}
-                                                    title="Thêm vào giỏ hàng"
-                                                >
-                                                    <FaShoppingCart />
-                                                </Button>
-                                                <Button
-                                                    style={styles.actionBtn}
-                                                    className="action-btn"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        // Quick search functionality
-                                                    }}
-                                                    title="Tìm kiếm tương tự"
-                                                >
-                                                    <FaSearch />
-                                                </Button>
-                                                <Button
-                                                    style={styles.actionBtn}
-                                                    className="action-btn"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleProductClick(product);
-                                                    }}
-                                                    title="Xem chi tiết"
-                                                >
-                                                    <FaEye />
-                                                </Button>
-                                            </div>
+                                    <div style={styles.filterGroup}>
+                                        <label style={styles.filterLabel}>Khoảng giá (VND)</label>
+                                        <div style={styles.priceRangeContainer}>
+                                            <input
+                                                type="number"
+                                                placeholder="Từ"
+                                                value={priceRange[0]}
+                                                onChange={(e) => setPriceRange([parseInt(e.target.value) || 0, priceRange[1]])}
+                                                style={styles.priceInput}
+                                                className="price-input"
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Đến"
+                                                value={priceRange[1]}
+                                                onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value) || 10000000])}
+                                                style={styles.priceInput}
+                                                className="price-input"
+                                            />
                                         </div>
                                     </div>
-                                    <Card.Body style={styles.productDetails}>
-                                        <Card.Title style={styles.productName}>{product.name}</Card.Title>
-                                        {product.origin && (
-                                            <p style={styles.productOrigin}>{product.origin}</p>
-                                        )}
-                                        <div style={styles.productPriceContainer}>
-                                            <span style={styles.productPrice}>{product.price.toLocaleString()} VND</span>
-                                            {product.oldPrice && (
-                                                <span style={styles.productOldPrice}>{product.oldPrice.toLocaleString()} VND</span>
+
+                                    <div style={styles.filterGroup}>
+                                        <label style={styles.filterLabel}>Đánh giá tối thiểu</label>
+                                        <div style={styles.ratingContainer}>
+                                            {[1, 2, 3, 4, 5].map(star => (
+                                                <FaStar
+                                                    key={star}
+                                                    style={{
+                                                        ...styles.ratingStar,
+                                                        ...(star <= selectedRating ? styles.ratingStarActive : {})
+                                                    }}
+                                                    className="rating-star"
+                                                    onClick={() => setSelectedRating(star === selectedRating ? 0 : star)}
+                                                />
+                                            ))}
+                                            {selectedRating > 0 && (
+                                                <span style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>
+                                                    {selectedRating}+ sao
+                                                </span>
                                             )}
                                         </div>
-                                    </Card.Body>
-                                </Card>
+                                    </div>
+
+                                    <Button
+                                        style={styles.clearFiltersBtn}
+                                        className="clear-filters-btn"
+                                        onClick={clearFilters}
+                                    >
+                                        Xóa tất cả bộ lọc
+                                    </Button>
+                                </div>
                             </Col>
-                        ))}
+                        )}
+
+                        {/* Products Content */}
+                        <Col md={showFilters ? 9 : 12} lg={showFilters ? 10 : 12}>
+                            <div style={styles.productsContent}>
+                                <div style={styles.resultsInfo}>
+                                    <h2 style={styles.sectionTitle}>Sản Phẩm</h2>
+                                    <div style={styles.resultsCount}>
+                                        Hiển thị {displayedProducts.length} / {filteredProducts.length} sản phẩm
+                                        {searchTerm && ` cho "${searchTerm}"`}
+                                        {selectedCategory && ` trong "${selectedCategory}"`}
+                                    </div>
+                                </div>
+
+                                {displayedProducts.length > 0 ? (
+                                    <>
+                                        <Row className="mt-4">
+                                            {displayedProducts?.map((product, index) => (
+                                                <Col key={product.id} md={4} lg={3} sm={6} className="mb-4">
+                                                    <Card
+                                                        style={styles.productCard}
+                                                        className="product-card"
+                                                        onClick={() => handleProductClick(product)}
+                                                        data-animate
+                                                        id={`product-${product.id}`}
+                                                    >
+                                                        <div style={styles.productImageContainer} className="product-image-container">
+                                                            {/* Enhanced Badge */}
+                                                            {product.badge && (
+                                                                <div
+                                                                    style={{
+                                                                        ...styles.productBadge,
+                                                                        ...(product.badge === 'Sale' ? styles.saleBadge :
+                                                                            product.badge === 'New' ? styles.newBadge : styles.cartBadge)
+                                                                    }}
+                                                                >
+                                                                    {product.badge}
+                                                                </div>
+                                                            )}
+
+                                                            {/* Wishlist Button */}
+                                                            <Button
+                                                                style={styles.wishlistButton}
+                                                                className="wishlist-button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    alert(`Đã thêm ${product.name} vào danh sách yêu thích`);
+                                                                }}
+                                                                title="Thêm vào yêu thích"
+                                                            >
+                                                                <FaHeart />
+                                                            </Button>
+
+                                                            <Card.Img
+                                                                variant="top"
+                                                                src={product.image}
+                                                                style={styles.productImage}
+                                                                className="product-image"
+                                                                alt={product.name}
+                                                            />
+
+                                                            {/* Enhanced Overlay */}
+                                                            <div style={styles.productOverlay} className="product-overlay">
+                                                                <div style={styles.quickViewText} className="quick-view-text">
+                                                                    Xem nhanh sản phẩm
+                                                                </div>
+                                                                <div style={styles.productActions} className="product-actions">
+                                                                    <Button
+                                                                        style={styles.actionBtn}
+                                                                        className="action-btn"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            alert(`Đã thêm ${product.name} vào giỏ hàng`);
+                                                                        }}
+                                                                        title="Thêm vào giỏ hàng"
+                                                                    >
+                                                                        <FaShoppingCart />
+                                                                    </Button>
+                                                                    <Button
+                                                                        style={styles.actionBtn}
+                                                                        className="action-btn"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            // Quick search functionality
+                                                                        }}
+                                                                        title="Tìm kiếm tương tự"
+                                                                    >
+                                                                        <FaSearch />
+                                                                    </Button>
+                                                                    <Button
+                                                                        style={styles.actionBtn}
+                                                                        className="action-btn"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleProductClick(product);
+                                                                        }}
+                                                                        title="Xem chi tiết"
+                                                                    >
+                                                                        <FaEye />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <Card.Body style={styles.productDetails}>
+                                                            <Card.Title style={styles.productName}>{product.name}</Card.Title>
+                                                            {product.origin && (
+                                                                <p style={styles.productOrigin}>{product.origin}</p>
+                                                            )}
+                                                            <div style={styles.productPriceContainer}>
+                                                                <span style={styles.productPrice}>{product.price.toLocaleString()} VND</span>
+                                                                {product.oldPrice && (
+                                                                    <span style={styles.productOldPrice}>{product.oldPrice.toLocaleString()} VND</span>
+                                                                )}
+                                                            </div>
+                                                        </Card.Body>
+                                                    </Card>
+                                                </Col>
+                                            ))}
+                                        </Row>
+                                        {displayedProducts.length < filteredProducts.length && (
+                                            <div className="text-center mt-4 mb-5">
+                                                <Button style={styles.showMoreBtn} className="show-more-btn" onClick={loadMoreProducts}>
+                                                    Hiển thị thêm ({filteredProducts.length - displayedProducts.length} sản phẩm)
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {displayedProducts.length === filteredProducts.length && filteredProducts.length > 8 && (
+                                            <div className="text-center mt-4 mb-5">
+                                                <p style={{ color: '#666', fontSize: '14px' }}>
+                                                    Đã hiển thị tất cả {filteredProducts.length} sản phẩm
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div style={styles.noResults}>
+                                        <div style={styles.noResultsIcon}>🔍</div>
+                                        <h3>Không tìm thấy sản phẩm nào</h3>
+                                        <p>Hãy thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm</p>
+                                        <Button
+                                            style={styles.clearFiltersBtn}
+                                            className="clear-filters-btn"
+                                            onClick={clearFilters}
+                                        >
+                                            Xóa bộ lọc
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </Col>
                     </Row>
-                    <div className="text-center mt-4 mb-5">
-                        <Button style={styles.showMoreBtn} className="show-more-btn" onClick={apiGetProducts}>Show More</Button>
-                    </div>
                 </Container>
             </section>
             {/* USP Banner Section */}

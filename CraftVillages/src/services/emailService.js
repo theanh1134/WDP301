@@ -207,3 +207,32 @@ export const sendEventConfirmationEmail = async (emailData) => {
         };
     }
 };
+
+// Gửi email cảm ơn đơn hàng
+export const sendOrderThankYouEmail = async ({ email, fullName, orderId, amount, address }) => {
+    const templateParams = {
+        title: `Cảm ơn bạn đã đặt hàng - Craft Villages`,
+        name: fullName,
+        time: new Date().toLocaleTimeString('vi-VN'),
+        message: `Xin chào ${fullName},\n\nĐơn hàng của bạn ${orderId ? `(#${orderId})` : ''} đã được tiếp nhận.\nTổng tiền: ${(amount || 0).toLocaleString()} VND\nĐịa chỉ giao: ${address || ''}\n\nChúng tôi sẽ liên hệ để giao hàng sớm nhất.\n\nTrân trọng,\nCraft Villages Team`,
+        email
+    };
+
+    try {
+        if (typeof window.emailjs === 'undefined') {
+            throw new Error('EmailJS library chưa được load từ CDN');
+        }
+        await window.emailjs.send(
+            EMAILJS_CONFIG.serviceId,
+            EMAILJS_CONFIG.templateId,
+            templateParams
+        );
+        return { success: true };
+    } catch (error) {
+        console.warn('EmailJS thank-you fallback:', error?.message);
+        // Fallback mock
+        console.log('📧 THANK-YOU EMAIL MOCK');
+        console.log({ to: email, subject: templateParams.title, message: templateParams.message });
+        return { success: true, fallback: true };
+    }
+};

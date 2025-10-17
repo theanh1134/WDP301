@@ -127,7 +127,12 @@ class AuthService {
             // Store token in localStorage
             if (data.data && data.data.token) {
                 localStorage.setItem('authToken', data.data.token);
-                localStorage.setItem('user', JSON.stringify(data.data.user));
+                const userData = {
+                    ...data.data.user,
+                    _id: data.data.user.id || data.data.user._id // Ensure we have _id
+                };
+                console.log('Storing user data:', JSON.stringify(userData, null, 2));
+                localStorage.setItem('user', JSON.stringify(userData));
             }
 
             return data;
@@ -236,7 +241,44 @@ class AuthService {
         const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;
     }
+
+    async changePassword(userId, oldPassword, newPassword) {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ userId, oldPassword, newPassword })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Change password failed');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Change password error:', error);
+            throw error;
+        }
+    }
 }
 
 export default new AuthService();
+
+// Convenience helpers for profile
+export const getCurrentUserId = () => {
+    try {
+        const raw = localStorage.getItem('user');
+        if (!raw) return null;
+        const user = JSON.parse(raw);
+        return user?._id || user?.id || null;
+    } catch {
+        return null;
+    }
+};
 
