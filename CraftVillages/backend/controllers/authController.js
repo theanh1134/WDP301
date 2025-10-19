@@ -203,6 +203,20 @@ const login = async (req, res, next) => {
 
         const token = generateToken({ id: user._id });
 
+        // Nếu là seller, tìm shop của seller
+        let shopInfo = null;
+        if (user.roleId.roleName === 'seller') {
+            const Shop = require('../models/Shop');
+            const shop = await Shop.findOne({ sellerId: user._id });
+            if (shop) {
+                shopInfo = {
+                    shopId: shop._id,
+                    shopName: shop.shopName,
+                    avatarUrl: shop.avatarUrl
+                };
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: 'Login successful',
@@ -213,7 +227,8 @@ const login = async (req, res, next) => {
                     fullName: user.fullName,
                     email: user.email,
                     role: user.roleId.roleName,
-                    isEmailVerified: user.isEmailVerified
+                    isEmailVerified: user.isEmailVerified,
+                    ...(shopInfo && shopInfo) // Thêm shopId, shopName, avatarUrl nếu là seller
                 }
             }
         });

@@ -1,12 +1,103 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Form, Button, Card, ProgressBar } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Form, Button, Card, ProgressBar, Alert, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { sendVerificationEmail } from '../../services/emailService';
+import shopService from '../../services/shopService';
+import authService from '../../services/authService';
+import { toast } from 'react-toastify';
+import styled from 'styled-components';
 import 'bootstrap/dist/css/bootstrap.min.css';
+
+// Styled Components
+const StyledCard = styled(Card)`
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+`;
+
+const StyledProgressBar = styled(ProgressBar)`
+  height: 10px;
+  border-radius: 10px;
+  background-color: #f0f0f0;
+
+  .progress-bar {
+    background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+  }
+`;
+
+const StepIndicator = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin: 2rem 0;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #e0e0e0;
+    z-index: 0;
+  }
+`;
+
+const Step = styled.div`
+  flex: 1;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+`;
+
+const StepCircle = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: ${props => props.active ? 'linear-gradient(135deg, #b8860b 0%, #d4af37 100%)' : props.completed ? '#4caf50' : '#e0e0e0'};
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  box-shadow: ${props => props.active ? '0 4px 12px rgba(184, 134, 11, 0.4)' : 'none'};
+`;
+
+const StepTitle = styled.div`
+  font-size: 0.85rem;
+  font-weight: ${props => props.active ? '600' : '400'};
+  color: ${props => props.active ? '#b8860b' : '#666'};
+  margin-top: 5px;
+`;
+
+const PrimaryButton = styled(Button)`
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+  border: none;
+  padding: 12px 30px;
+  font-weight: 600;
+  border-radius: 25px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(184, 134, 11, 0.4);
+  }
+
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+`;
 
 function SellerRegistration() {
     const navigate = useNavigate();
     const [currentStep, setCurrentStep] = useState(1);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         // Step 1: Shop Information
         shopName: '',
@@ -27,10 +118,45 @@ function SellerRegistration() {
         businessDescription: '',
         categories: []
     });
-    
+
     const [isCodeSent, setIsCodeSent] = useState(false);
     const [countdown, setCountdown] = useState(0);
     const [showValidation, setShowValidation] = useState(false);
+
+    // Check if user is logged in and load user data
+    useEffect(() => {
+        const user = authService.getCurrentUser();
+        if (!user) {
+            toast.error('Vui lòng đăng nhập để đăng ký làm người bán');
+            navigate('/login');
+            return;
+        }
+        setCurrentUser(user);
+
+        // Pre-fill form with user data
+        setFormData(prev => ({
+            ...prev,
+            email: user.email || '',
+            phone: user.phoneNumber || '',
+            fullName: user.fullName || ''
+        }));
+
+        // Check if user already has a shop
+        checkExistingShop(user._id);
+    }, [navigate]);
+
+    const checkExistingShop = async (userId) => {
+        try {
+            const response = await shopService.checkUserShop(userId);
+            if (response.success && response.data) {
+                toast.info('Bạn đã có shop. Chuyển đến dashboard...');
+                setTimeout(() => navigate('/seller-dashboard'), 1500);
+            }
+        } catch (error) {
+            // No shop found, continue with registration
+            console.log('No existing shop, continue registration');
+        }
+    };
 
     const steps = [
         { number: 1, title: 'Thông tin Shop', description: 'Shop Information' },
@@ -164,12 +290,48 @@ function SellerRegistration() {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Form submitted:', formData);
-        // Here you would typically send the data to your backend
-        alert('Đăng ký thành công! Chào mừng bạn đến với cộng đồng người bán.');
-        navigate('/seller-dashboard');
+
+        if (!currentUser) {
+            toast.error('Vui lòng đăng nhập để tiếp tục');
+            navigate('/login');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            // Prepare shop data
+            const shopData = {
+                sellerId: currentUser._id,
+                shopName: formData.shopName,
+                description: formData.businessDescription || `Shop chuyên ${formData.businessType}`,
+                bannerUrl: 'https://via.placeholder.com/1200x300?text=' + encodeURIComponent(formData.shopName),
+                businessType: formData.businessType,
+                pickupAddress: formData.pickupAddress,
+                taxCode: formData.taxCode
+            };
+
+            // Register shop
+            const response = await shopService.registerShop(shopData);
+
+            if (response.success) {
+                toast.success('🎉 Đăng ký thành công! Chào mừng bạn đến với cộng đồng người bán.');
+
+                // Wait a bit then navigate to dashboard
+                setTimeout(() => {
+                    navigate('/seller-dashboard');
+                }, 2000);
+            } else {
+                toast.error(response.message || 'Đăng ký thất bại');
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            toast.error(error.message || 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại!');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const renderStepContent = () => {
@@ -419,38 +581,14 @@ function SellerRegistration() {
     const styles = {
         container: {
             minHeight: '100vh',
-            backgroundColor: '#f8f9fa',
-            padding: '2rem 0'
-        },
-        card: {
-            border: 'none',
-            borderRadius: '10px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-        },
-        progressBar: {
-            height: '8px',
-            borderRadius: '4px'
-        },
-        stepIndicator: {
-            display: 'flex',
-            justifyContent: 'space-between',
-            marginBottom: '2rem'
-        },
-        step: {
-            textAlign: 'center',
-            flex: 1
-        },
-        activeStep: {
-            color: '#dc3545',
-            fontWeight: 'bold'
-        },
-        inactiveStep: {
-            color: '#6c757d'
+            background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+            padding: '3rem 0'
         },
         buttonGroup: {
             display: 'flex',
             justifyContent: 'space-between',
-            marginTop: '2rem'
+            marginTop: '2rem',
+            gap: '1rem'
         }
     };
 
@@ -458,34 +596,44 @@ function SellerRegistration() {
         <div style={styles.container}>
             <Container>
                 <Row className="justify-content-center">
-                    <Col md={8} lg={6}>
-                        <Card style={styles.card}>
-                            <Card.Body className="p-4">
+                    <Col md={10} lg={8}>
+                        <StyledCard>
+                            <Card.Body className="p-5">
                                 <div className="text-center mb-4">
-                                    <h2 className="mb-2">Đăng ký trở thành Người bán</h2>
+                                    <h2 className="mb-2" style={{
+                                        background: 'linear-gradient(135deg, #b8860b 0%, #d4af37 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        fontWeight: 'bold',
+                                        fontSize: '2rem'
+                                    }}>
+                                        🏺 Đăng ký trở thành Người bán
+                                    </h2>
                                     <p className="text-muted">Để đăng ký bán hàng, bạn cần cung cấp một số thông tin cơ bản</p>
                                 </div>
 
                                 {/* Progress Bar */}
-                                <ProgressBar 
-                                    now={(currentStep / 5) * 100} 
-                                    style={styles.progressBar}
-                                    variant="danger"
+                                <StyledProgressBar
+                                    now={(currentStep / 5) * 100}
+                                    className="mb-4"
                                 />
 
                                 {/* Step Indicators */}
-                                <div style={styles.stepIndicator}>
+                                <StepIndicator>
                                     {steps.map((step, index) => (
-                                        <div key={step.number} style={styles.step}>
-                                            <div 
-                                                className={`${currentStep === step.number ? styles.activeStep : styles.inactiveStep}`}
+                                        <Step key={step.number}>
+                                            <StepCircle
+                                                active={currentStep === step.number}
+                                                completed={currentStep > step.number}
                                             >
-                                                <div className="fw-bold">{step.number}</div>
-                                                <div style={{ fontSize: '0.8rem' }}>{step.title}</div>
-                                            </div>
-                                        </div>
+                                                {currentStep > step.number ? '✓' : step.number}
+                                            </StepCircle>
+                                            <StepTitle active={currentStep === step.number}>
+                                                {step.title}
+                                            </StepTitle>
+                                        </Step>
                                     ))}
-                                </div>
+                                </StepIndicator>
 
                                 {/* Form Content */}
                                 <Form onSubmit={handleSubmit}>
@@ -494,37 +642,51 @@ function SellerRegistration() {
                                     {/* Navigation Buttons */}
                                     <div style={styles.buttonGroup}>
                                         {currentStep > 1 && (
-                                            <Button 
-                                                variant="outline-secondary" 
+                                            <Button
+                                                variant="outline-secondary"
                                                 onClick={prevStep}
+                                                disabled={loading}
+                                                style={{ borderRadius: '25px', padding: '10px 25px' }}
                                             >
-                                                Quay lại
+                                                ← Quay lại
                                             </Button>
                                         )}
-                                        
+
                                         <div className="ms-auto">
                                             {currentStep < 5 ? (
-                                                <Button 
-                                                    variant="danger" 
+                                                <PrimaryButton
                                                     onClick={nextStep}
-                                                    className="px-4"
+                                                    disabled={loading}
                                                 >
-                                                    Tiếp theo
-                                                </Button>
+                                                    Tiếp theo →
+                                                </PrimaryButton>
                                             ) : (
-                                                <Button 
-                                                    type="submit" 
-                                                    variant="success"
-                                                    className="px-4"
+                                                <PrimaryButton
+                                                    type="submit"
+                                                    disabled={loading}
                                                 >
-                                                    Hoàn tất đăng ký
-                                                </Button>
+                                                    {loading ? (
+                                                        <>
+                                                            <Spinner
+                                                                as="span"
+                                                                animation="border"
+                                                                size="sm"
+                                                                role="status"
+                                                                aria-hidden="true"
+                                                                className="me-2"
+                                                            />
+                                                            Đang xử lý...
+                                                        </>
+                                                    ) : (
+                                                        '✓ Hoàn tất đăng ký'
+                                                    )}
+                                                </PrimaryButton>
                                             )}
                                         </div>
                                     </div>
                                 </Form>
                             </Card.Body>
-                        </Card>
+                        </StyledCard>
                     </Col>
                 </Row>
             </Container>

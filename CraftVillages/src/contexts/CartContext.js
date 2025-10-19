@@ -101,6 +101,23 @@ export const CartProvider = ({ children }) => {
         }
     };
 
+    const toggleItemSelection = async (productId, isSelected) => {
+        if (!userId || !cart) return;
+
+        setLoading(true);
+        setError(null);
+        try {
+            const updatedCart = await cartService.toggleItemSelection(userId, productId, isSelected);
+            setCart(updatedCart);
+            return updatedCart;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const getCartTotal = () => {
         if (!cart?.items?.length) return 0;
         return cart.items.reduce((total, item) => total + (item.priceAtAdd * item.quantity), 0);
@@ -118,6 +135,7 @@ export const CartProvider = ({ children }) => {
         addToCart,
         updateQuantity,
         removeItem,
+        toggleItemSelection,
         getCartTotal,
         getCartItemsCount,
         refreshCart: fetchCart

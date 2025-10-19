@@ -4,6 +4,7 @@ import { FaSearch, FaReceipt, FaCalendarAlt, FaMoneyBillWave, FaTruck, FaCheckCi
 import Header from './Header';
 import orderService from '../services/orderService';
 import { toast } from 'react-toastify';
+import { getImageUrl } from '../utils/imageHelper';
 
 const StatusBadge = ({ status }) => {
     const map = { PENDING: 'warning', CONFIRMED: 'primary', PAID: 'success', CANCELLED: 'secondary' };
@@ -406,7 +407,7 @@ function OrderHistory() {
                                     <div key={idx} style={styles.itemRow}>
                                         <div className="d-flex align-items-center" style={{ gap: 12 }}>
                                             {it.thumbnailUrl ? (
-                                                <img src={it.thumbnailUrl} alt={it.productName} style={styles.thumb} />
+                                                <img src={getImageUrl(it.thumbnailUrl)} alt={it.productName} style={styles.thumb} />
                                             ) : (
                                                 <div style={{ ...styles.thumb, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 12 }}>No Image</div>
                                             )}
@@ -426,6 +427,25 @@ function OrderHistory() {
                                         <strong className="text-primary">{(o.finalAmount || 0).toLocaleString()} VND</strong>
                                     </div>
                                 </div>
+
+                                {/* Cancellation Reason */}
+                                {o.status === 'CANCELLED' && o.cancellationReason && (
+                                    <div className="mt-3 p-2" style={{ background: '#fff3cd', borderLeft: '4px solid #ffc107', borderRadius: 4 }}>
+                                        <div className="d-flex align-items-start gap-2">
+                                            <FaTimesCircle style={{ color: '#856404', marginTop: 2 }} />
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#856404' }}>
+                                                    Lý do hủy: {o.cancellationReason}
+                                                </div>
+                                                {o.cancelledBy && (
+                                                    <div style={{ fontSize: '0.8rem', color: '#856404', marginTop: 4 }}>
+                                                        Hủy bởi: {o.cancelledBy === 'SELLER' ? 'Người bán' : o.cancelledBy === 'BUYER' ? 'Bạn' : 'Quản trị viên'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="text-end mt-3">
                                     <a href={`/orders/${o._id}`} className="btn btn-outline-primary btn-sm">Xem chi tiết</a>
@@ -513,7 +533,7 @@ function OrderHistory() {
                                 <div className="d-flex align-items-center mb-4 p-3" style={{ backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
                                     {selectedProduct.thumbnailUrl && (
                                         <img
-                                            src={selectedProduct.thumbnailUrl}
+                                            src={getImageUrl(selectedProduct.thumbnailUrl)}
                                             alt={selectedProduct.productName}
                                             style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '6px', marginRight: '15px' }}
                                         />

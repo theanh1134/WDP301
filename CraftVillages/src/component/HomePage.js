@@ -9,6 +9,7 @@ import Header from './Header';
 import Footer from './Footer';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { getImageUrl } from '../utils/imageHelper';
 
 
 function HomePage() {
@@ -1348,7 +1349,7 @@ function HomePage() {
 
                                                             <Card.Img
                                                                 variant="top"
-                                                                src={product.image}
+                                                                src={getImageUrl(product.image)}
                                                                 style={styles.productImage}
                                                                 className="product-image"
                                                                 alt={product.name}

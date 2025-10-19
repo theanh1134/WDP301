@@ -58,6 +58,17 @@ class CartService {
         }
     }
 
+    async toggleItemSelection(userId, productId, isSelected) {
+        try {
+            const response = await axios.put(`${API_URL}/carts/${userId}/toggle-select/${productId}`, {
+                isSelected
+            });
+            return response.data.cart;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     handleError(error) {
         if (error.response) {
             // Server responded with error

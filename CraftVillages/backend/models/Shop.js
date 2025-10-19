@@ -20,7 +20,7 @@ const shopSchema = new mongoose.Schema({
     },
     bannerUrl: {
         type: String,
-        default: 'https://example.com/banner_default.jpg',
+        default: 'https://via.placeholder.com/1200x300?text=Shop+Banner',
         validate: {
             validator: function(v) {
                 // Basic URL validation
@@ -32,6 +32,22 @@ const shopSchema = new mongoose.Schema({
                 }
             },
             message: 'Invalid banner URL format'
+        }
+    },
+    avatarUrl: {
+        type: String,
+        default: 'https://via.placeholder.com/150?text=Shop',
+        validate: {
+            validator: function(v) {
+                // Basic URL validation
+                try {
+                    new URL(v);
+                    return true;
+                } catch (err) {
+                    return false;
+                }
+            },
+            message: 'Invalid avatar URL format'
         }
     },
     isActive: {
@@ -66,7 +82,17 @@ const shopSchema = new mongoose.Schema({
             type: Number,
             default: 0,
             min: 0
+        },
+        followers: {
+            type: Number,
+            default: 0,
+            min: 0
         }
+    },
+    responseTime: {
+        type: String,
+        default: 'trong vài giờ',
+        enum: ['trong vài phút', 'trong vài giờ', 'trong vài ngày']
     },
     lastActivityAt: {
         type: Date,

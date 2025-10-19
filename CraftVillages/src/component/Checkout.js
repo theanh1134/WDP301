@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { sendOrderThankYouEmail } from '../services/emailService';
 import userService from '../services/userService';
+import { getImageUrl } from '../utils/imageHelper';
 
 function Checkout() {
     const [paymentMethod, setPaymentMethod] = useState('cod');
@@ -126,6 +127,14 @@ function Checkout() {
                 return;
             }
 
+            // Kiểm tra có sản phẩm nào được chọn không
+            const selectedItems = cartDetail.items.filter(item => item.isSelected === true);
+            if (selectedItems.length === 0) {
+                alert('Vui lòng chọn ít nhất một sản phẩm để thanh toán.');
+                navigate('/cart');
+                return;
+            }
+
             const payload = {
                 fullName: formData.fullName,
                 shippingAddress: {
@@ -166,9 +175,14 @@ function Checkout() {
         }
     };
 
-    const subtotal = useMemo(() => {
-        return (cartDetail?.items || []).reduce((sum, it) => sum + (it.priceAtAdd || 0) * (it.quantity || 0), 0);
+    // Chỉ lấy items đã được chọn (isSelected = true)
+    const selectedItems = useMemo(() => {
+        return (cartDetail?.items || []).filter(item => item.isSelected === true);
     }, [cartDetail]);
+
+    const subtotal = useMemo(() => {
+        return selectedItems.reduce((sum, it) => sum + (it.priceAtAdd || 0) * (it.quantity || 0), 0);
+    }, [selectedItems]);
     const shippingFee = 0; // miễn phí giao hàng
     const total = subtotal + shippingFee;
 
@@ -366,20 +380,26 @@ function Checkout() {
                                     <Card.Body>
                                         <h4 className="mb-3">Đơn hàng của bạn</h4>
 
-                                        {(cartDetail?.items || []).map(item => (
-                                            <div key={item.productId} className="d-flex justify-content-between align-items-center mb-3">
-                                                <div className="d-flex align-items-center" style={{ gap: 12 }}>
-                                                    {item.thumbnailUrl && (
-                                                        <img src={item.thumbnailUrl} alt={item.productName} style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 6 }} />
-                                                    )}
-                                                    <div>
-                                                        <div className="fw-semibold">{item.productName}</div>
-                                                        <small className="text-muted">x {item.quantity}</small>
-                                                    </div>
-                                                </div>
-                                                <div>{(item.priceAtAdd || 0).toLocaleString()} VND</div>
+                                        {selectedItems.length === 0 ? (
+                                            <div className="text-center text-muted py-3">
+                                                Chưa có sản phẩm nào được chọn
                                             </div>
-                                        ))}
+                                        ) : (
+                                            selectedItems.map(item => (
+                                                <div key={item.productId} className="d-flex justify-content-between align-items-center mb-3">
+                                                    <div className="d-flex align-items-center" style={{ gap: 12 }}>
+                                                        {item.thumbnailUrl && (
+                                                            <img src={getImageUrl(item.thumbnailUrl)} alt={item.productName} style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 6 }} />
+                                                        )}
+                                                        <div>
+                                                            <div className="fw-semibold">{item.productName}</div>
+                                                            <small className="text-muted">x {item.quantity}</small>
+                                                        </div>
+                                                    </div>
+                                                    <div>{(item.priceAtAdd || 0).toLocaleString()} VND</div>
+                                                </div>
+                                            ))
+                                        )}
 
                                         <div className="d-flex justify-content-between mb-2 mt-2">
                                             <div className="text-muted">Tạm tính</div>

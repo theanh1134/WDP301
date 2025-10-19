@@ -31,6 +31,10 @@ const cartItemSchema = new mongoose.Schema({
         required: [true, 'Quantity is required'],
         min: [1, 'Quantity must be at least 1']
     },
+    isSelected: {
+        type: Boolean,
+        default: true // Mặc định chọn sản phẩm khi thêm vào giỏ
+    },
     addedAt: {
         type: Date,
         default: Date.now

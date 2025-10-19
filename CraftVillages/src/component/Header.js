@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar, Nav, Container, Button, Badge, Dropdown, Image } from 'react-bootstrap';
-import { FaUser, FaSearch, FaShoppingCart, FaBars } from 'react-icons/fa';
+import { FaUser, FaSearch, FaShoppingCart, FaBars, FaStore, FaComments } from 'react-icons/fa';
 import styled, { keyframes } from 'styled-components';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useCart } from '../contexts/CartContext';
 import authService from '../services/authService';
+import shopService from '../services/shopService';
+import { useNavigate } from 'react-router-dom';
 
 // Keyframes for animations
 const slideDown = keyframes`
@@ -210,10 +212,37 @@ const CartBadge = styled(Badge)`
   justify-content: center;
 `;
 
+const SellerButton = styled(Button)`
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 20px;
+  margin: 0 10px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(184, 134, 11, 0.3);
+
+  &:hover {
+    background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(184, 134, 11, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  .icon {
+    margin-right: 8px;
+  }
+`;
+
 function Header() {
   const [scrolled, setScrolled] = useState(false);
   const { cart, getCartItemsCount } = useCart();
   const [currentUser, setCurrentUser] = useState(null);
+  const navigate = useNavigate();
 
   // Handle scroll effect
   useEffect(() => {
@@ -234,6 +263,32 @@ function Header() {
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
+
+  // Handle seller channel click
+  const handleSellerChannelClick = async () => {
+    // Check if user is logged in
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      // Check if user already has a shop
+      const shopResponse = await shopService.checkUserShop(currentUser._id);
+
+      if (shopResponse.success && shopResponse.data) {
+        // User has a shop, navigate to dashboard
+        navigate('/seller-dashboard');
+      } else {
+        // User doesn't have a shop, navigate to registration
+        navigate('/seller-registration');
+      }
+    } catch (error) {
+      console.error('Error checking shop:', error);
+      // If error (likely no shop), navigate to registration
+      navigate('/seller-registration');
+    }
+  };
 
   const styles = {
     navContainer: {
@@ -276,7 +331,11 @@ function Header() {
                 <StyledNavLink href="/contact">Liên hệ</StyledNavLink>
               </Nav>
 
-          
+              {/* Seller Channel Button */}
+              <SellerButton onClick={handleSellerChannelClick}>
+                <FaStore className="icon" />
+                Kênh Người Bán
+              </SellerButton>
 
               {/* Icons on right */}
               <div style={styles.iconGroup}>
@@ -303,6 +362,11 @@ function Header() {
                 <NavIcon className="d-lg-none" title="Tìm kiếm">
                   <FaSearch />
                 </NavIcon>
+                {currentUser && (
+                  <NavIcon href='/chat' title="Tin nhắn">
+                    <FaComments />
+                  </NavIcon>
+                )}
                 <CartIcon href='/cart' title="Giỏ hàng" style={{ position: 'relative' }}>
                   <FaShoppingCart />
                   {cart?.items?.length > 0 && (

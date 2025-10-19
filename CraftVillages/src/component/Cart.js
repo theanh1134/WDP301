@@ -6,10 +6,11 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import Header from './Header';
 import Footer from './Footer';
 import { useCart } from '../contexts/CartContext';
+import { getImageUrl } from '../utils/imageHelper';
 
 function Cart() {
     const navigate = useNavigate();
-    const { cart, loading, error, updateQuantity, removeItem, getCartTotal } = useCart();
+    const { cart, loading, error, updateQuantity, removeItem, getCartTotal, toggleItemSelection } = useCart();
 
     const [promoCode, setPromoCode] = useState('');
     const [promoApplied, setPromoApplied] = useState(false);
@@ -27,15 +28,28 @@ function Cart() {
         setTimeout(() => setShowToast(false), 3000);
     };
 
-    const handleUpdateQuantity = async (productId, newQuantity) => {
+    const handleUpdateQuantity = async (productId, newQuantity, item) => {
         if (newQuantity < 1) return;
+
+        // Check stock limit
+        if (item?.stock !== undefined && newQuantity > item.stock) {
+            showNotification(`Chỉ còn ${item.stock} sản phẩm trong kho`);
+            return;
+        }
+
+        // Check maxQuantityPerOrder limit
+        if (item?.maxQuantityPerOrder !== undefined && newQuantity > item.maxQuantityPerOrder) {
+            showNotification(`Chỉ có thể mua tối đa ${item.maxQuantityPerOrder} sản phẩm với giá hiện tại`);
+            return;
+        }
 
         setUpdatingItems(prev => new Set([...prev, productId]));
         try {
             await updateQuantity(productId, newQuantity);
             showNotification('Đã cập nhật số lượng sản phẩm');
         } catch (err) {
-            showNotification('Không thể cập nhật số lượng sản phẩm');
+            const errorMsg = err.response?.data?.message || 'Không thể cập nhật số lượng sản phẩm';
+            showNotification(errorMsg);
         } finally {
             setUpdatingItems(prev => {
                 const next = new Set(prev);
@@ -71,16 +85,44 @@ function Cart() {
         }, 300);
     };
 
+    const handleToggleSelection = async (productId) => {
+        try {
+            await toggleItemSelection(productId);
+        } catch (err) {
+            showNotification('Không thể cập nhật lựa chọn');
+        }
+    };
+
+    const handleSelectAll = async () => {
+        const allSelected = cart?.items?.every(item => item.isSelected);
+        try {
+            for (const item of cart?.items || []) {
+                if (item.isSelected !== !allSelected) {
+                    await toggleItemSelection(item.productId, !allSelected);
+                }
+            }
+        } catch (err) {
+            showNotification('Không thể cập nhật lựa chọn');
+        }
+    };
+
     const getSubtotal = () => {
-        return getCartTotal();
+        // Chỉ tính tổng cho items đã chọn
+        return cart?.items
+            ?.filter(item => item.isSelected)
+            ?.reduce((sum, item) => sum + (item.priceAtAdd * item.quantity), 0) || 0;
     };
 
     const getTotal = () => {
-        return getCartTotal() - discount;
+        return getSubtotal() - discount;
     };
 
     const getItemCount = () => {
         return cart?.items?.length || 0;
+    };
+
+    const getSelectedItemCount = () => {
+        return cart?.items?.filter(item => item.isSelected)?.length || 0;
     };
 
     const getSavings = () => {
@@ -448,6 +490,14 @@ function Cart() {
                                         <Table responsive className="mb-0">
                                             <thead>
                                                 <tr>
+                                                    <th style={{...styles.tableHeader, width: '50px'}}>
+                                                        <Form.Check
+                                                            type="checkbox"
+                                                            checked={cart?.items?.every(item => item.isSelected)}
+                                                            onChange={handleSelectAll}
+                                                            aria-label="Chọn tất cả"
+                                                        />
+                                                    </th>
                                                     <th style={styles.tableHeader}>Sản phẩm</th>
                                                     <th style={styles.tableHeader}>Giá</th>
                                                     <th style={styles.tableHeader}>Số lượng</th>
@@ -465,10 +515,22 @@ function Cart() {
                                                         <tr
                                                             key={item.productId}
                                                             className={`cart-item ${removingItems.has(item.productId) ? 'removing' : ''} ${updatingItems.has(item.productId) ? 'updating' : ''}`}
+                                                            style={{
+                                                                opacity: item.isSelected ? 1 : 0.6,
+                                                                backgroundColor: item.isSelected ? 'transparent' : '#f8f9fa'
+                                                            }}
                                                         >
+                                                            <td style={{...styles.tableCell, verticalAlign: 'middle'}}>
+                                                                <Form.Check
+                                                                    type="checkbox"
+                                                                    checked={item.isSelected || false}
+                                                                    onChange={() => handleToggleSelection(item.productId)}
+                                                                    aria-label={`Chọn ${item.productName}`}
+                                                                />
+                                                            </td>
                                                             <td style={styles.tableCell}>
                                                                 <div className="d-flex align-items-center">
-                                                                    <Image src={item.thumbnailUrl} alt={item.productName} style={styles.productImage} />
+                                                                    <Image src={getImageUrl(item.thumbnailUrl)} alt={item.productName} style={styles.productImage} />
                                                                     <div className="ms-3">
                                                                         <Link to={`/products/${item.productId}`} className="text-decoration-none">
                                                                             <h6 className="mb-1">{item.productName}</h6>
@@ -491,48 +553,80 @@ function Cart() {
                                                                 </div>
                                                             </td>
                                                             <td style={styles.tableCell}>
-                                                                <InputGroup className="quantity-selector" style={styles.quantityInput}>
-                                                                    <Button
-                                                                        variant="outline-secondary"
-                                                                        size="sm"
-                                                                        className="quantity-btn"
-                                                                        onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}
-                                                                        disabled={item.quantity <= 1 || updatingItems.has(item.productId)}
-                                                                        aria-label="Giảm số lượng"
-                                                                        style={{
-                                                                            borderColor: '#b8860b',
-                                                                            color: '#b8860b'
-                                                                        }}
-                                                                    >
-                                                                        <FaMinus />
-                                                                    </Button>
-                                                                    <Form.Control
-                                                                        className="text-center border-0"
-                                                                        value={updatingItems.has(item.productId) ? '...' : item.quantity}
-                                                                        onChange={(e) => handleUpdateQuantity(item.productId, parseInt(e.target.value) || 1)}
-                                                                        aria-label="Số lượng sản phẩm"
-                                                                        min="1"
-                                                                        disabled={updatingItems.has(item.productId)}
-                                                                        style={{
-                                                                            fontWeight: '600',
-                                                                            fontSize: '1rem'
-                                                                        }}
-                                                                    />
-                                                                    <Button
-                                                                        variant="outline-secondary"
-                                                                        size="sm"
-                                                                        className="quantity-btn"
-                                                                        onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}
-                                                                        disabled={updatingItems.has(item.productId)}
-                                                                        aria-label="Tăng số lượng"
-                                                                        style={{
-                                                                            borderColor: '#b8860b',
-                                                                            color: '#b8860b'
-                                                                        }}
-                                                                    >
-                                                                        <FaPlus />
-                                                                    </Button>
-                                                                </InputGroup>
+                                                                <div>
+                                                                    <InputGroup className="quantity-selector" style={styles.quantityInput}>
+                                                                        <Button
+                                                                            variant="outline-secondary"
+                                                                            size="sm"
+                                                                            className="quantity-btn"
+                                                                            onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1, item)}
+                                                                            disabled={item.quantity <= 1 || updatingItems.has(item.productId)}
+                                                                            aria-label="Giảm số lượng"
+                                                                            style={{
+                                                                                borderColor: '#b8860b',
+                                                                                color: '#b8860b'
+                                                                            }}
+                                                                        >
+                                                                            <FaMinus />
+                                                                        </Button>
+                                                                        <Form.Control
+                                                                            className="text-center border-0"
+                                                                            value={updatingItems.has(item.productId) ? '...' : item.quantity}
+                                                                            onChange={(e) => handleUpdateQuantity(item.productId, parseInt(e.target.value) || 1, item)}
+                                                                            aria-label="Số lượng sản phẩm"
+                                                                            min="1"
+                                                                            max={item.maxQuantityPerOrder || item.stock || 999}
+                                                                            disabled={updatingItems.has(item.productId)}
+                                                                            style={{
+                                                                                fontWeight: '600',
+                                                                                fontSize: '1rem'
+                                                                            }}
+                                                                        />
+                                                                        <Button
+                                                                            variant="outline-secondary"
+                                                                            size="sm"
+                                                                            className="quantity-btn"
+                                                                            onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1, item)}
+                                                                            disabled={
+                                                                                updatingItems.has(item.productId) ||
+                                                                                (item.maxQuantityPerOrder && item.quantity >= item.maxQuantityPerOrder) ||
+                                                                                (item.stock && item.quantity >= item.stock)
+                                                                            }
+                                                                            aria-label="Tăng số lượng"
+                                                                            style={{
+                                                                                borderColor: '#b8860b',
+                                                                                color: '#b8860b',
+                                                                                opacity: (item.maxQuantityPerOrder && item.quantity >= item.maxQuantityPerOrder) ||
+                                                                                        (item.stock && item.quantity >= item.stock) ? 0.5 : 1
+                                                                            }}
+                                                                        >
+                                                                            <FaPlus />
+                                                                        </Button>
+                                                                    </InputGroup>
+
+                                                                    {/* Show stock warning */}
+                                                                    {item.maxQuantityPerOrder && item.maxQuantityPerOrder < (item.stock || 0) && (
+                                                                        <div style={{
+                                                                            fontSize: '0.75rem',
+                                                                            color: '#ff6b6b',
+                                                                            marginTop: '4px'
+                                                                        }}>
+                                                                            Tối đa {item.maxQuantityPerOrder} sp/đơn
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Show out of stock warning */}
+                                                                    {item.stock === 0 && (
+                                                                        <div style={{
+                                                                            fontSize: '0.75rem',
+                                                                            color: '#dc3545',
+                                                                            marginTop: '4px',
+                                                                            fontWeight: 'bold'
+                                                                        }}>
+                                                                            Hết hàng
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                             <td style={styles.tableCell}>
                                                                 <strong>{(+item?.priceAtAdd * +item?.quantity).toLocaleString()} VND</strong>
@@ -604,8 +698,14 @@ function Cart() {
                                     <Card.Body style={styles.summaryCard}>
                                         <h3 style={styles.summaryTitle}>Tổng giỏ hàng</h3>
 
+                                        {getSelectedItemCount() < getItemCount() && (
+                                            <Alert variant="info" className="py-2 mb-3" style={{fontSize: '0.9rem'}}>
+                                                Đã chọn {getSelectedItemCount()}/{getItemCount()} sản phẩm
+                                            </Alert>
+                                        )}
+
                                         <div style={styles.summaryRow}>
-                                            <span>Tạm tính ({getItemCount()} sản phẩm)</span>
+                                            <span>Tạm tính ({getSelectedItemCount()} sản phẩm)</span>
                                             <span>{getSubtotal().toLocaleString()} VND</span>
                                         </div>
 
@@ -634,6 +734,7 @@ function Cart() {
                                         <Button
                                             style={styles.checkoutButton}
                                             href="/checkout"
+                                            disabled={getSelectedItemCount() === 0}
                                             className="hover-effect"
                                         >
                                             Thanh toán

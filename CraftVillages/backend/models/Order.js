@@ -151,6 +151,20 @@ const orderSchema = new mongoose.Schema({
         type: String,
         enum: ['PENDING', 'PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'],
         default: 'PENDING'
+    },
+    cancellationReason: {
+        type: String,
+        default: null,
+        trim: true
+    },
+    cancelledBy: {
+        type: String,
+        enum: ['BUYER', 'SELLER', 'ADMIN', null],
+        default: null
+    },
+    cancelledAt: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true
@@ -193,7 +207,7 @@ orderSchema.pre('save', function (next) {
 // Utility methods
 orderSchema.methods.updateStatus = async function (newStatus, reason = '') {
     const validTransitions = {
-        PENDING: ['PROCESSING', 'CANCELLED'],
+        PENDING: ['PROCESSING', 'CONFIRMED', 'CANCELLED'],  // ✅ Cho phép skip PROCESSING
         PROCESSING: ['CONFIRMED', 'CANCELLED'],
         CONFIRMED: ['SHIPPED', 'CANCELLED'],
         SHIPPED: ['DELIVERED', 'CANCELLED'],

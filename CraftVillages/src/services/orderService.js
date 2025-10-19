@@ -23,6 +23,41 @@ class OrderService {
         return res.data.data;
     }
 
+    // Seller order management
+    async getOrdersByShop(shopId, params = {}) {
+        const token = localStorage.getItem('authToken');
+        const queryParams = new URLSearchParams(params).toString();
+        const res = await axios.get(`${API_URL}/orders/shop/${shopId}?${queryParams}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return res.data;
+    }
+
+    async getOrderStatistics(shopId) {
+        const token = localStorage.getItem('authToken');
+        const res = await axios.get(`${API_URL}/orders/shop/${shopId}/statistics`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return res.data.data;
+    }
+
+    async updateOrderStatus(orderId, status, note = '', cancellationReason = null) {
+        const token = localStorage.getItem('authToken');
+        const res = await axios.put(`${API_URL}/orders/${orderId}/status`,
+            { status, note, cancellationReason },
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            }
+        );
+        return res.data;
+    }
+
     async cancelOrder(orderId) {
         const token = localStorage.getItem('authToken');
         console.log('Token for cancel order:', token ? 'Token exists' : 'No token found');

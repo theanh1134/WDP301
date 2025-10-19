@@ -66,6 +66,11 @@ const inventoryBatchSchema = new mongoose.Schema({
         required: [true, 'Cost price is required'],
         min: [0, 'Cost price must be non-negative']
     },
+    sellingPrice: {
+        type: Number,
+        required: false, // Optional - will use product's sellingPrice if not set
+        min: [0, 'Selling price must be non-negative']
+    },
     receivedDate: {
         type: Date,
         required: [true, 'Received date is required'],
@@ -136,14 +141,50 @@ productSchema.index({ categoryId: 1, 'moderation.status': 1 });
 productSchema.index({ productName: 'text', description: 'text' });
 
 productSchema.virtual('totalQuantityAvailable').get(function() {
+    if (!this.inventoryBatches || !Array.isArray(this.inventoryBatches)) return 0;
     return this.inventoryBatches.reduce((total, batch) => total + batch.quantityRemaining, 0);
 });
 
 productSchema.virtual('averageCostPrice').get(function() {
-    const totalCost = this.inventoryBatches.reduce((sum, batch) => 
+    if (!this.inventoryBatches || !Array.isArray(this.inventoryBatches)) return 0;
+    const totalCost = this.inventoryBatches.reduce((sum, batch) =>
         sum + (batch.costPrice * batch.quantityRemaining), 0);
     const totalQuantity = this.totalQuantityAvailable;
     return totalQuantity > 0 ? totalCost / totalQuantity : 0;
+});
+
+// Virtual field: Display price for customers (FIFO - oldest batch price)
+productSchema.virtual('displayPrice').get(function() {
+    if (!this.inventoryBatches || !Array.isArray(this.inventoryBatches)) return this.sellingPrice;
+    // Find the oldest batch with remaining quantity
+    const availableBatches = this.inventoryBatches
+        .filter(batch => batch.quantityRemaining > 0)
+        .sort((a, b) => new Date(a.receivedDate) - new Date(b.receivedDate));
+
+    if (availableBatches.length > 0) {
+        // Return selling price of oldest batch, fallback to product's sellingPrice
+        return availableBatches[0].sellingPrice || this.sellingPrice;
+    }
+
+    // No stock - return product's default selling price
+    return this.sellingPrice;
+});
+
+// Virtual field: Price range (min - max) for display
+productSchema.virtual('priceRange').get(function() {
+    if (!this.inventoryBatches || !Array.isArray(this.inventoryBatches)) return null;
+    const availableBatches = this.inventoryBatches
+        .filter(batch => batch.quantityRemaining > 0);
+
+    if (availableBatches.length === 0) {
+        return { min: this.sellingPrice, max: this.sellingPrice };
+    }
+
+    const prices = availableBatches.map(b => b.sellingPrice || this.sellingPrice);
+    return {
+        min: Math.min(...prices),
+        max: Math.max(...prices)
+    };
 });
 
 productSchema.set('toJSON', { virtuals: true });

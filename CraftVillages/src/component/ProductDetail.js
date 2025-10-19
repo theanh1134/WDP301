@@ -7,17 +7,20 @@ import {
   FaStar,
   FaStarHalfAlt,
   FaRegStar,
+  FaComments,
 } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Header from "./Header";
 import Footer from "./Footer";
 import UspBanner from "./USPBanner";
+import ShopInfo from "./ShopInfo";
 import axios from "axios";
 import authService from '../services/authService';
 import { toast } from 'react-toastify';
 import { useCart } from '../contexts/CartContext';
 import reviewService from '../services/reviewService';
+import { getImageUrl } from '../utils/imageHelper';
 
 function ProductDetail() {
   const { id } = useParams();
@@ -28,6 +31,7 @@ function ProductDetail() {
   const [reviews, setReviews] = useState([]); // State cho reviews
   const [loadingReviews, setLoadingReviews] = useState(false); // Loading state cho reviews
   const [reviewStats, setReviewStats] = useState({ totalReviews: 0, averageRating: 0 }); // Stats cho reviews
+  const [selectedImage, setSelectedImage] = useState(null); // State cho ảnh được chọn
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,6 +50,7 @@ function ProductDetail() {
           ...data,
           tags: Array.isArray(data.tags) ? data.tags : [],
         });
+        setSelectedImage(null); // Reset về ảnh chính khi chuyển sản phẩm
       } catch (err) {
         console.error("Error fetching product detail:", err);
         if (err.response?.status === 404) {
@@ -111,7 +116,17 @@ function ProductDetail() {
     loadReviews();
   }, [id]);
 
-  const increaseQuantity = () => setQuantity((prev) => prev + 1);
+  const increaseQuantity = () => {
+    const maxQty = productDetail?.maxQuantityPerOrder || productDetail?.stock || 999;
+    setQuantity((prev) => {
+      if (prev >= maxQty) {
+        toast.warning(`số lượng sản phẩm chỉ còn ${maxQty}  với giá hiện tại (${(productDetail?.displayPrice || 0).toLocaleString()}đ)`);
+        return prev;
+      }
+      return prev + 1;
+    });
+  };
+
   const decreaseQuantity = () =>
     setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
 
@@ -164,8 +179,8 @@ function ProductDetail() {
         productId: id,
         shopId: productDetail.shopId || "68edaeaf7bddb31f3e0ed6f4",
         productName: productDetail.name,
-        thumbnailUrl: productDetail.image,
-        priceAtAdd: productDetail.price,
+        thumbnailUrl: getImageUrl(productDetail.image),
+        priceAtAdd: productDetail.displayPrice || productDetail.price,
         quantity: quantity,
       };
 
@@ -538,29 +553,60 @@ function ProductDetail() {
             <Col md={1} className="d-none d-md-block">
               <div style={styles.thumbnailContainer}>
                 <img
-                  src={productDetail?.image}
+                  src={getImageUrl(productDetail?.image)}
                   alt={productDetail?.name}
-                  style={{ ...styles.thumbnail, ...styles.thumbnailActive }}
+                  style={{
+                    ...styles.thumbnail,
+                    ...(selectedImage === null ? styles.thumbnailActive : {})
+                  }}
+                  onClick={() => setSelectedImage(null)}
                 />
                 {productDetail?.additionalImages &&
                   productDetail?.additionalImages.map((image, index) => (
                     <img
                       key={index}
-                      src={image}
+                      src={getImageUrl(image)}
                       alt={`${productDetail?.name} ${index + 1}`}
-                      style={styles.thumbnail}
+                      style={{
+                        ...styles.thumbnail,
+                        ...(selectedImage === index ? styles.thumbnailActive : {})
+                      }}
+                      onClick={() => setSelectedImage(index)}
                     />
                   ))}
               </div>
             </Col>
 
             {/* Main Product Image */}
-            <Col md={5}>
+            <Col md={5} style={{ position: 'relative' }}>
               <img
-                src={productDetail?.image}
+                src={
+                  selectedImage === null || !productDetail?.additionalImages?.[selectedImage]
+                    ? getImageUrl(productDetail?.image)
+                    : getImageUrl(productDetail?.additionalImages[selectedImage])
+                }
                 alt={productDetail?.name}
                 style={styles.productImage}
               />
+
+              {/* Out of Stock Badge */}
+              {(!productDetail?.stock || productDetail.stock === 0 || productDetail.maxQuantityPerOrder === 0) && (
+                <div style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                  zIndex: 10
+                }}>
+                  HẾT HÀNG
+                </div>
+              )}
             </Col>
 
             {/* Product Info */}
@@ -576,12 +622,28 @@ function ProductDetail() {
 
               <div style={{ marginBottom: "20px" }}>
                 <span style={styles.productPrice}>
-                  {((productDetail?.price || 0) * quantity).toLocaleString()} VND
+                  {((productDetail?.displayPrice || productDetail?.price || 0) * quantity).toLocaleString()} VND
                 </span>
                 {productDetail?.oldPrice && (
                   <span style={styles.productOldPrice}>
                     {((productDetail?.oldPrice || 0) * quantity).toLocaleString()} VND
                   </span>
+                )}
+                {/* Price range warning if prices vary */}
+                {productDetail?.priceRange &&
+                 productDetail.priceRange.min !== productDetail.priceRange.max && (
+                  <div style={{
+                    fontSize: '0.85rem',
+                    color: '#ff6b6b',
+                    marginTop: '8px',
+                    padding: '8px 12px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '4px',
+                    border: '1px solid #ffc107'
+                  }}>
+                    ⚠️ Giá có thể thay đổi từ {productDetail.priceRange.min.toLocaleString()} VND
+                    đến {productDetail.priceRange.max.toLocaleString()} VND tùy theo tồn kho
+                  </div>
                 )}
               </div>
 
@@ -591,41 +653,131 @@ function ProductDetail() {
               </p>
 
               <div style={styles.quantityControl}>
-                <button style={styles.quantityBtn} onClick={decreaseQuantity}>
+                <button
+                  style={{
+                    ...styles.quantityBtn,
+                    opacity: (!productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
+                    cursor: (!productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'pointer'
+                  }}
+                  onClick={decreaseQuantity}
+                  disabled={!productDetail?.stock || productDetail.stock === 0}
+                >
                   -
                 </button>
                 <input
                   type="number"
                   value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                  style={styles.quantityInput}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 1;
+                    const maxQty = productDetail?.maxQuantityPerOrder || productDetail?.stock || 999;
+                    if (value > maxQty) {
+                      toast.warning(`số lượng sản phẩm chỉ còn ${maxQty}  với giá hiện tại (${(productDetail?.displayPrice || 0).toLocaleString()}đ)`);
+                      setQuantity(maxQty);
+                    } else {
+                      setQuantity(value);
+                    }
+                  }}
+                  style={{
+                    ...styles.quantityInput,
+                    opacity: (!productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
+                    cursor: (!productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'text'
+                  }}
                   min="1"
+                  max={productDetail?.maxQuantityPerOrder || productDetail?.stock || 999}
+                  disabled={!productDetail?.stock || productDetail.stock === 0}
                 />
-                <button style={styles.quantityBtn} onClick={increaseQuantity}>
+                <button
+                  style={{
+                    ...styles.quantityBtn,
+                    opacity: (!productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
+                    cursor: (!productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'pointer'
+                  }}
+                  onClick={increaseQuantity}
+                  disabled={!productDetail?.stock || productDetail.stock === 0}
+                >
                   +
                 </button>
               </div>
 
+              {/* Show max quantity warning */}
+              {productDetail?.maxQuantityPerOrder &&
+               productDetail.maxQuantityPerOrder < (productDetail?.stock || 0) && (
+                <div style={{
+                  fontSize: '0.85rem',
+                  color: '#ff6b6b',
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: '#fff3cd',
+                  borderRadius: '4px',
+                  border: '1px solid #ffc107'
+                }}>
+                  ⚠️ Tối đa {productDetail.maxQuantityPerOrder} sản phẩm/đơn với giá {(productDetail?.displayPrice || 0).toLocaleString()}đ.
+                  Còn {productDetail.stock - productDetail.maxQuantityPerOrder} sản phẩm với giá khác.
+                </div>
+              )}
+
               <div style={{ marginBottom: "30px" }}>
-                <Button
-                  style={styles.addToCartBtn}
-                  className="add-to-cart-btn"
-                  onClick={handleAddToCart}
-                  disabled={addingToCart}
-                >
-                  {addingToCart ? 'Adding...' : 'Add To Cart'}
-                </Button>
+                {/* Check if product is out of stock */}
+                {(!productDetail?.stock || productDetail.stock === 0 || productDetail.maxQuantityPerOrder === 0) ? (
+                  <div style={{
+                    padding: '15px 30px',
+                    backgroundColor: '#f8d7da',
+                    color: '#721c24',
+                    border: '2px solid #f5c6cb',
+                    borderRadius: '8px',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    marginBottom: '15px'
+                  }}>
+                    ❌ Sản phẩm đã hết hàng
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      style={styles.addToCartBtn}
+                      className="add-to-cart-btn"
+                      onClick={handleAddToCart}
+                      disabled={addingToCart}
+                    >
+                      {addingToCart ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
+                    </Button>
+                    <Button
+                      style={{
+                        ...styles.addToCartBtn,
+                        background: '#fff',
+                        color: '#b8860b',
+                        border: '2px solid #b8860b',
+                        marginLeft: '10px'
+                      }}
+                      onClick={() => {
+                        const user = authService.getCurrentUser();
+                        if (!user) {
+                          toast.warning("Vui lòng đăng nhập để chat với shop");
+                          navigate("/login");
+                          return;
+                        }
+                        navigate('/chat', { state: { shopId: productDetail.shopId, productId: productDetail._id } });
+                      }}
+                    >
+                      <FaComments style={{ marginRight: '8px' }} />
+                      Chat với shop
+                    </Button>
+                  </>
+                )}
+
                 {error && (
                   <div className="text-danger mt-2">
                     {error}
                   </div>
                 )}
+
                 <Button
                   style={styles.compareBtn}
                   className="compare-btn"
                   onClick={handleCompare}
                 >
-                  + Compare
+                  + So sánh
                 </Button>
               </div>
 
@@ -667,42 +819,34 @@ function ProductDetail() {
           </Row>
         </div>
 
+        {/* Shop Info Section */}
+        <Container style={{ marginTop: '30px', marginBottom: '30px' }}>
+          <ShopInfo shop={productDetail?.shop} />
+        </Container>
+
         {/* Tabs Section */}
         <div style={styles.tabsContainer}>
           <Tabs defaultActiveKey="description" id="product-tabs">
             <Tab eventKey="description" title="Chi Tiết">
               <div style={styles.tabContent}>
                 <p style={styles.productDetailText}>
-                  {productDetail?.longDescription ||
-                    `Nón lá Việt Nam truyền thống là một sản phẩm điêu khắc tinh tế, chắc mảnh, tỉ mỉ được công dân Việt Nam làm thủ công theo triết lý âm dương ngũ hành.
-                                
-                    Mỗi chiếc nón lá Việt được làm thủ công qua nhiều công đoạn: chọn lá, phơi lá, xếp lá, may, căng, chụp, chà và cuối cùng là vẽ. Nhờ vào đôi bàn tay khéo léo của các nghệ nhân và sử dụng 100% nguyên liệu tự nhiên, chúng tôi làm ra một chiếc nón lá truyền thống chắc mảnh, tỉ mỉ, chứa đựng cả tâm hồn dân tộc.`}
+                  {productDetail?.description || 'Chưa có mô tả chi tiết cho sản phẩm này.'}
                 </p>
-                <Row>
-                  <Col md={6}>
-                    <img
-                      src={
-                        productDetail?.additionalImages
-                          ? productDetail?.additionalImages[0]
-                          : "/images/non-la-detail1.jpg"
-                      }
-                      alt={`${productDetail?.name} - Chi tiết 1`}
-                      style={styles.productDetailImage}
-                    />
-                  </Col>
-                  <Col md={6}>
-                    <img
-                      src={
-                        productDetail?.additionalImages
-                          ? productDetail?.additionalImages[1] ||
-                          productDetail?.additionalImages[0]
-                          : "/images/non-la-detail2.jpg"
-                      }
-                      alt={`${productDetail?.name} - Chi tiết 2`}
-                      style={styles.productDetailImage}
-                    />
-                  </Col>
-                </Row>
+
+                {/* Hiển thị tất cả ảnh sản phẩm */}
+                {productDetail?.images && productDetail.images.length > 0 && (
+                  <Row>
+                    {productDetail.images.map((imageUrl, index) => (
+                      <Col md={6} key={index} className="mb-3">
+                        <img
+                          src={getImageUrl(imageUrl)}
+                          alt={`${productDetail?.name} - Hình ${index + 1}`}
+                          style={styles.productDetailImage}
+                        />
+                      </Col>
+                    ))}
+                  </Row>
+                )}
               </div>
             </Tab>
             <Tab eventKey="additional" title="Thông tin bổ sung">
