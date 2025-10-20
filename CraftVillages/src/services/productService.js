@@ -93,6 +93,21 @@ class ProductService {
         }
     }
 
+    // Get products by shop
+    async getProductsByShop(shopId) {
+        try {
+            const response = await axios.get(`${API_URL}/products`, {
+                params: {
+                    shopId: shopId
+                }
+            });
+            return response.data.data; // Return { products: [...], currentPage, totalPages, etc }
+        } catch (error) {
+            console.error('Get products by shop error:', error);
+            throw error.response?.data || error;
+        }
+    }
+
     // Update product
     async updateProduct(productId, productData) {
         try {

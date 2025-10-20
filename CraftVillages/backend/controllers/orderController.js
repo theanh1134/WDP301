@@ -895,6 +895,164 @@ const getShopAnalytics = async (req, res) => {
   }
 };
 
+// Get analytics for a specific product
+const getProductAnalytics = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { timeRange = '30days' } = req.query;
+
+    const Product = require('../models/Product');
+    const mongoose = require('mongoose');
+
+    // Check if product exists
+    const product = await Product.findById(productId).lean();
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    // Calculate date range
+    const now = new Date();
+    let startDate = new Date();
+
+    switch (timeRange) {
+      case 'today':
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case '7days':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30days':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case 'all':
+        startDate = new Date(0);
+        break;
+    }
+
+    // Get orders containing this product
+    const orders = await Order.find({
+      'items.productId': new mongoose.Types.ObjectId(productId),
+      createdAt: { $gte: startDate }
+    }).lean();
+
+    // Calculate metrics
+    let totalRevenue = 0;
+    let totalQuantity = 0;
+    const orderStats = {
+      total: 0,
+      delivered: 0,
+      processing: 0,
+      cancelled: 0
+    };
+    const recentOrders = [];
+
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        if (item.productId.toString() === productId) {
+          totalRevenue += item.priceAtPurchase * item.quantity;
+          totalQuantity += item.quantity;
+
+          orderStats.total++;
+          if (order.status === 'DELIVERED') {
+            orderStats.delivered++;
+          } else if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+            orderStats.cancelled++;
+          } else {
+            orderStats.processing++;
+          }
+
+          recentOrders.push({
+            orderId: order._id,
+            date: order.createdAt,
+            quantity: item.quantity,
+            amount: item.priceAtPurchase * item.quantity,
+            status: order.status
+          });
+        }
+      });
+    });
+
+    // Sort recent orders by date
+    recentOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const top10RecentOrders = recentOrders.slice(0, 10);
+
+    // Generate chart data
+    const chartData = [];
+    const dataPoints = timeRange === 'today' ? 24 : timeRange === '7days' ? 7 : timeRange === '30days' ? 30 : 12;
+
+    for (let i = 0; i < dataPoints; i++) {
+      let periodStart, periodEnd, periodName;
+
+      if (timeRange === 'today') {
+        periodStart = new Date(startDate);
+        periodStart.setHours(i, 0, 0, 0);
+        periodEnd = new Date(periodStart);
+        periodEnd.setHours(i + 1, 0, 0, 0);
+        periodName = `${i}:00`;
+      } else if (timeRange === '7days' || timeRange === '30days') {
+        periodStart = new Date(startDate);
+        periodStart.setDate(startDate.getDate() + i);
+        periodStart.setHours(0, 0, 0, 0);
+        periodEnd = new Date(periodStart);
+        periodEnd.setHours(23, 59, 59, 999);
+        periodName = `${periodStart.getDate()}/${periodStart.getMonth() + 1}`;
+      } else {
+        periodStart = new Date(now.getFullYear(), i, 1);
+        periodEnd = new Date(now.getFullYear(), i + 1, 0, 23, 59, 59, 999);
+        periodName = `T${i + 1}`;
+      }
+
+      let periodRevenue = 0;
+      let periodQuantity = 0;
+
+      orders.forEach(order => {
+        const orderDate = new Date(order.createdAt);
+        if (orderDate >= periodStart && orderDate <= periodEnd) {
+          order.items.forEach(item => {
+            if (item.productId.toString() === productId) {
+              periodRevenue += item.priceAtPurchase * item.quantity;
+              periodQuantity += item.quantity;
+            }
+          });
+        }
+      });
+
+      chartData.push({
+        name: periodName,
+        revenue: periodRevenue,
+        quantity: periodQuantity
+      });
+    }
+
+    // Calculate conversion rate
+    const views = product.views || 0;
+    const conversionRate = views > 0 ? ((orderStats.total / views) * 100).toFixed(2) : 0;
+
+    res.json({
+      success: true,
+      data: {
+        revenue: totalRevenue,
+        quantitySold: totalQuantity,
+        views: views,
+        conversionRate: parseFloat(conversionRate),
+        orderStats,
+        chartData,
+        recentOrders: top10RecentOrders
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching product analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch product analytics',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   checkout,
   getOrdersByUser,
@@ -904,5 +1062,6 @@ module.exports = {
   updateOrderStatus,
   getOrderStatistics,
   getShopRevenue,
-  getShopAnalytics
+  getShopAnalytics,
+  getProductAnalytics
 };

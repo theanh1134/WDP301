@@ -18,6 +18,7 @@ import AddInventoryModal from './AddInventoryModal';
 import OrderManagement from './OrderManagement';
 import Revenue from './Revenue';
 import Analytics from './Analytics';
+import ProductAnalytics from './ProductAnalytics';
 
 // Styled Components
 const DashboardWrapper = styled.div`
@@ -499,6 +500,7 @@ function SellerDashboard() {
         productManagement: false,
         marketing: false,
         finance: false,
+        analytics: false,
         customerCare: false,
         settings: false
     });
@@ -743,13 +745,27 @@ function SellerDashboard() {
 
                 {/* Dữ Liệu */}
                 <MenuSection>
-                    <MenuItem
-                        active={activeMenu === 'analytics'}
-                        onClick={() => handleMenuClick('analytics')}
-                    >
+                    <MenuItem onClick={() => toggleMenu('analytics')}>
                         <FaChartLine />
-                        <span>Dữ Liệu</span>
+                        <span style={{ flex: 1 }}>Dữ Liệu</span>
+                        {expandedMenus.analytics ? <FaChevronDown /> : <FaChevronRight />}
                     </MenuItem>
+                    {expandedMenus.analytics && (
+                        <>
+                            <SubMenuItem
+                                active={activeMenu === 'analytics'}
+                                onClick={() => handleMenuClick('analytics')}
+                            >
+                                <span>Tổng quan</span>
+                            </SubMenuItem>
+                            <SubMenuItem
+                                active={activeMenu === 'product-analytics'}
+                                onClick={() => handleMenuClick('product-analytics')}
+                            >
+                                <span>Phân tích sản phẩm</span>
+                            </SubMenuItem>
+                        </>
+                    )}
                 </MenuSection>
 
                 {/* Chăm Sóc Khách Hàng */}
@@ -975,6 +991,11 @@ function SellerDashboard() {
                         // Analytics View
                         <>
                             <Analytics shopId={shopData?._id} />
+                        </>
+                    ) : activeMenu === 'product-analytics' ? (
+                        // Product Analytics View
+                        <>
+                            <ProductAnalytics shopId={shopData?._id} />
                         </>
                     ) : (
                         // Orders Management View - NEW

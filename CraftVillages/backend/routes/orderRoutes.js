@@ -9,7 +9,8 @@ const {
   updateOrderStatus,
   getOrderStatistics,
   getShopRevenue,
-  getShopAnalytics
+  getShopAnalytics,
+  getProductAnalytics
 } = require("../controllers/orderController");
 const { auth } = require("../middleware/auth");
 
@@ -24,6 +25,7 @@ router.get("/shop/:shopId", auth, getOrdersByShop);
 router.get("/shop/:shopId/statistics", auth, getOrderStatistics);
 router.get("/shop/:shopId/revenue", auth, getShopRevenue);
 router.get("/shop/:shopId/analytics", auth, getShopAnalytics);
+router.get("/product/:productId/analytics", auth, getProductAnalytics);
 router.put("/:orderId/status", auth, updateOrderStatus);
 
 module.exports = router;

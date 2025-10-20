@@ -67,6 +67,16 @@ class OrderService {
         return res.data.data;
     }
 
+    async getProductAnalytics(productId, timeRange = '30days') {
+        const token = localStorage.getItem('authToken');
+        const res = await axios.get(`${API_URL}/orders/product/${productId}/analytics?timeRange=${timeRange}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return res.data;
+    }
+
     async updateOrderStatus(orderId, status, note = '', cancellationReason = null) {
         const token = localStorage.getItem('authToken');
         const res = await axios.put(`${API_URL}/orders/${orderId}/status`,
