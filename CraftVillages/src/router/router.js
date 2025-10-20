@@ -22,6 +22,8 @@ import OrderHistory from '../component/OrderHistory';
 import OrderStatus from '../component/OrderStatus';
 import ShopProducts from '../component/ShopProducts';
 import ChatPage from '../component/Chat/ChatPage';
+import StaffSeller from '../component/SellerStaff/StaffSeller';
+import StaffLayout from '../component/SellerStaff/StaffLayout';
 
 // Create router with future flags enabled
 export const router = createBrowserRouter(
@@ -91,6 +93,9 @@ export const router = createBrowserRouter(
                     </ProtectedRoute>
                 }
             />
+            <Route path="/staff-seller" element={<StaffLayout/>}>
+                <Route path="" element={<StaffSeller/>}/>
+            </Route>
         </Route>
     ),
     {
