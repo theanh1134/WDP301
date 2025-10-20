@@ -148,6 +148,30 @@ function ChatPage() {
     const [loading, setLoading] = useState(true);
     const [socket, setSocket] = useState(null);
 
+    // Notification sound
+    const playNotificationSound = () => {
+        try {
+            // Create a simple beep sound using Web Audio API
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (error) {
+            console.log('Could not play notification sound:', error);
+        }
+    };
+
     // Initialize Socket.IO
     useEffect(() => {
         const newSocket = io('http://localhost:9999', {
@@ -199,6 +223,25 @@ function ChatPage() {
                     };
                 } else {
                     // It's from other person, add it
+                    // Show notification for new message
+                    const senderName = senderInfo?.name || 'Người dùng';
+                    const messagePreview = data.message?.content || '[Hình ảnh]';
+                    const preview = messagePreview.length > 50
+                        ? messagePreview.substring(0, 50) + '...'
+                        : messagePreview;
+
+                    // Play notification sound
+                    playNotificationSound();
+
+                    toast.success(`💬 ${senderName}: ${preview}`, {
+                        position: "top-right",
+                        autoClose: 4000,
+                        hideProgressBar: false,
+                        closeOnClick: true,
+                        pauseOnHover: true,
+                        draggable: true
+                    });
+
                     return {
                         ...prev,
                         messages: [...prev.messages, data.message],
@@ -212,6 +255,33 @@ function ChatPage() {
         // Listen for new message notifications
         newSocket.on('new-message-notification', (data) => {
             console.log('🔔 New message notification:', data);
+
+            // Play notification sound
+            playNotificationSound();
+
+            // Show toast notification
+            const senderName = data.sender?.name || 'Người dùng';
+            const messagePreview = data.message?.content || '[Hình ảnh]';
+            const preview = messagePreview.length > 50
+                ? messagePreview.substring(0, 50) + '...'
+                : messagePreview;
+
+            toast.info(`💬 ${senderName}: ${preview}`, {
+                position: "top-right",
+                autoClose: 5000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+                onClick: () => {
+                    // Navigate to the conversation when clicking the notification
+                    const conversation = conversations.find(c => c._id === data.conversationId);
+                    if (conversation) {
+                        setSelectedConversation(conversation);
+                    }
+                }
+            });
+
             loadConversations();
         });
 

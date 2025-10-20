@@ -16,6 +16,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import axios from 'axios';
 import AddInventoryModal from './AddInventoryModal';
 import OrderManagement from './OrderManagement';
+import Revenue from './Revenue';
+import Analytics from './Analytics';
 
 // Styled Components
 const DashboardWrapper = styled.div`
@@ -741,7 +743,10 @@ function SellerDashboard() {
 
                 {/* Dữ Liệu */}
                 <MenuSection>
-                    <MenuItem>
+                    <MenuItem
+                        active={activeMenu === 'analytics'}
+                        onClick={() => handleMenuClick('analytics')}
+                    >
                         <FaChartLine />
                         <span>Dữ Liệu</span>
                     </MenuItem>
@@ -960,6 +965,16 @@ function SellerDashboard() {
                                     )}
                                 </Card.Body>
                             </ContentCard>
+                        </>
+                    ) : activeMenu === 'revenue' ? (
+                        // Revenue Management View
+                        <>
+                            <Revenue shopId={shopData?._id} />
+                        </>
+                    ) : activeMenu === 'analytics' ? (
+                        // Analytics View
+                        <>
+                            <Analytics shopId={shopData?._id} />
                         </>
                     ) : (
                         // Orders Management View - NEW

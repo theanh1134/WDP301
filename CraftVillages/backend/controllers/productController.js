@@ -406,6 +406,13 @@ const getDetailProduct = async (req, res) => {
     try {
         const productId = req.params.id;
 
+        // Increment view count
+        await Product.findByIdAndUpdate(
+            productId,
+            { $inc: { views: 1 } },
+            { new: true }
+        );
+
         const product = await Product.aggregate([
             {
                 $match: {

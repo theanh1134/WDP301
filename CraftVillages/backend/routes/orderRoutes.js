@@ -7,7 +7,9 @@ const {
   cancelOrder,
   getOrdersByShop,
   updateOrderStatus,
-  getOrderStatistics
+  getOrderStatistics,
+  getShopRevenue,
+  getShopAnalytics
 } = require("../controllers/orderController");
 const { auth } = require("../middleware/auth");
 
@@ -20,6 +22,8 @@ router.put("/:orderId/cancel", auth, cancelOrder);
 // Seller order management routes
 router.get("/shop/:shopId", auth, getOrdersByShop);
 router.get("/shop/:shopId/statistics", auth, getOrderStatistics);
+router.get("/shop/:shopId/revenue", auth, getShopRevenue);
+router.get("/shop/:shopId/analytics", auth, getShopAnalytics);
 router.put("/:orderId/status", auth, updateOrderStatus);
 
 module.exports = router;

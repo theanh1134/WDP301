@@ -226,13 +226,13 @@ function ShopInfo({ shop }) {
                     </div>
                 </Col>
                 <Col xs={4}>
-                    <div style={styles.statItem}>
-                        <div style={styles.statLabel}>Thời gian phản hồi</div>
-                        <div style={styles.statValue} style={{ fontSize: '12px' }}>
-                            {shop.responseTime || 'trong vài giờ'}
-                        </div>
-                    </div>
-                </Col>
+    <div style={styles.statItem}>
+        <div style={styles.statLabel}>Thời gian phản hồi</div>
+        <div style={{ ...styles.statValue, fontSize: '12px' }}>
+            {shop.responseTime || 'trong vài giờ'}
+        </div>
+    </div>
+</Col>
                 <Col xs={4}>
                     <div style={styles.statItem}>
                         <div style={styles.statLabel}>Người theo dõi</div>

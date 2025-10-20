@@ -131,6 +131,11 @@ const productSchema = new mongoose.Schema({
     inventoryBatches: {
         type: [inventoryBatchSchema],
         default: []
+    },
+    views: {
+        type: Number,
+        default: 0,
+        min: [0, 'Views must be non-negative']
     }
 }, {
     timestamps: true

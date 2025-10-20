@@ -45,6 +45,28 @@ class OrderService {
         return res.data.data;
     }
 
+    async getShopRevenue(shopId, params = {}) {
+        const token = localStorage.getItem('authToken');
+        const queryParams = new URLSearchParams(params).toString();
+        const res = await axios.get(`${API_URL}/orders/shop/${shopId}/revenue?${queryParams}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return res.data.data;
+    }
+
+    async getShopAnalytics(shopId, params = {}) {
+        const token = localStorage.getItem('authToken');
+        const queryParams = new URLSearchParams(params).toString();
+        const res = await axios.get(`${API_URL}/orders/shop/${shopId}/analytics?${queryParams}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return res.data.data;
+    }
+
     async updateOrderStatus(orderId, status, note = '', cancellationReason = null) {
         const token = localStorage.getItem('authToken');
         const res = await axios.put(`${API_URL}/orders/${orderId}/status`,
