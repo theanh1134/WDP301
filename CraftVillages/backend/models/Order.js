@@ -49,6 +49,10 @@ const orderItemSchema = new mongoose.Schema({
         required: [true, 'Product name is required'],
         trim: true
     },
+    thumbnailUrl: {
+        type: String,
+        default: ''
+    },
     quantity: {
         type: Number,
         required: [true, 'Quantity is required'],
@@ -82,7 +86,7 @@ const paymentInfoSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['PENDING', 'PAID', 'HELD_IN_ESCROW', 'REFUNDED', 'FAILED'],
+        enum: ['PENDING', 'PAID', 'HELD_IN_ESCROW', 'REFUNDED', 'FAILED', 'CANCELLED'],
         required: [true, 'Payment status is required']
     },
     transactionId: {
@@ -112,7 +116,7 @@ const orderSchema = new mongoose.Schema({
         required: true,
         validate: [
             {
-                validator: function(items) {
+                validator: function (items) {
                     return items && items.length > 0;
                 },
                 message: 'Order must contain at least one item'
@@ -147,6 +151,20 @@ const orderSchema = new mongoose.Schema({
         type: String,
         enum: ['PENDING', 'PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'],
         default: 'PENDING'
+    },
+    cancellationReason: {
+        type: String,
+        default: null,
+        trim: true
+    },
+    cancelledBy: {
+        type: String,
+        enum: ['BUYER', 'SELLER', 'ADMIN', null],
+        default: null
+    },
+    cancelledAt: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true
@@ -158,7 +176,7 @@ orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ 'paymentInfo.transactionId': 1 }, { unique: true });
 
 // Pre-save hook to validate amounts
-orderSchema.pre('save', function(next) {
+orderSchema.pre('save', function (next) {
     // Calculate expected subtotal
     const calculatedSubtotal = this.items.reduce((sum, item) => {
         return sum + (item.priceAtPurchase * item.quantity);
@@ -187,9 +205,9 @@ orderSchema.pre('save', function(next) {
 });
 
 // Utility methods
-orderSchema.methods.updateStatus = async function(newStatus, reason = '') {
+orderSchema.methods.updateStatus = async function (newStatus, reason = '') {
     const validTransitions = {
-        PENDING: ['PROCESSING', 'CANCELLED'],
+        PENDING: ['PROCESSING', 'CONFIRMED', 'CANCELLED'],  // ✅ Cho phép skip PROCESSING
         PROCESSING: ['CONFIRMED', 'CANCELLED'],
         CONFIRMED: ['SHIPPED', 'CANCELLED'],
         SHIPPED: ['DELIVERED', 'CANCELLED'],
@@ -203,7 +221,7 @@ orderSchema.methods.updateStatus = async function(newStatus, reason = '') {
     }
 
     this.status = newStatus;
-    
+
     // Handle payment status updates
     if (newStatus === 'DELIVERED') {
         this.paymentInfo.status = 'PAID';
@@ -215,7 +233,7 @@ orderSchema.methods.updateStatus = async function(newStatus, reason = '') {
     return this.save();
 };
 
-orderSchema.methods.calculateProfit = function() {
+orderSchema.methods.calculateProfit = function () {
     return this.items.reduce((profit, item) => {
         const itemProfit = (item.priceAtPurchase - item.costPriceAtPurchase) * item.quantity;
         return profit + itemProfit;
@@ -223,7 +241,7 @@ orderSchema.methods.calculateProfit = function() {
 };
 
 // Static method to get user's order history
-orderSchema.statics.getUserOrders = function(userId, status = null) {
+orderSchema.statics.getUserOrders = function (userId, status = null) {
     const query = { 'buyerInfo.userId': userId };
     if (status) {
         query.status = status;

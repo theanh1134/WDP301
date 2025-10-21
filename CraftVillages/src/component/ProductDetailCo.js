@@ -7,6 +7,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import Header from './Header';
 import Footer from './Footer';
 import UspBanner from './USPBanner';
+import { getImageUrl } from '../utils/imageHelper';
 function ProductDetail({ product, onBack }) {
     const [quantity, setQuantity] = useState(1);
     const navigate = useNavigate();
@@ -408,16 +409,16 @@ function ProductDetail({ product, onBack }) {
                     {/* Thumbnails */}
                     <Col md={1} className="d-none d-md-block">
                         <div style={styles.thumbnailContainer}>
-                            <img 
-                                src={product.image} 
-                                alt={product.name} 
+                            <img
+                                src={getImageUrl(product.image)}
+                                alt={product.name}
                                 style={{...styles.thumbnail, ...styles.thumbnailActive}}
                             />
                             {product.additionalImages && product.additionalImages.map((image, index) => (
-                                <img 
+                                <img
                                     key={index}
-                                    src={image} 
-                                    alt={`${product.name} ${index + 1}`} 
+                                    src={getImageUrl(image)}
+                                    alt={`${product.name} ${index + 1}`}
                                     style={styles.thumbnail}
                                 />
                             ))}
@@ -426,9 +427,9 @@ function ProductDetail({ product, onBack }) {
 
                     {/* Main Product Image */}
                     <Col md={5}>
-                        <img 
-                            src={product.image} 
-                            alt={product.name} 
+                        <img
+                            src={getImageUrl(product.image)}
+                            alt={product.name}
                             style={styles.productImage}
                         />
                     </Col>

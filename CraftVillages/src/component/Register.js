@@ -1,18 +1,20 @@
 // Register.js
 import React, { useState } from 'react';
 import { Container, Form, Button, InputGroup, Alert } from 'react-bootstrap';
-import { FaEye, FaEyeSlash, FaEnvelope, FaLock, FaUser, FaPhone, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaEnvelope, FaLock, FaUser, FaPhone, FaMapMarkerAlt, FaStore, FaTag, FaShoppingCart, FaUserTie } from 'react-icons/fa';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Header from './Header';
+import Footer from './Footer';
 import authService from '../services/authService';
 import EmailVerification from './EmailVerification';
 // Import hình ảnh
+import pic1 from '../assets/images/pic1.png';
 import pic2 from '../assets/images/login.jpg';
 
 function Register() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [accountType] = useState('buyer');
+    const [accountType, setAccountType] = useState('buyer');
     const [validated, setValidated] = useState(false);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +26,8 @@ function Register() {
         email: '',
         phoneNumber: '',
         address: '',
+        shopName: '',
+        businessType: '',
         password: '',
         confirmPassword: ''
     });
@@ -64,6 +68,11 @@ function Register() {
                 return;
             }
 
+            // Validate seller-specific fields
+            if (accountType === 'seller' && (!formData.shopName || !formData.businessType)) {
+                setError('Vui lòng nhập đầy đủ thông tin cửa hàng!');
+                return;
+            }
 
             setIsLoading(true);
 
@@ -74,7 +83,11 @@ function Register() {
                     phoneNumber: formData.phoneNumber,
                     address: formData.address,
                     password: formData.password,
-                    accountType: accountType
+                    accountType: accountType,
+                    ...(accountType === 'seller' && {
+                        shopName: formData.shopName,
+                        businessType: formData.businessType
+                    })
                 };
 
                 const response = await authService.register(userData);
@@ -115,6 +128,15 @@ function Register() {
         setRegisteredEmail('');
     };
 
+    const businessTypes = [
+        'Thủ công mỹ nghệ',
+        'Gốm sứ',
+        'Dệt may - Lụa',
+        'Mây tre đan',
+        'Nón lá',
+        'Mộc mỹ nghệ',
+        'Khác'
+    ];
 
     const styles = {
         container: {
@@ -202,6 +224,64 @@ function Register() {
             color: '#666',
             marginBottom: '30px'
         },
+        accountTypeContainer: {
+            marginBottom: '25px',
+            padding: '15px',
+            background: '#f9f9f9',
+            borderRadius: '8px',
+            border: '1px solid #ddd'
+        },
+        accountTypeLabel: {
+            fontSize: '16px',
+            fontWeight: '600',
+            marginBottom: '10px',
+            color: '#333'
+        },
+        radioGroup: {
+            display: 'flex',
+            gap: '20px',
+            justifyContent: 'center'
+        },
+        radioItem: {
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            cursor: 'pointer',
+            padding: '15px 20px',
+            borderRadius: '8px',
+            border: '2px solid transparent',
+            transition: 'all 0.3s ease',
+            minWidth: '120px'
+        },
+        radioItemSelected: {
+            border: '2px solid #e74c3c',
+            backgroundColor: '#fff5f5'
+        },
+        radioInput: {
+            marginBottom: '8px',
+            accentColor: '#e74c3c',
+            transform: 'scale(1.2)'
+        },
+        radioIcon: {
+            fontSize: '24px',
+            marginBottom: '8px',
+            color: '#666',
+            transition: 'all 0.3s ease'
+        },
+        radioIconSelected: {
+            color: '#e74c3c'
+        },
+        radioLabel: {
+            fontSize: '14px',
+            color: '#555',
+            cursor: 'pointer',
+            fontWeight: '500',
+            textAlign: 'center'
+        },
+        radioLabelSelected: {
+            color: '#e74c3c',
+            fontWeight: '600'
+        },
         formControl: {
             height: '50px',
             fontSize: '16px',
@@ -269,6 +349,25 @@ function Register() {
             textDecoration: 'none',
             marginLeft: '5px'
         },
+        sellerFieldsContainer: {
+            marginTop: '20px',
+            padding: '20px',
+            background: '#f0f8ff',
+            borderRadius: '8px',
+            border: '1px solid #b3d9ff'
+        },
+        sellerFieldsTitle: {
+            fontSize: '16px',
+            fontWeight: '600',
+            color: '#333',
+            marginBottom: '15px',
+            display: 'flex',
+            alignItems: 'center'
+        },
+        sellerIcon: {
+            marginRight: '8px',
+            color: '#e74c3c'
+        }
     };
 
     if (showEmailVerification) {
@@ -315,6 +414,50 @@ function Register() {
                         )}
 
                         <Form noValidate validated={validated} onSubmit={handleSubmit}>
+                            {/* Account Type Selection */}
+                            <div style={styles.accountTypeContainer}>
+                                
+                                <div style={styles.radioGroup}>
+                                    <div
+                                        style={{
+                                            ...styles.radioItem,
+                                            ...(accountType === 'buyer' ? styles.radioItemSelected : {})
+                                        }}
+                                        onClick={() => setAccountType('buyer')}
+                                    >
+                                        <input
+                                            type="radio"
+                                            id="buyer"
+                                            name="accountType"
+                                            value="buyer"
+                                            checked={accountType === 'buyer'}
+                                            onChange={(e) => setAccountType(e.target.value)}
+                                            style={styles.radioInput}
+                                        />
+                                        <FaShoppingCart
+                                            style={{
+                                                ...styles.radioIcon,
+                                                ...(accountType === 'buyer' ? styles.radioIconSelected : {})
+                                            }}
+                                        />
+                                        <label htmlFor="buyer" style={{
+                                            ...styles.radioLabel,
+                                            ...(accountType === 'buyer' ? styles.radioLabelSelected : {})
+                                        }}></label>
+                                    </div>
+                                    <div
+                                        style={{
+                                            ...styles.radioItem,
+                                            ...(accountType === 'seller' ? styles.radioItemSelected : {})
+                                        }}
+                                        onClick={() => setAccountType('seller')}
+                                    >
+                                        
+                                        
+                                        
+                                    </div>
+                                </div>
+                            </div>
 
                             {/* Full Name */}
                             <Form.Group className="mb-4">
@@ -440,6 +583,81 @@ function Register() {
                                 </Form.Control.Feedback>
                             </Form.Group>
 
+                            {/* Seller-specific fields */}
+                            {accountType === 'seller' && (
+                                <div style={styles.sellerFieldsContainer}>
+                                    <div style={styles.sellerFieldsTitle}>
+                                        <FaStore style={styles.sellerIcon} />
+                                        Thông tin cửa hàng
+                                    </div>
+
+                                    {/* Shop Name */}
+                                    <Form.Group className="mb-3">
+                                        <InputGroup>
+                                            <InputGroup.Text style={{
+                                                background: '#f9f9f9',
+                                                border: '1px solid #ddd',
+                                                borderRight: 'none',
+                                                borderRadius: '8px 0 0 8px'
+                                            }}>
+                                                <FaStore style={styles.inputIcon} />
+                                            </InputGroup.Text>
+                                            <Form.Control
+                                                type="text"
+                                                placeholder="Tên cửa hàng"
+                                                name="shopName"
+                                                value={formData.shopName}
+                                                onChange={handleChange}
+                                                required
+                                                style={{
+                                                    ...styles.formControl,
+                                                    borderRadius: '0 8px 8px 0',
+                                                    marginBottom: 0,
+                                                    borderLeft: 'none'
+                                                }}
+                                            />
+                                        </InputGroup>
+                                        <Form.Control.Feedback type="invalid">
+                                            Vui lòng nhập tên cửa hàng.
+                                        </Form.Control.Feedback>
+                                    </Form.Group>
+
+                                    {/* Business Type */}
+                                    <Form.Group className="mb-3">
+                                        <InputGroup>
+                                            <InputGroup.Text style={{
+                                                background: '#f9f9f9',
+                                                border: '1px solid #ddd',
+                                                borderRight: 'none',
+                                                borderRadius: '8px 0 0 8px'
+                                            }}>
+                                                <FaTag style={styles.inputIcon} />
+                                            </InputGroup.Text>
+                                            <Form.Select
+                                                name="businessType"
+                                                value={formData.businessType}
+                                                onChange={handleChange}
+                                                required
+                                                style={{
+                                                    ...styles.formControl,
+                                                    borderRadius: '0 8px 8px 0',
+                                                    marginBottom: 0,
+                                                    borderLeft: 'none',
+                                                    backgroundColor: '#f9f9f9'
+                                                }}
+                                            >
+                                                <option value="">Chọn loại hình kinh doanh</option>
+                                                {businessTypes.map((type, index) => (
+                                                    <option key={index} value={type}>{type}</option>
+                                                ))}
+                                            </Form.Select>
+                                        </InputGroup>
+                                        <Form.Control.Feedback type="invalid">
+                                            Vui lòng chọn loại hình kinh doanh.
+                                        </Form.Control.Feedback>
+                                    </Form.Group>
+                                </div>
+                            )}
 
                             {/* Password */}
                             <Form.Group className="mb-4">
@@ -582,6 +800,7 @@ function Register() {
             `}</style>
 
             </Container>
+
         </>
     );
 }

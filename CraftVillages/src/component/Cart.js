@@ -1,48 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Container, Row, Col, Table, Button, Form, Image, Card, InputGroup, Alert, Toast } from 'react-bootstrap';
 import { FaTrash, FaArrowLeft, FaShoppingBag, FaTruck, FaUndo, FaShieldAlt, FaHeart, FaTags, FaGift, FaPlus, FaMinus, FaCheckCircle } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Header from './Header';
 import Footer from './Footer';
-import axios from 'axios';
+import { useCart } from '../contexts/CartContext';
+import { getImageUrl } from '../utils/imageHelper';
 
 function Cart() {
-    const [cartDetail, setCartDetail] = useState({})
-    const [cartItems, setCartItems] = useState([
-        {
-            id: 1,
-            name: 'Nón lá Huế',
-            image: 'https://i.pinimg.com/736x/b5/96/d4/b596d46dabe0bc0e1271a366fa4e45eb.jpg',
-            price: 80000,
-            originalPrice: 100000,
-            quantity: 1,
-            total: 80000,
-            inStock: true,
-            category: 'Nón lá',
-            material: 'Lá cọ, tre',
-            origin: 'Huế',
-            weight: '200g',
-            size: 'M (56-58cm)',
-            description: 'Nón lá Huế truyền thống được làm thủ công từ lá cọ và khung tre'
-        },
-        {
-            id: 2,
-            name: 'Nón lá truyền thống',
-            image: 'https://i.pinimg.com/1200x/4f/54/4d/4f544d2d569a546d345bc89699699691.jpg',
-            price: 120000,
-            originalPrice: 120000,
-            quantity: 1,
-            total: 120000,
-            inStock: true,
-            category: 'Nón lá',
-            material: 'Lá cọ, tre',
-            origin: 'Quảng Nam',
-            weight: '180g',
-            size: 'L (58-60cm)',
-            description: 'Nón lá truyền thống với thiết kế tinh tế và bền đẹp'
-        }
-    ]);
+    const navigate = useNavigate();
+    const { cart, loading, error, updateQuantity, removeItem, getCartTotal, toggleItemSelection } = useCart();
 
     const [promoCode, setPromoCode] = useState('');
     const [promoApplied, setPromoApplied] = useState(false);
@@ -52,28 +20,6 @@ function Cart() {
     const [updatingItems, setUpdatingItems] = useState(new Set());
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-
-    useEffect(() => {
-        getApiDetail();
-    },[])
-
-    const getApiDetail = async () => {
-
-    const value = localStorage.getItem("user");
-    const user = value ? JSON.parse(value) : null;
-
-    const a = "68ecbfd70c4c63b9aa2fe139"
-      try {
-        const res = await axios.get(`http://localhost:9999/carts/${a}`);
-        const data = res.data.cart;
-        console.log(res.data.cart)
-        setCartDetail(data);
-      } catch (err) {
-        console.error("Error fetching product detail:", err);
-      }
-      
-    };
 
     // Enhanced functions with animations
     const showNotification = (message) => {
@@ -82,56 +28,108 @@ function Cart() {
         setTimeout(() => setShowToast(false), 3000);
     };
 
-    const updateQuantity = async (id, newQuantity) => {
-        const payload = {
-            userId: cartDetail.userId, productId:id, quantity: newQuantity
+    const handleUpdateQuantity = async (productId, newQuantity, item) => {
+        if (newQuantity < 1) return;
+
+        // Check stock limit
+        if (item?.stock !== undefined && newQuantity > item.stock) {
+            showNotification(`Chỉ còn ${item.stock} sản phẩm trong kho`);
+            return;
         }
 
-        const res = await axios.put(`http://localhost:9999/carts/quantity`, payload);
+        // Check maxQuantityPerOrder limit
+        if (item?.maxQuantityPerOrder !== undefined && newQuantity > item.maxQuantityPerOrder) {
+            showNotification(`Chỉ có thể mua tối đa ${item.maxQuantityPerOrder} sản phẩm với giá hiện tại`);
+            return;
+        }
 
-        if (res.status === 200) {
-            getApiDetail();
+        setUpdatingItems(prev => new Set([...prev, productId]));
+        try {
+            await updateQuantity(productId, newQuantity);
             showNotification('Đã cập nhật số lượng sản phẩm');
-
+        } catch (err) {
+            const errorMsg = err.response?.data?.message || 'Không thể cập nhật số lượng sản phẩm';
+            showNotification(errorMsg);
+        } finally {
+            setUpdatingItems(prev => {
+                const next = new Set(prev);
+                next.delete(productId);
+                return next;
+            });
         }
     };
 
-    const removeItem = async (id) => {
-        const res = await axios.delete(`http://localhost:9999/carts/${cartDetail.userId}/item/${id}`);
-
-        // Animate removal
-        if(res.status === 200) {
-            getApiDetail();
-            showNotification(`Đã xóa khỏi giỏ hàng`);
+    const handleRemoveItem = async (productId) => {
+        setRemovingItems(prev => new Set([...prev, productId]));
+        try {
+            await removeItem(productId);
+            showNotification('Đã xóa khỏi giỏ hàng');
+        } catch (err) {
+            showNotification('Không thể xóa sản phẩm');
+        } finally {
+            setRemovingItems(prev => {
+                const next = new Set(prev);
+                next.delete(productId);
+                return next;
+            });
         }
     };
 
-    const moveToWishlist = (id) => {
-        const item = cartItems.find(item => item.productId === id);
-        setRemovingItems(prev => new Set([...prev, id]));
+    const moveToWishlist = (productId) => {
+        const item = cart?.items?.find(item => item.productId === productId);
+        setRemovingItems(prev => new Set([...prev, productId]));
 
         setTimeout(() => {
-            removeItem(id);
-            showNotification(`Đã thêm ${item?.name} vào danh sách yêu thích`);
+            handleRemoveItem(productId);
+            showNotification(`Đã thêm ${item?.productName} vào danh sách yêu thích`);
         }, 300);
     };
 
+    const handleToggleSelection = async (productId) => {
+        try {
+            await toggleItemSelection(productId);
+        } catch (err) {
+            showNotification('Không thể cập nhật lựa chọn');
+        }
+    };
+
+    const handleSelectAll = async () => {
+        const allSelected = cart?.items?.every(item => item.isSelected);
+        try {
+            for (const item of cart?.items || []) {
+                if (item.isSelected !== !allSelected) {
+                    await toggleItemSelection(item.productId, !allSelected);
+                }
+            }
+        } catch (err) {
+            showNotification('Không thể cập nhật lựa chọn');
+        }
+    };
+
     const getSubtotal = () => {
-        return cartItems.reduce((sum, item) => sum + item.total, 0);
+        // Chỉ tính tổng cho items đã chọn
+        return cart?.items
+            ?.filter(item => item.isSelected)
+            ?.reduce((sum, item) => sum + (item.priceAtAdd * item.quantity), 0) || 0;
     };
 
     const getTotal = () => {
-        const subtotal = getSubtotal();
-        return subtotal - discount;
+        return getSubtotal() - discount;
     };
 
     const getItemCount = () => {
-        // return cartItems.reduce((count, item) => count + item.quantity, 0);
+        return cart?.items?.length || 0;
+    };
+
+    const getSelectedItemCount = () => {
+        return cart?.items?.filter(item => item.isSelected)?.length || 0;
     };
 
     const getSavings = () => {
-        return cartItems.reduce((sum, item) => {
-            const originalTotal = item.originalPrice * item.quantity;
+        if (!cart?.items) return 0;
+        return cart.items.reduce((sum, item) => {
+            // Assuming original price is stored in the product data
+            const originalTotal = (item.originalPrice || item.priceAtAdd) * item.quantity;
             const currentTotal = item.priceAtAdd * item.quantity;
             return sum + (originalTotal - currentTotal);
         }, 0) + discount;
@@ -454,14 +452,24 @@ function Cart() {
                 </div>
 
                 <Container>
-                    {cartDetail?.items?.length === 0 ? (
+                    {loading ? (
+                        <div className="text-center py-5">
+                            <div className="spinner-border text-primary" role="status">
+                                <span className="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    ) : error ? (
+                        <div className="alert alert-danger" role="alert">
+                            {error}
+                        </div>
+                    ) : !cart?.items?.length ? (
                         <div style={styles.emptyCartContainer}>
                             <div style={styles.emptyCartIcon}>
                                 <FaShoppingBag />
                             </div>
                             <h3>Giỏ hàng của bạn đang trống</h3>
                             <p className="mb-4 text-muted">Thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm</p>
-                            <Link to="/products">
+                            <Link to="/">
                                 <Button variant="primary" size="lg">
                                     Tiếp tục mua sắm
                                 </Button>
@@ -471,7 +479,7 @@ function Cart() {
                         <Row>
                             <Col lg={8} className="mb-4">
                                 <div className="d-flex justify-content-between align-items-center mb-4">
-                                    <h4 className="mb-0">Giỏ hàng của bạn ({cartDetail?.items?.length} sản phẩm)</h4>
+                                    <h4 className="mb-0">Giỏ hàng của bạn ({cart?.items?.length || 0} sản phẩm)</h4>
                                     <Link to="/products" style={styles.continueShoppingBtn}>
                                         <FaArrowLeft style={{ marginRight: '8px' }} /> Tiếp tục mua sắm
                                     </Link>
@@ -482,6 +490,14 @@ function Cart() {
                                         <Table responsive className="mb-0">
                                             <thead>
                                                 <tr>
+                                                    <th style={{...styles.tableHeader, width: '50px'}}>
+                                                        <Form.Check
+                                                            type="checkbox"
+                                                            checked={cart?.items?.every(item => item.isSelected)}
+                                                            onChange={handleSelectAll}
+                                                            aria-label="Chọn tất cả"
+                                                        />
+                                                    </th>
                                                     <th style={styles.tableHeader}>Sản phẩm</th>
                                                     <th style={styles.tableHeader}>Giá</th>
                                                     <th style={styles.tableHeader}>Số lượng</th>
@@ -490,7 +506,7 @@ function Cart() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {cartDetail?.items?.map(item => {
+                                                {cart?.items?.map(item => {
                                                     {/* const discountPercent = item.originalPrice > item.priceAtAdd
                                                         ? Math.round((1 - item.priceAtAdd / item.originalPrice) * 100)
                                                         : 0; */}
@@ -499,10 +515,22 @@ function Cart() {
                                                         <tr
                                                             key={item.productId}
                                                             className={`cart-item ${removingItems.has(item.productId) ? 'removing' : ''} ${updatingItems.has(item.productId) ? 'updating' : ''}`}
+                                                            style={{
+                                                                opacity: item.isSelected ? 1 : 0.6,
+                                                                backgroundColor: item.isSelected ? 'transparent' : '#f8f9fa'
+                                                            }}
                                                         >
+                                                            <td style={{...styles.tableCell, verticalAlign: 'middle'}}>
+                                                                <Form.Check
+                                                                    type="checkbox"
+                                                                    checked={item.isSelected || false}
+                                                                    onChange={() => handleToggleSelection(item.productId)}
+                                                                    aria-label={`Chọn ${item.productName}`}
+                                                                />
+                                                            </td>
                                                             <td style={styles.tableCell}>
                                                                 <div className="d-flex align-items-center">
-                                                                    <Image src={item.thumbnailUrl} alt={item.productName} style={styles.productImage} />
+                                                                    <Image src={getImageUrl(item.thumbnailUrl)} alt={item.productName} style={styles.productImage} />
                                                                     <div className="ms-3">
                                                                         <Link to={`/products/${item.productId}`} className="text-decoration-none">
                                                                             <h6 className="mb-1">{item.productName}</h6>
@@ -517,65 +545,97 @@ function Cart() {
                                                                 <div>
                                                                     <span>{item.priceAtAdd?.toLocaleString()} VND</span>
                                                                     {/* {discountPercent > 0 && ( */}
-                                                                        <>
-                                                                            {/* <span style={styles.discountedPrice}>{item.priceAtAddAtAdd.toLocaleString()} VND</span> */}
-                                                                            {/* <span style={styles.discountBadge}>-{discountPercent}%</span> */}
-                                                                        </>
+                                                                    <>
+                                                                        {/* <span style={styles.discountedPrice}>{item.priceAtAddAtAdd.toLocaleString()} VND</span> */}
+                                                                        {/* <span style={styles.discountBadge}>-{discountPercent}%</span> */}
+                                                                    </>
                                                                     {/* )} */}
                                                                 </div>
                                                             </td>
                                                             <td style={styles.tableCell}>
-                                                                <InputGroup className="quantity-selector" style={styles.quantityInput}>
-                                                                    <Button
-                                                                        variant="outline-secondary"
-                                                                        size="sm"
-                                                                        className="quantity-btn"
-                                                                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                                                                        disabled={item.quantity <= 1 || updatingItems.has(item.productId)}
-                                                                        aria-label="Giảm số lượng"
-                                                                        style={{
-                                                                            borderColor: '#b8860b',
-                                                                            color: '#b8860b'
-                                                                        }}
-                                                                    >
-                                                                        <FaMinus />
-                                                                    </Button>
-                                                                    <Form.Control
-                                                                        className="text-center border-0"
-                                                                        value={updatingItems.has(item.productId) ? '...' : item.quantity}
-                                                                        onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value) || 1)}
-                                                                        aria-label="Số lượng sản phẩm"
-                                                                        min="1"
-                                                                        disabled={updatingItems.has(item.productId)}
-                                                                        style={{
-                                                                            fontWeight: '600',
-                                                                            fontSize: '1rem'
-                                                                        }}
-                                                                    />
-                                                                    <Button
-                                                                        variant="outline-secondary"
-                                                                        size="sm"
-                                                                        className="quantity-btn"
-                                                                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                                                                        disabled={updatingItems.has(item.productId)}
-                                                                        aria-label="Tăng số lượng"
-                                                                        style={{
-                                                                            borderColor: '#b8860b',
-                                                                            color: '#b8860b'
-                                                                        }}
-                                                                    >
-                                                                        <FaPlus />
-                                                                    </Button>
-                                                                </InputGroup>
+                                                                <div>
+                                                                    <InputGroup className="quantity-selector" style={styles.quantityInput}>
+                                                                        <Button
+                                                                            variant="outline-secondary"
+                                                                            size="sm"
+                                                                            className="quantity-btn"
+                                                                            onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1, item)}
+                                                                            disabled={item.quantity <= 1 || updatingItems.has(item.productId)}
+                                                                            aria-label="Giảm số lượng"
+                                                                            style={{
+                                                                                borderColor: '#b8860b',
+                                                                                color: '#b8860b'
+                                                                            }}
+                                                                        >
+                                                                            <FaMinus />
+                                                                        </Button>
+                                                                        <Form.Control
+                                                                            className="text-center border-0"
+                                                                            value={updatingItems.has(item.productId) ? '...' : item.quantity}
+                                                                            onChange={(e) => handleUpdateQuantity(item.productId, parseInt(e.target.value) || 1, item)}
+                                                                            aria-label="Số lượng sản phẩm"
+                                                                            min="1"
+                                                                            max={item.maxQuantityPerOrder || item.stock || 999}
+                                                                            disabled={updatingItems.has(item.productId)}
+                                                                            style={{
+                                                                                fontWeight: '600',
+                                                                                fontSize: '1rem'
+                                                                            }}
+                                                                        />
+                                                                        <Button
+                                                                            variant="outline-secondary"
+                                                                            size="sm"
+                                                                            className="quantity-btn"
+                                                                            onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1, item)}
+                                                                            disabled={
+                                                                                updatingItems.has(item.productId) ||
+                                                                                (item.maxQuantityPerOrder && item.quantity >= item.maxQuantityPerOrder) ||
+                                                                                (item.stock && item.quantity >= item.stock)
+                                                                            }
+                                                                            aria-label="Tăng số lượng"
+                                                                            style={{
+                                                                                borderColor: '#b8860b',
+                                                                                color: '#b8860b',
+                                                                                opacity: (item.maxQuantityPerOrder && item.quantity >= item.maxQuantityPerOrder) ||
+                                                                                        (item.stock && item.quantity >= item.stock) ? 0.5 : 1
+                                                                            }}
+                                                                        >
+                                                                            <FaPlus />
+                                                                        </Button>
+                                                                    </InputGroup>
+
+                                                                    {/* Show stock warning */}
+                                                                    {item.maxQuantityPerOrder && item.maxQuantityPerOrder < (item.stock || 0) && (
+                                                                        <div style={{
+                                                                            fontSize: '0.75rem',
+                                                                            color: '#ff6b6b',
+                                                                            marginTop: '4px'
+                                                                        }}>
+                                                                            Tối đa {item.maxQuantityPerOrder} sp/đơn
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Show out of stock warning */}
+                                                                    {item.stock === 0 && (
+                                                                        <div style={{
+                                                                            fontSize: '0.75rem',
+                                                                            color: '#dc3545',
+                                                                            marginTop: '4px',
+                                                                            fontWeight: 'bold'
+                                                                        }}>
+                                                                            Hết hàng
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                             <td style={styles.tableCell}>
-                                                                <strong>{(+item?.priceAtAdd *+item?.quantity ).toLocaleString()} VND</strong>
+                                                                <strong>{(+item?.priceAtAdd * +item?.quantity).toLocaleString()} VND</strong>
                                                             </td>
                                                             <td style={styles.tableCell}>
                                                                 <div className="d-flex flex-column align-items-center">
                                                                     <button
                                                                         style={styles.removeButton}
-                                                                        onClick={() => removeItem(item.productId)}
+                                                                        onClick={() => handleRemoveItem(item.productId)}
                                                                         aria-label="Xóa sản phẩm"
                                                                     >
                                                                         <FaTrash />
@@ -638,8 +698,14 @@ function Cart() {
                                     <Card.Body style={styles.summaryCard}>
                                         <h3 style={styles.summaryTitle}>Tổng giỏ hàng</h3>
 
+                                        {getSelectedItemCount() < getItemCount() && (
+                                            <Alert variant="info" className="py-2 mb-3" style={{fontSize: '0.9rem'}}>
+                                                Đã chọn {getSelectedItemCount()}/{getItemCount()} sản phẩm
+                                            </Alert>
+                                        )}
+
                                         <div style={styles.summaryRow}>
-                                            <span>Tạm tính ({getItemCount()} sản phẩm)</span>
+                                            <span>Tạm tính ({getSelectedItemCount()} sản phẩm)</span>
                                             <span>{getSubtotal().toLocaleString()} VND</span>
                                         </div>
 
@@ -668,6 +734,7 @@ function Cart() {
                                         <Button
                                             style={styles.checkoutButton}
                                             href="/checkout"
+                                            disabled={getSelectedItemCount() === 0}
                                             className="hover-effect"
                                         >
                                             Thanh toán

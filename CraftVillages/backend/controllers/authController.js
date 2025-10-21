@@ -203,6 +203,20 @@ const login = async (req, res, next) => {
 
         const token = generateToken({ id: user._id });
 
+        // Nếu là seller, tìm shop của seller
+        let shopInfo = null;
+        if (user.roleId.roleName === 'seller') {
+            const Shop = require('../models/Shop');
+            const shop = await Shop.findOne({ sellerId: user._id });
+            if (shop) {
+                shopInfo = {
+                    shopId: shop._id,
+                    shopName: shop.shopName,
+                    avatarUrl: shop.avatarUrl
+                };
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: 'Login successful',
@@ -213,7 +227,8 @@ const login = async (req, res, next) => {
                     fullName: user.fullName,
                     email: user.email,
                     role: user.roleId.roleName,
-                    isEmailVerified: user.isEmailVerified
+                    isEmailVerified: user.isEmailVerified,
+                    ...(shopInfo && shopInfo) // Thêm shopId, shopName, avatarUrl nếu là seller
                 }
             }
         });
@@ -318,6 +333,33 @@ const resetPassword = async (req, res, next) => {
     }
 };
 
+// Change password with old password verification
+const changePassword = async (req, res, next) => {
+    try {
+        const { userId, oldPassword, newPassword } = req.body;
+        if (!userId || !oldPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const valid = await user.comparePassword(oldPassword);
+        if (!valid) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu cũ không chính xác' });
+        }
+
+        user.passwordHash = newPassword;
+        await user.save();
+
+        return res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     register,
     verifyEmail,
@@ -325,6 +367,7 @@ module.exports = {
     login,
     forgotPassword,
     verifyResetCode,
-    resetPassword
+    resetPassword,
+    changePassword
 };
 

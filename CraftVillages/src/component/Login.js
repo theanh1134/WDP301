@@ -9,6 +9,7 @@ import authService from '../services/authService';
 // Import hình ảnh
 import pic1 from '../assets/images/pic1.png';
 import pic2 from '../assets/images/login.jpg';
+import { toast } from 'react-toastify';
 
 function Login() {
     const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +36,11 @@ function Login() {
                     setError('Vui lòng xác nhận email trước khi đăng nhập. Kiểm tra hộp thư của bạn.');
                     return;
                 }
+
+                // Welcome toast with user's full name
+                const user = response.data?.user || authService.getCurrentUser();
+                const fullName = user?.fullName || user?.name || user?.username || user?.email || 'bạn';
+                toast.success(`Chào mừng, ${fullName}!`, { autoClose: 2500 });
 
                 // Redirect to home page or dashboard
                 window.location.href = '/';

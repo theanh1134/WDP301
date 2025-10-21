@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar, Nav, Container, Button, Badge } from 'react-bootstrap';
-import { FaUser, FaSearch, FaShoppingCart, FaBars } from 'react-icons/fa';
+import { Navbar, Nav, Container, Button, Badge, Dropdown, Image } from 'react-bootstrap';
+import { FaUser, FaSearch, FaShoppingCart, FaBars, FaStore, FaComments } from 'react-icons/fa';
 import styled, { keyframes } from 'styled-components';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { useCart } from '../contexts/CartContext';
+import authService from '../services/authService';
+import shopService from '../services/shopService';
+import { useNavigate } from 'react-router-dom';
 
 // Keyframes for animations
 const slideDown = keyframes`
@@ -208,9 +212,37 @@ const CartBadge = styled(Badge)`
   justify-content: center;
 `;
 
+const SellerButton = styled(Button)`
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 20px;
+  margin: 0 10px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(184, 134, 11, 0.3);
+
+  &:hover {
+    background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(184, 134, 11, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  .icon {
+    margin-right: 8px;
+  }
+`;
+
 function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const [cartItems, setCartItems] = useState(2); // Mock cart items count
+  const { cart, getCartItemsCount } = useCart();
+  const [currentUser, setCurrentUser] = useState(null);
+  const navigate = useNavigate();
 
   // Handle scroll effect
   useEffect(() => {
@@ -222,6 +254,41 @@ function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Load current user from localStorage/authService
+  useEffect(() => {
+    const user = authService.getCurrentUser?.() || null;
+    setCurrentUser(user);
+    const onStorage = () => setCurrentUser(authService.getCurrentUser?.() || null);
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  // Handle seller channel click
+  const handleSellerChannelClick = async () => {
+    // Check if user is logged in
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      // Check if user already has a shop
+      const shopResponse = await shopService.checkUserShop(currentUser._id);
+
+      if (shopResponse.success && shopResponse.data) {
+        // User has a shop, navigate to dashboard
+        navigate('/seller-dashboard');
+      } else {
+        // User doesn't have a shop, navigate to registration
+        navigate('/seller-registration');
+      }
+    } catch (error) {
+      console.error('Error checking shop:', error);
+      // If error (likely no shop), navigate to registration
+      navigate('/seller-registration');
+    }
+  };
 
   const styles = {
     navContainer: {
@@ -240,7 +307,7 @@ function Header() {
     <>
       {/* Add padding to body to compensate for fixed header */}
       <div style={{ paddingTop: scrolled ? '70px' : '85px' }}>
-        <StyledNavbar expand="lg" scrolled={scrolled} className="border-bottom">
+        <StyledNavbar expand="lg" scrolled={scrolled.toString()} className="border-bottom">
           <Container style={styles.navContainer}>
             {/* Logo */}
             <Navbar.Brand href="/" className="me-4">
@@ -264,24 +331,46 @@ function Header() {
                 <StyledNavLink href="/contact">Liên hệ</StyledNavLink>
               </Nav>
 
-              {/* Search Bar */}
-              <SearchBar className="d-none d-lg-flex">
-                <FaSearch className="search-icon" />
-                <input type="text" placeholder="Tìm kiếm sản phẩm..." />
-              </SearchBar>
+              {/* Seller Channel Button */}
+              <SellerButton onClick={handleSellerChannelClick}>
+                <FaStore className="icon" />
+                Kênh Người Bán
+              </SellerButton>
 
               {/* Icons on right */}
               <div style={styles.iconGroup}>
-                <NavIcon href='/login' title="Tài khoản">
-                  <FaUser />
-                </NavIcon>
+                {currentUser ? (
+                  <Dropdown align="end">
+                    <Dropdown.Toggle as={NavIcon} id="user-menu" title={currentUser.fullName || currentUser.name || currentUser.email}>
+                      <Image src={currentUser.avatarUrl || 'https://ui-avatars.com/api/?background=d4af37&color=fff&name=' + encodeURIComponent(currentUser.fullName || currentUser.name || 'U')} roundedCircle width={28} height={28} />
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu>
+                      <Dropdown.Header>
+                        {(currentUser.fullName || currentUser.name || currentUser.email)}
+                      </Dropdown.Header>
+                      <Dropdown.Item href="/profile">Trang cá nhân</Dropdown.Item>
+                      <Dropdown.Item href="/orders">Đơn hàng của tôi</Dropdown.Item>
+                      <Dropdown.Divider />
+                      <Dropdown.Item onClick={() => { authService.logout?.(); window.location.href = '/'; }}>Đăng xuất</Dropdown.Item>
+                    </Dropdown.Menu>
+                  </Dropdown>
+                ) : (
+                  <NavIcon href='/login' title="Tài khoản">
+                    <FaUser />
+                  </NavIcon>
+                )}
                 <NavIcon className="d-lg-none" title="Tìm kiếm">
                   <FaSearch />
                 </NavIcon>
+                {currentUser && (
+                  <NavIcon href='/chat' title="Tin nhắn">
+                    <FaComments />
+                  </NavIcon>
+                )}
                 <CartIcon href='/cart' title="Giỏ hàng" style={{ position: 'relative' }}>
                   <FaShoppingCart />
-                  {cartItems > 0 && (
-                    <CartBadge>{cartItems}</CartBadge>
+                  {cart?.items?.length > 0 && (
+                    <CartBadge>{getCartItemsCount()}</CartBadge>
                   )}
                 </CartIcon>
               </div>
