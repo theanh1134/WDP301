@@ -96,7 +96,7 @@ const StaffSeller = () => {
   ];
 
   const handleViewDetails = (record) => {
-    console.log('detail')
+    navigate(`/staff-seller/${record._id}`)
   };
 
   const handleBan = (record) => {
@@ -173,7 +173,6 @@ const fetchUsers = async (params = {}) => {
   }
 };
 
-
   // Initial fetch and search effect
   useEffect(() => {
     fetchUsers({
@@ -188,7 +187,7 @@ const fetchUsers = async (params = {}) => {
       <Card className="user-admin-card">
         <Row justify="space-between" align="middle" className="header-row">
           <Col>
-            <h2 className="table-title">Sellers Management</h2>
+            <h2 className="table-title">Sellers List</h2>
           </Col>
         </Row>
         

@@ -20,4 +20,28 @@ async function getAllShopsWithUsers() {
   }
 }
 
-module.exports = { getAllShopsWithUsers };
+async function getShopDetailById(shopId) {
+  try {
+    const shop = await Shop.findById(shopId)
+      .populate({
+        path: 'sellerId',
+        select: 'fullName email phoneNumber avatarUrl isActive',
+      })
+      .populate({
+        path: 'products',
+        select: 'productName sellingPrice images description moderation.status',
+      })
+      .lean();
+
+    if (!shop) {
+      throw new Error('Không tìm thấy shop với ID này');
+    }
+
+    return shop;
+  } catch (error) {
+    console.error('❌ Lỗi khi lấy chi tiết shop:', error);
+    throw error;
+  }
+}
+
+module.exports = { getAllShopsWithUsers, getShopDetailById };

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllShopsWithUsers } = require('../controllers/staffSellerController');
+const { getAllShopsWithUsers, getShopDetailById } = require('../controllers/staffSellerController');
 
 router.get('/shops', async (req, res) => {
   try {
@@ -8,6 +8,25 @@ router.get('/shops', async (req, res) => {
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get('/shops/:id',  async (req, res) => {
+  try {
+    const { id } = req.params;
+    const shop = await getShopDetailById(id);
+
+    return res.status(200).json({
+      status: 200,
+      message: 'Lấy chi tiết shop thành công',
+      data: shop,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      status: 500,
+      message: error.message || 'Lỗi server khi lấy chi tiết shop',
+    });
   }
 });
 
