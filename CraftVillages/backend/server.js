@@ -14,6 +14,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const shopRoutes = require('./routes/shopRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
+const shipperRoutes = require('./routes/shipperRoutes');
 const setupChatSocket = require('./socket/chatSocket');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -52,6 +53,7 @@ app.use('/orders', orderRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/shipper', shipperRoutes);
 
 const categoryRoutes = require('./routes/categoryRoutes');
 app.use('/api/categories', categoryRoutes);
