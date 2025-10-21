@@ -22,6 +22,8 @@ import OrderHistory from '../component/OrderHistory';
 import OrderStatus from '../component/OrderStatus';
 import ShopProducts from '../component/ShopProducts';
 import ChatPage from '../component/Chat/ChatPage';
+import ShipperLogin from '../component/ShipperChannel/ShipperLogin';
+import ShipperDashboard from '../component/ShipperChannel/ShipperDashboard';
 
 // Create router with future flags enabled
 export const router = createBrowserRouter(
@@ -57,6 +59,8 @@ export const router = createBrowserRouter(
             <Route path="add-product" element={<AddProduct />} />
             <Route path="edit-product/:id" element={<EditProduct />} />
             <Route path="product-statistics/:id" element={<ProductStatistics />} />
+            <Route path="shipper-login" element={<ShipperLogin />} />
+            <Route path="shipper-dashboard" element={<ShipperDashboard />} />
             <Route
                 path="profile"
                 element={

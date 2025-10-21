@@ -41,11 +41,13 @@ const ShipperLogin = () => {
 
             if (response.data.success) {
                 const { token, user } = response.data.data;
+                const userRole = user.role || 'SHIPPER';
 
-                // Save token
+                // Save token and user data
                 localStorage.setItem('authToken', token);
-                localStorage.setItem('userId', user._id);
-                localStorage.setItem('userRole', user.roleId);
+                localStorage.setItem('userId', user.id);
+                localStorage.setItem('userRole', userRole);
+                localStorage.setItem('user', JSON.stringify(user));
 
                 if (rememberMe) {
                     localStorage.setItem('rememberMe', 'true');
@@ -54,9 +56,22 @@ const ShipperLogin = () => {
 
                 setSuccess('Đăng nhập thành công! Chuyển hướng...');
 
-                // Redirect to dashboard
+                // Smart redirect based on role
+                const redirects = {
+                    'ADMIN_BUSINESS': '/admin-dashboard',
+                    'SELLER_STAFF': '/staff-dashboard',
+                    'RETURN_STAFF': '/staff-dashboard',
+                    'SHIPPER': '/shipper-dashboard',
+                    'SELLER': '/seller-dashboard',
+                    'BUYER': '/'
+                };
+
+                const redirectUrl = redirects[userRole] || '/shipper-dashboard';
+                console.log(`🔀 Redirecting to ${redirectUrl} (Role: ${userRole})`);
+
+                // Redirect to appropriate dashboard
                 setTimeout(() => {
-                    navigate('/shipper-dashboard');
+                    navigate(redirectUrl);
                 }, 1500);
             }
         } catch (err) {
