@@ -201,7 +201,7 @@ const getProductReviewsForDisplay = async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching product reviews for display:', error);
-        console.error('ProductId:', productId);
+        // console.error('ProductId:', productId);
         console.error('Error details:', error);
         res.status(500).json({
             success: false,

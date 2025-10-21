@@ -3,12 +3,12 @@ import { Table, Input, Card, Space, Tag, Button, Row, Col, Tooltip, Dropdown, me
 import { SearchOutlined, UserAddOutlined, FileExcelOutlined, EyeOutlined, EditOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 import './StaffSeller.scss';
 import { useNavigate } from 'react-router-dom';
-
-const USER_ROLES = ['Lecturer', 'Student', 'Manager'];
+import axios from 'axios';
 
 const StaffSeller = () => {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
+  const [shops, setShops] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [pagination, setPagination] = useState({
     current: 1,
@@ -18,149 +18,44 @@ const StaffSeller = () => {
 
   const navigate = useNavigate();
 
-  // Fake data for demonstration
-  const fakeUsers = [
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      role: 'Student',
-      status: 'active',
-      joinedDate: '2025-01-15',
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      email: 'jane.smith@example.com',
-      role: 'Lecturer',
-      status: 'inactive',
-      joinedDate: '2025-02-20',
-    },
-    {
-      id: 3,
-      name: 'Mike Johnson',
-      email: 'mike.j@example.com',
-      role: 'Admin',
-      status: 'active',
-      joinedDate: '2025-03-10',
-    },
-    {
-      id: 4,
-      name: 'Sarah Williams',
-      email: 'sarah.w@example.com',
-      role: 'Manager',
-      status: 'active',
-      joinedDate: '2025-03-15',
-    },
-    {
-      id: 5,
-      name: 'Alex Brown',
-      email: 'alex.b@example.com',
-      role: 'Student',
-      status: 'inactive',
-      joinedDate: '2025-04-01',
-    },
-    {
-      id: 6,
-      name: 'Emily Davis',
-      email: 'emily.d@example.com',
-      role: 'Student',
-      status: 'active',
-      joinedDate: '2025-04-15',
-    },
-    {
-      id: 7,
-      name: 'Chris Wilson',
-      email: 'chris.w@example.com',
-      role: 'Lecturer',
-      status: 'active',
-      joinedDate: '2025-05-01',
-    },
-    {
-      id: 8,
-      name: 'Lisa Anderson',
-      email: 'lisa.a@example.com',
-      role: 'Student',
-      status: 'active',
-      joinedDate: '2025-05-10',
-    },
-    {
-      id: 9,
-      name: 'David Taylor',
-      email: 'david.t@example.com',
-      role: 'Student',
-      status: 'inactive',
-      joinedDate: '2025-06-01',
-    },
-    {
-      id: 10,
-      name: 'Emma Miller',
-      email: 'emma.m@example.com',
-      role: 'Lecturer',
-      status: 'active',
-      joinedDate: '2025-06-15',
-    },
-    {
-      id: 11,
-      name: 'James Wilson',
-      email: 'james.w@example.com',
-      role: 'Student',
-      status: 'active',
-      joinedDate: '2025-07-01',
-    },
-    {
-      id: 12,
-      name: 'Olivia Moore',
-      email: 'olivia.m@example.com',
-      role: 'Student',
-      status: 'active',
-      joinedDate: '2025-07-15',
-    }
-  ];
-
   // Column definitions for the table
   const columns = [
     {
-      title: 'Name',
-      dataIndex: 'name',
+      title: 'Shop Name',
+      dataIndex: 'shopName',
       key: 'name',
       width: '20%',
       align: 'center',
     },
     {
       title: 'Email',
-      dataIndex: 'email',
+      dataIndex: ['sellerId', 'email'],
       key: 'email',
-      width: '25%',
+      width: '20%',
       align: 'center',
     },
     {
-      title: 'Role',
-      dataIndex: 'role',
+      title: 'Phone',
+      dataIndex: ['sellerId', 'phoneNumber'],
       key: 'role',
-      width: '12%',
+      width: '15%',
       align: 'center',
-      render: (role) => (
-        <Tag color={role === 'Lecturer' ? 'blue' : role === 'Student' ? 'green': role === 'Admin'? 'red' :'orange'}>
-          {role}
-        </Tag>
-      ),
     },
     {
       title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
+      dataIndex: 'isActive',
+      key: 'isActive',
       width: '12%',
       align: 'center',
-      render: (status) => (
-        <Tag color={status === 'active' ? 'success' : 'error'}>
-          {status.toUpperCase()}
+      render: (isActive) => (
+        <Tag color={isActive !== null && isActive ? 'success' : 'error'}>
+          {isActive !== null && isActive ? 'Active': 'Inactive'}
         </Tag>
       ),
     },
     {
       title: 'Joined Date',
-      dataIndex: 'joinedDate',
+      dataIndex: 'createdAt',
       key: 'joinedDate',
       width: '15%',
       align: 'center',
@@ -168,31 +63,15 @@ const StaffSeller = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: '15%',
+      width: '10%',
       align: 'center',
       render: (_, record) => (
         <Space size="middle">
           <Tooltip title="View Details">
             <Button type="text" style={{ color: '#1cbcd1ff', fontSize:'20px' }}  icon={<EyeOutlined />} onClick={() => handleViewDetails(record)} />
           </Tooltip>
-          <Dropdown
-            menu={{
-              items: USER_ROLES
-                .filter(role => role !== record.role) // Remove current role
-                .map(role => ({
-                  key: role,
-                  label: `Change to ${role}`,
-                  onClick: () => handleRoleChange(record, role)
-                }))
-            }}
-            trigger={['click']}
-          >
-            <Tooltip title="Change Role">
-              <Button type="text" style={{ color: '#d3b119ff', fontSize:'20px' }} icon={<EditOutlined />} />
-            </Tooltip>
-          </Dropdown>
-          {record.status === 'active' ? (
-            <Tooltip title="Ban User">
+          {record.isActive !== null && record.isActive ? (
+            <Tooltip title="Ban Seller">
               <Button 
                 type="text" 
                 danger
@@ -202,7 +81,7 @@ const StaffSeller = () => {
               />
             </Tooltip>
           ) : (
-            <Tooltip title="Unban User">
+            <Tooltip title="Unban Seller">
               <Button 
                 type="text"
                 style={{ color: '#52c41a', fontSize:'20px'  }} 
@@ -220,25 +99,18 @@ const StaffSeller = () => {
     console.log('detail')
   };
 
-  const handleRoleChange = (record, newRole) => {
-    // TODO: Implement API call here
-    const updatedUser = { ...record, role: newRole };
-    setUsers(users.map(user => user.id === record.id ? updatedUser : user));
-    message.success(`Changed ${record.name}'s role to ${newRole}`);
-  };
-
   const handleBan = (record) => {
     console.log('Ban user:', record);
     // TODO: Implement API call here
-    const updatedUser = { ...record, status: 'inactive' };
-    setUsers(users.map(user => user.id === record.id ? updatedUser : user));
+    const updatedUser = { ...record, isActive: false };
+    setUsers(users.map(user => user._id === record._id ? updatedUser : user));
   };
 
   const handleUnban = (record) => {
     console.log('Unban user:', record);
-    // TODO: Implement API call here
-    const updatedUser = { ...record, status: 'active' };
-    setUsers(users.map(user => user.id === record.id ? updatedUser : user));
+    // // TODO: Implement API call here
+    const updatedUser = { ...record, isActive: true };
+    setUsers(users.map(user => user._id === record._id ? updatedUser : user));
   };
 
   const handleTableChange = (newPagination) => {
@@ -258,58 +130,49 @@ const StaffSeller = () => {
   };
 
   // Function to fetch users (to be replaced with actual API call)
-  const fetchUsers = async (params = {}) => {
-    // Function to process and filter users
-    const getFilteredUsers = (searchText, currentPage, pageSize) => {
-      // First, filter by search text
-      let filteredData = searchText 
-        ? fakeUsers.filter(user => 
-            user.name.toLowerCase().includes(searchText.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchText.toLowerCase())
-          )
-        : [...fakeUsers];
+const fetchUsers = async (params = {}) => {
+  if (!params.skipLoading) {
+    setLoading(true);
+  }
 
-      // Calculate pagination
-      const startIndex = (currentPage - 1) * pageSize;
-      const endIndex = startIndex + pageSize;
+  try {
+    // Lấy danh sách shop từ API
+    const res = await axios.get(`http://localhost:9999/staff/shops`);
+    const allShops = res.data.data || [];
 
-      // Return paginated result and total
-      return {
-        data: filteredData.slice(startIndex, endIndex),
-        total: filteredData.length
-      };
-    };
-    if (!params.skipLoading) {
-      setLoading(true);
-    }
-    
-    try {
-      // Simulating API call with setTimeout
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Get current pagination values
-      const currentPage = params.pagination?.current || pagination.current;
-      const pageSize = params.pagination?.pageSize || pagination.pageSize;
-      
-      // Filter and paginate users
-      const { data, total } = getFilteredUsers(params.searchText, currentPage, pageSize);
-      
-      // Update users list
-      setUsers(data);
-      
-      // Update pagination
-      setPagination(prev => ({
-        ...prev,
-        current: currentPage,
-        pageSize: pageSize,
-        total: total
-      }));
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Lọc theo searchText nếu có
+    const searchText = params.searchText || '';
+    const filteredData = searchText
+      ? allShops.filter(shop =>
+          shop.shopName.toLowerCase().includes(searchText.toLowerCase()) ||
+          shop.sellerId?.email?.toLowerCase().includes(searchText.toLowerCase())
+        )
+      : allShops;
+
+    // Lấy thông tin phân trang hiện tại
+    const currentPage = params.pagination?.current || pagination.current;
+    const pageSize = params.pagination?.pageSize || pagination.pageSize;
+
+    // Cắt dữ liệu theo trang
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedData = filteredData.slice(startIndex, endIndex);
+
+    // Cập nhật state
+    setShops(paginatedData);
+    setPagination(prev => ({
+      ...prev,
+      current: currentPage,
+      pageSize: pageSize,
+      total: filteredData.length
+    }));
+  } catch (error) {
+    console.error('Error fetching shops:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Initial fetch and search effect
   useEffect(() => {
@@ -351,7 +214,7 @@ const StaffSeller = () => {
 
         <Table
           columns={columns}
-          dataSource={users}
+          dataSource={shops}
           rowKey={record => record.id}
           pagination={pagination}
           loading={loading}
