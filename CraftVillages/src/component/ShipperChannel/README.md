@@ -84,28 +84,12 @@ ShipperChannel/
 - Cập nhật cài đặt thông báo
 - Thay đổi trạng thái online/offline
 
-## Theme và Styling
-
-Dashboard sử dụng theme tương tự Seller Dashboard:
-- **Màu chính**: Blue gradient (#1976d2 → #42a5f5)
-- **Màu phụ**: Gold accent (#b8860b)
-- **Typography**: Bootstrap + custom fonts
-- **Icons**: React Icons (Font Awesome)
-- **Layout**: Sidebar + Main content
 
 ## Responsive Design
 
 - **Desktop**: Sidebar cố định, main content responsive
 - **Tablet**: Sidebar có thể collapse
 - **Mobile**: Sidebar overlay, touch-friendly buttons
-
-## Tính năng tương lai
-
-1. **Real-time tracking**: GPS tracking, live location
-2. **Push notifications**: Thông báo đơn hàng mới
-3. **Route optimization**: Tối ưu đường đi
-4. **Chat integration**: Liên lạc với khách hàng
-5. **Performance analytics**: Phân tích hiệu suất giao hàng
 
 ## Lưu ý
 

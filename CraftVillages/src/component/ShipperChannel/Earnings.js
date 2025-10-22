@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Form, Row, Col, Table, OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
 import styled from 'styled-components';
-import { FaDownload, FaCalendar, FaChartLine, FaCheckCircle, FaClock } from 'react-icons/fa';
+import { FaDownload, FaCalendar } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
@@ -113,28 +113,80 @@ const transactionData = [
 function Earnings({ userId }) {
   const [startDate, setStartDate] = useState('2025-01-01');
   const [endDate, setEndDate] = useState('2025-01-31');
-  const [transactions, setTransactions] = useState(transactionData);
-  const [loading, setLoading] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState('current');
+  const [transactions] = useState(transactionData);
 
   useEffect(() => {
     // Load earnings data based on date range
     loadEarnings();
   }, [startDate, endDate]);
 
+  const getMonthDateRange = (monthOffset) => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    let month, year;
+    
+    switch(monthOffset) {
+      case 'current':
+        month = currentMonth;
+        year = currentYear;
+        break;
+      case 'previous':
+        month = currentMonth - 1;
+        year = currentYear;
+        if (month < 0) {
+          month = 11;
+          year -= 1;
+        }
+        break;
+      case 'last3':
+        // Return first day of 3 months ago to today
+        const threeMonthsAgo = new Date(currentYear, currentMonth - 2, 1);
+        return {
+          start: threeMonthsAgo.toISOString().split('T')[0],
+          end: today.toISOString().split('T')[0]
+        };
+      case 'last6':
+        // Return first day of 6 months ago to today
+        const sixMonthsAgo = new Date(currentYear, currentMonth - 5, 1);
+        return {
+          start: sixMonthsAgo.toISOString().split('T')[0],
+          end: today.toISOString().split('T')[0]
+        };
+      default:
+        month = currentMonth;
+        year = currentYear;
+    }
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    return {
+      start: firstDay.toISOString().split('T')[0],
+      end: lastDay.toISOString().split('T')[0]
+    };
+  };
+
+  const handleMonthFilter = (monthOffset) => {
+    const { start, end } = getMonthDateRange(monthOffset);
+    setStartDate(start);
+    setEndDate(end);
+    setSelectedMonth(monthOffset);
+  };
+
   const loadEarnings = async () => {
     try {
-      setLoading(true);
       // API call here
       // const response = await shipperService.getEarnings(userId, startDate, endDate);
       // setTransactions(response.data);
       
       // Mock delay
       await new Promise(resolve => setTimeout(resolve, 500));
-      setLoading(false);
     } catch (error) {
       console.error('Error loading earnings:', error);
       toast.error('Không thể tải dữ liệu thu nhập');
-      setLoading(false);
     }
   };
 
@@ -197,6 +249,42 @@ function Earnings({ userId }) {
         {/* Filter */}
         <Card className="mb-4">
           <Card.Body>
+            {/* Month Quick Filter */}
+            <div className="mb-3 pb-3 border-bottom">
+              <Form.Label className="mb-2">Lọc theo tháng</Form.Label>
+              <div className="d-flex gap-2 flex-wrap">
+                <Button 
+                  variant={selectedMonth === 'current' ? 'primary' : 'outline-primary'}
+                  size="sm"
+                  onClick={() => handleMonthFilter('current')}
+                >
+                  Tháng này
+                </Button>
+                <Button 
+                  variant={selectedMonth === 'previous' ? 'primary' : 'outline-primary'}
+                  size="sm"
+                  onClick={() => handleMonthFilter('previous')}
+                >
+                  Tháng trước
+                </Button>
+                <Button 
+                  variant={selectedMonth === 'last3' ? 'primary' : 'outline-primary'}
+                  size="sm"
+                  onClick={() => handleMonthFilter('last3')}
+                >
+                  3 tháng gần đây
+                </Button>
+                <Button 
+                  variant={selectedMonth === 'last6' ? 'primary' : 'outline-primary'}
+                  size="sm"
+                  onClick={() => handleMonthFilter('last6')}
+                >
+                  6 tháng gần đây
+                </Button>
+              </div>
+            </div>
+
+            {/* Custom Date Range Filter */}
             <Row className="g-3">
               <Col md={3}>
                 <Form.Group>
@@ -204,7 +292,10 @@ function Earnings({ userId }) {
                   <Form.Control
                     type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setSelectedMonth('custom');
+                    }}
                   />
                 </Form.Group>
               </Col>
@@ -214,7 +305,10 @@ function Earnings({ userId }) {
                   <Form.Control
                     type="date"
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setSelectedMonth('custom');
+                    }}
                   />
                 </Form.Group>
               </Col>

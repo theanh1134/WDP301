@@ -8,12 +8,13 @@ import styled, { keyframes } from 'styled-components';
 import {
     FaTruck, FaMapMarkerAlt, FaClock, FaMoneyBillWave, 
     FaStar, FaBell, FaCog, FaSearch, FaChevronDown, 
-    FaChevronRight, FaCheckCircle, FaEye, FaFilter,
+    FaChevronRight, FaCheckCircle, FaEye,
     FaUser, FaMotorcycle, FaCar, FaBicycle
 } from 'react-icons/fa';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import OrderDetail from './OrderDetail';
 import Earnings from './Earnings';
+import EditShipperProfile from './EditShipperProfile';
 
 // Animations
 const slideIn = keyframes`
@@ -351,6 +352,10 @@ function ShipperDashboard() {
         settings: false
     });
 
+    // Search and filter states
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('ALL');
+
     // Mock data - sẽ thay thế bằng API calls
     const [stats, setStats] = useState({
         totalOrders: 0,
@@ -364,6 +369,9 @@ function ShipperDashboard() {
     const [orders, setOrders] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [showOrderDetail, setShowOrderDetail] = useState(false);
+
+    // Edit profile modal state
+    const [showEditProfile, setShowEditProfile] = useState(false);
 
     // Load user and shipper data
     useEffect(() => {
@@ -455,6 +463,23 @@ function ShipperDashboard() {
             console.error('Error loading orders:', error);
         }
     };
+
+    // Filter and search orders
+    const filteredOrders = orders.filter(order => {
+        // Search filter
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = !searchTerm || 
+            order.orderId.toLowerCase().includes(searchLower) ||
+            order.customerName.toLowerCase().includes(searchLower) ||
+            order.address.toLowerCase().includes(searchLower) ||
+            order.items.toLowerCase().includes(searchLower) ||
+            order.phone.includes(searchTerm);
+
+        // Status filter
+        const matchesStatus = filterStatus === 'ALL' || order.status === filterStatus;
+
+        return matchesSearch && matchesStatus;
+    });
 
     const toggleMenu = (menuName) => {
         setExpandedMenus(prev => ({
@@ -678,15 +703,22 @@ function ShipperDashboard() {
                         <Form.Control 
                             placeholder="Tìm kiếm đơn hàng..." 
                             style={{ borderLeft: 'none', borderRadius: '0 6px 6px 0' }}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </InputGroup>
-                    <Button 
-                        variant="outline-secondary"
-                        style={{ borderRadius: '6px' }}
+                    <Form.Select
+                        style={{ width: '150px', borderRadius: '6px' }}
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
                     >
-                        <FaFilter className="me-1" />
-                        Lọc
-                    </Button>
+                        <option value="ALL">Tất cả</option>
+                        <option value="ASSIGNED">Đã nhận</option>
+                        <option value="PICKED_UP">Đã lấy hàng</option>
+                        <option value="OUT_FOR_DELIVERY">Đang giao</option>
+                        <option value="DELIVERED">Đã giao</option>
+                        <option value="FAILED">Giao thất bại</option>
+                    </Form.Select>
                 </div>
             </div>
 
@@ -706,41 +738,51 @@ function ShipperDashboard() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {orders.map(order => (
-                                    <tr key={order.id} style={{ borderTop: '1px solid #e9ecef' }}>
-                                        <td style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
-                                            <strong style={{ color: '#b8860b' }}>{order.orderId}</strong>
-                                        </td>
-                                        <td>
-                                            <div style={{ fontWeight: '600' }}>{order.customerName}</div>
-                                            <small className="text-muted">{order.phone}</small>
-                                        </td>
-                                        <td>
-                                            <div style={{ maxWidth: '200px', color: '#666' }}>
-                                                <small>{order.address}</small>
+                                {filteredOrders.length > 0 ? (
+                                    filteredOrders.map(order => (
+                                        <tr key={order.id} style={{ borderTop: '1px solid #e9ecef' }}>
+                                            <td style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
+                                                <strong style={{ color: '#b8860b' }}>{order.orderId}</strong>
+                                            </td>
+                                            <td>
+                                                <div style={{ fontWeight: '600' }}>{order.customerName}</div>
+                                                <small className="text-muted">{order.phone}</small>
+                                            </td>
+                                            <td>
+                                                <div style={{ maxWidth: '200px', color: '#666' }}>
+                                                    <small>{order.address}</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div style={{ maxWidth: '150px', color: '#666' }}>
+                                                    <small>{order.items}</small>
+                                                </div>
+                                            </td>
+                                            <td>{getStatusBadge(order.status)}</td>
+                                            <td style={{ fontWeight: '600', color: '#2e7d32' }}>
+                                                {order.shippingFee.toLocaleString()} VND
+                                            </td>
+                                            <td>
+                                                <Button 
+                                                    variant="outline-primary" 
+                                                    size="sm"
+                                                    onClick={() => handleOrderClick(order)}
+                                                    style={{ borderRadius: '6px' }}
+                                                >
+                                                    <FaEye />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="7" className="text-center py-4">
+                                            <div style={{ color: '#999' }}>
+                                                <p style={{ margin: 0 }}>Không tìm thấy đơn hàng nào</p>
                                             </div>
-                                        </td>
-                                        <td>
-                                            <div style={{ maxWidth: '150px', color: '#666' }}>
-                                                <small>{order.items}</small>
-                                            </div>
-                                        </td>
-                                        <td>{getStatusBadge(order.status)}</td>
-                                        <td style={{ fontWeight: '600', color: '#2e7d32' }}>
-                                            {order.shippingFee.toLocaleString()} VND
-                                        </td>
-                                        <td>
-                                            <Button 
-                                                variant="outline-primary" 
-                                                size="sm"
-                                                onClick={() => handleOrderClick(order)}
-                                                style={{ borderRadius: '6px' }}
-                                            >
-                                                <FaEye />
-                                            </Button>
                                         </td>
                                     </tr>
-                                ))}
+                                )}
                             </tbody>
                         </Table>
                     </div>
@@ -849,6 +891,7 @@ function ShipperDashboard() {
                             <Button 
                                 variant="primary" 
                                 className="mt-4"
+                                onClick={() => setShowEditProfile(true)}
                                 style={{ borderRadius: '6px', fontWeight: '600' }}
                             >
                                 <FaCog className="me-2" />
@@ -1006,6 +1049,28 @@ function ShipperDashboard() {
                 onHide={() => setShowOrderDetail(false)}
                 order={selectedOrder}
                 onUpdateStatus={handleUpdateOrderStatus}
+            />
+
+            {/* Edit Profile Modal */}
+            <EditShipperProfile
+                show={showEditProfile}
+                onHide={() => setShowEditProfile(false)}
+                shipperData={shipperData}
+                currentUser={currentUser}
+                onSave={async (updateData) => {
+                    // Call API to update shipper info
+                    try {
+                        // await shipperService.updateShipperInfo(currentUser._id, updateData);
+                        setShipperData(prev => ({
+                            ...prev,
+                            ...updateData
+                        }));
+                        toast.success('Cập nhật thông tin thành công');
+                    } catch (error) {
+                        console.error('Error updating shipper info:', error);
+                        throw error;
+                    }
+                }}
             />
         </DashboardWrapper>
     );

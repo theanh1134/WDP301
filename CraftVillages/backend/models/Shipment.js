@@ -16,6 +16,15 @@ const shipmentSchema = new mongoose.Schema({
         enum: ['ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'],
         default: 'ASSIGNED'
     },
+    assignedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: false
+    },
+    assignedAt: {
+        type: Date,
+        default: Date.now
+    },
     pickupLocation: {
         address: String,
         latitude: Number,
@@ -35,6 +44,12 @@ const shipmentSchema = new mongoose.Schema({
             type: Date,
             default: Date.now
         }
+    },
+    estimatedPickupTime: {
+        type: Date
+    },
+    actualPickupTime: {
+        type: Date
     },
     estimatedDeliveryTime: {
         type: Date
