@@ -106,6 +106,9 @@ function EditShipperProfile({ show, onHide, shipperData, currentUser, onSave }) 
 
     useEffect(() => {
         if (show && shipperData && currentUser) {
+            console.log('Initializing form with data:', shipperData);
+            
+            // Set form data
             setFormData({
                 fullName: currentUser?.fullName || '',
                 phoneNumber: currentUser?.phoneNumber || '',
@@ -126,7 +129,33 @@ function EditShipperProfile({ show, onHide, shipperData, currentUser, onSave }) 
                     accountType: ''
                 }
             });
+            
+            // Set service areas input
             setServiceAreasInput(shipperData?.serviceAreas?.join(', ') || '');
+            
+            // Initialize document previews if they exist in shipper data
+            if (shipperData?.documents) {
+                const documentPreviews = {};
+                
+                // For each document type that exists in shipper data
+                Object.keys(shipperData.documents).forEach(docType => {
+                    if (shipperData.documents[docType]) {
+                        // Set preview for existing documents from API
+                        const url = `${process.env.REACT_APP_API_URL || 'http://localhost:9999'}${shipperData.documents[docType]}`;
+                        documentPreviews[docType] = {
+                            preview: url,
+                            // No file since it's already stored
+                            file: null
+                        };
+                        console.log(`Setting preview for ${docType}:`, url);
+                    }
+                });
+                
+                setDocuments(prevDocs => ({
+                    ...prevDocs,
+                    ...documentPreviews
+                }));
+            }
         }
     }, [show, shipperData, currentUser]);
 
@@ -198,26 +227,49 @@ function EditShipperProfile({ show, onHide, shipperData, currentUser, onSave }) 
             return;
         }
 
-        if (formData.serviceAreas.length === 0) {
+        if (formData.serviceAreas && formData.serviceAreas.length === 0) {
             toast.error('Vui lòng chọn ít nhất một khu vực phục vụ');
             return;
         }
 
         try {
             setLoading(true);
+            console.log('Preparing to submit form data:', formData);
+            console.log('Documents to upload:', documents);
             
-            const updateData = {
-                ...formData,
-                documents: documents
-            };
-
+            // Prepare document files for upload if needed
+            const documentsToUpload = {};
+            let hasDocumentsToUpload = false;
+            
+            // Process document files for API if they have changed
+            if (documents) {
+                Object.keys(documents).forEach(docKey => {
+                    if (documents[docKey] && documents[docKey].file) {
+                        documentsToUpload[docKey] = documents[docKey].file;
+                        hasDocumentsToUpload = true;
+                    }
+                });
+            }
+            
+            // Make a copy of formData for the update
+            const updateData = {...formData};
+            
+            // Only add documents if we have files to upload
+            if (hasDocumentsToUpload) {
+                updateData.documents = documentsToUpload;
+                console.log('Documents will be uploaded:', documentsToUpload);
+            }
+            
+            console.log('Final update data being sent:', updateData);
+            
+            // Call the API through the parent component
             await onSave(updateData);
             
             toast.success('Cập nhật thông tin shipper thành công');
             onHide();
         } catch (error) {
             console.error('Error updating profile:', error);
-            toast.error('Có lỗi xảy ra khi cập nhật thông tin');
+            toast.error(`Có lỗi xảy ra: ${error.message || 'Không thể cập nhật'}`);
         } finally {
             setLoading(false);
         }

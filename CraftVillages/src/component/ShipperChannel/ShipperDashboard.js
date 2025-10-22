@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Form, InputGroup, Badge, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import authService from '../../services/authService';
-// import shipperService from '../../services/shipperService';
+import shipperService from '../../services/shipperService';
 import { toast } from 'react-toastify';
 import styled, { keyframes } from 'styled-components';
 import {
@@ -362,8 +362,7 @@ function ShipperDashboard() {
         completedOrders: 0,
         pendingOrders: 0,
         totalEarnings: 0,
-        rating: 0,
-        onlineStatus: false
+        rating: 0
     });
 
     const [orders, setOrders] = useState([]);
@@ -392,13 +391,17 @@ function ShipperDashboard() {
                     return;
                 }
 
+                // Set initial user state
                 setCurrentUser(user);
-                setShipperData(user.shipperInfo);
-
-                // Load shipper statistics
-                await loadShipperStats(user._id || user.id);
+                console.log('User from localStorage:', user);
+                console.log('User role:', user.role || user.roleId?.roleName);
                 
-                // Load orders
+                // Load shipper data directly from API first to ensure we have latest data
+                console.log('Loading fresh shipper data from API...');
+                await loadShipperData(user._id || user.id);
+                
+                // Then load statistics and orders
+                await loadShipperStats(user._id || user.id);
                 await loadOrders(user._id || user.id);
 
                 setLoading(false);
@@ -420,8 +423,7 @@ function ShipperDashboard() {
                 completedOrders: 42,
                 pendingOrders: 3,
                 totalEarnings: 1250000,
-                rating: 4.8,
-                onlineStatus: true
+                rating: 4.8
             });
         } catch (error) {
             console.error('Error loading stats:', error);
@@ -461,6 +463,61 @@ function ShipperDashboard() {
             ]);
         } catch (error) {
             console.error('Error loading orders:', error);
+        }
+    };
+    
+    // Fetch shipper data from API
+    const loadShipperData = async (userId) => {
+        try {
+            console.log('Loading shipper data for userId:', userId);
+            const response = await shipperService.getProfile(userId);
+            console.log('API Response for shipper data:', response);
+            
+            if (response && response.success) {
+                // Extract shipper data from response
+                const shipperInfo = response.data.shipper;
+                
+                // Log documents if they exist
+                if (shipperInfo && shipperInfo.documents) {
+                    console.log('Shipper documents received:', shipperInfo.documents);
+                    
+                    // Convert document paths to full URLs for display
+                    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:9999';
+                    
+                    Object.keys(shipperInfo.documents).forEach(docType => {
+                        const docPath = shipperInfo.documents[docType];
+                        if (docPath) {
+                            console.log(`Document ${docType} URL:`, `${API_URL}${docPath}`);
+                        }
+                    });
+                } else {
+                    console.log('No documents found in shipper data');
+                }
+                
+                // Update state
+                setShipperData(shipperInfo);
+                
+                // Update user in localStorage with new shipper info
+                const user = authService.getCurrentUser();
+                if (user) {
+                    const updatedUser = {
+                        ...user,
+                        shipperInfo: shipperInfo
+                    };
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    setCurrentUser(updatedUser);
+                    
+                    // Verify the data was updated in localStorage
+                    const updatedStorageUser = JSON.parse(localStorage.getItem('user'));
+                    console.log('Updated user in localStorage:', updatedStorageUser);
+                    console.log('ShipperInfo in localStorage:', updatedStorageUser?.shipperInfo);
+                }
+            } else {
+                console.error('Failed to load shipper data:', response?.message || 'Unknown error');
+            }
+        } catch (error) {
+            console.error('Error fetching shipper data:', error);
+            toast.error('Không thể tải thông tin shipper');
         }
     };
 
@@ -523,7 +580,7 @@ function ShipperDashboard() {
         try {
             // Call API to update order status
             console.log('Updating order status:', { orderId, status, notes, photos });
-            // await shipperService.updateOrderStatus(orderId, status, notes, photos);
+            await shipperService.updateOrderStatus(orderId, status, notes, photos);
             
             // Update local state
             setOrders(prev => prev.map(order => 
@@ -596,15 +653,7 @@ function ShipperDashboard() {
                     </div>
                 </StatCard>
 
-                <StatCard>
-                    <div className="card-body">
-                        <div className="stat-icon" style={{ backgroundColor: stats.onlineStatus ? '#e8f5e8' : '#ffebee', color: stats.onlineStatus ? '#2e7d32' : '#c62828' }}>
-                            <FaBell />
-                        </div>
-                        <div className="stat-value" style={{ fontSize: '1.3rem' }}>{stats.onlineStatus ? '🟢 Online' : '🔴 Offline'}</div>
-                        <div className="stat-label">Trạng thái hiện tại</div>
-                    </div>
-                </StatCard>
+
             </StatsGrid>
 
             {/* Recent Orders */}
@@ -877,15 +926,7 @@ function ShipperDashboard() {
                                         {shipperData?.workingHours?.start || 'N/A'} - {shipperData?.workingHours?.end || 'N/A'}
                                     </p>
                                 </div>
-                                <div className="col-md-4">
-                                    <p style={{ marginBottom: '0.5rem', color: '#999', fontSize: '0.85rem', fontWeight: '600' }}>TRẠNG THÁI</p>
-                                    <Badge 
-                                        bg={shipperData?.isOnline ? 'success' : 'secondary'}
-                                        style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', borderRadius: '20px' }}
-                                    >
-                                        {shipperData?.isOnline ? '🟢 Online' : '🔴 Offline'}
-                                    </Badge>
-                                </div>
+                
                             </div>
                             
                             <Button 
@@ -1026,9 +1067,6 @@ function ShipperDashboard() {
                         <small className="text-muted">Quản lý đơn hàng và thu nhập</small>
                     </div>
                     <div className="d-flex align-items-center gap-3">
-                        <Badge bg={stats.onlineStatus ? 'success' : 'secondary'}>
-                            {stats.onlineStatus ? 'Online' : 'Offline'}
-                        </Badge>
                         <Button variant="outline-primary" size="sm">
                             <FaBell />
                         </Button>
@@ -1060,15 +1098,69 @@ function ShipperDashboard() {
                 onSave={async (updateData) => {
                     // Call API to update shipper info
                     try {
-                        // await shipperService.updateShipperInfo(currentUser._id, updateData);
-                        setShipperData(prev => ({
-                            ...prev,
-                            ...updateData
-                        }));
-                        toast.success('Cập nhật thông tin thành công');
+                        // Call the API to update profile
+                        const userId = currentUser?._id || currentUser?.id;
+                        console.log('Updating shipper profile with userId:', userId);
+                        console.log('Update data:', updateData);
+                        
+                        // Use the direct profile update endpoint
+                        const response = await shipperService.updateProfile(userId, updateData);
+                        console.log('API Response:', response);
+                        
+                        if (response && response.success) {
+                            // Extract data from response
+                            const { user: updatedUser, shipper: updatedShipper } = response.data;
+                            console.log('Updated user data:', updatedUser);
+                            console.log('Updated shipper data:', updatedShipper);
+                            
+                            // Update local state
+                            setShipperData(updatedShipper);
+                            
+                            // Also update currentUser if user data changed
+                            if (updatedUser) {
+                                const userToUpdate = {
+                                    ...currentUser,
+                                    fullName: updatedUser.fullName || currentUser.fullName,
+                                    phoneNumber: updatedUser.phoneNumber || currentUser.phoneNumber,
+                                    shipperInfo: updatedShipper
+                                };
+                                setCurrentUser(userToUpdate);
+                                localStorage.setItem('user', JSON.stringify(userToUpdate));
+                            }
+                            
+                            toast.success('Cập nhật thông tin thành công');
+                        } else {
+                            // Fallback update using provided data
+                            console.log('Using fallback update with provided data');
+                            
+                            // Update local state with response data if available, otherwise use updateData
+                            setShipperData(prev => ({
+                                ...prev,
+                                ...updateData
+                            }));
+                            
+                            // Update localStorage to persist changes after logout/login
+                            const user = authService.getCurrentUser();
+                            if (user) {
+                                // Update user object with new shipper data
+                                const updatedUser = {
+                                    ...user,
+                                    shipperInfo: {
+                                        ...(user.shipperInfo || {}),
+                                        ...updateData
+                                    }
+                                };
+                                
+                                // Store updated user data in localStorage
+                                localStorage.setItem('user', JSON.stringify(updatedUser));
+                                setCurrentUser(updatedUser);
+                            }
+                            
+                            toast.success('Cập nhật thông tin thành công (local)');
+                        }
                     } catch (error) {
                         console.error('Error updating shipper info:', error);
-                        throw error;
+                        toast.error(`Lỗi khi cập nhật: ${error.message || 'Không thể kết nối đến server'}`);
                     }
                 }}
             />

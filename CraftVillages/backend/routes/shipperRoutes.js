@@ -5,14 +5,26 @@ const path = require('path');
 const shipperController = require('../controllers/shipperController');
 const { auth } = require('../middleware/auth');
 
-// Configure multer for delivery proof uploads
+// Configure multer for uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'uploads/chat/');
+        // Different destinations based on file type
+        if (file.fieldname.startsWith('document_')) {
+            cb(null, 'uploads/shipper/');
+        } else {
+            cb(null, 'uploads/chat/');
+        }
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'delivery-' + uniqueSuffix + path.extname(file.originalname));
+        
+        // Different file prefix based on file type
+        let prefix = 'delivery';
+        if (file.fieldname.startsWith('document_')) {
+            prefix = 'shipper-doc';
+        }
+        
+        cb(null, `${prefix}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
 });
 
@@ -54,7 +66,13 @@ router.post('/shipment/:shipmentId/rate', shipperController.rateShipper);
 
 // Profile
 router.get('/profile/:userId', shipperController.getProfile);
-router.put('/profile/:userId', shipperController.updateProfile);
+router.put('/profile/:userId', upload.fields([
+    { name: 'document_licenseImage', maxCount: 1 },
+    { name: 'document_vehicleRegistration', maxCount: 1 },
+    { name: 'document_insuranceDocument', maxCount: 1 },
+    { name: 'document_identityCard', maxCount: 1 },
+    { name: 'document_driverPhoto', maxCount: 1 }
+]), shipperController.updateProfile);
 
 // Settings
 router.put('/settings/:userId', shipperController.updateSettings);

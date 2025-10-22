@@ -290,30 +290,123 @@ const getProfile = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
     try {
         const { userId } = req.params;
-        const { fullName, phoneNumber, licenseNumber, vehicleType, vehicleNumber, serviceAreas, workingHours } = req.body;
+        console.log('Update Profile Request for userId:', userId);
+        console.log('Request body:', req.body);
+        console.log('Request files:', req.files);
+        
+        const { 
+            fullName, 
+            phoneNumber, 
+            licenseNumber, 
+            vehicleType, 
+            vehicleNumber, 
+            maxWeight, 
+            maxVolume,
+            serviceAreas, 
+            workingHours,
+            bankInfo
+        } = req.body;
+
+        // Log values for debugging
+        console.log('Extracted values:', {
+            fullName, phoneNumber, licenseNumber, vehicleType, vehicleNumber,
+            maxWeight, maxVolume, serviceAreas, workingHours, bankInfo
+        });
+
+        // Parse JSON strings from FormData if necessary
+        let parsedWorkingHours, parsedServiceAreas, parsedBankInfo;
+        
+        try {
+            parsedWorkingHours = typeof workingHours === 'string' 
+                ? JSON.parse(workingHours) 
+                : workingHours;
+        } catch (err) {
+            console.error('Error parsing workingHours:', err);
+            parsedWorkingHours = workingHours;
+        }
+            
+        try {
+            parsedServiceAreas = typeof serviceAreas === 'string' 
+                ? JSON.parse(serviceAreas) 
+                : serviceAreas;
+        } catch (err) {
+            console.error('Error parsing serviceAreas:', err);
+            parsedServiceAreas = serviceAreas;
+        }
+            
+        try {
+            parsedBankInfo = typeof bankInfo === 'string' 
+                ? JSON.parse(bankInfo) 
+                : bankInfo;
+        } catch (err) {
+            console.error('Error parsing bankInfo:', err);
+            parsedBankInfo = bankInfo;
+        }
+
+        // Handle document files if present
+        const documentPaths = {};
+        
+        if (req.files) {
+            Object.keys(req.files).forEach(key => {
+                if (key.startsWith('document_')) {
+                    const docType = key.replace('document_', '');
+                    documentPaths[docType] = `/uploads/shipper/${req.files[key].filename}`;
+                }
+            });
+        }
 
         // Update user info
+        const userUpdateData = {};
+        if (fullName) userUpdateData.fullName = fullName;
+        if (phoneNumber) userUpdateData.phoneNumber = phoneNumber;
+        
         const user = await User.findByIdAndUpdate(
             userId,
-            {
-                fullName,
-                phoneNumber
-            },
+            userUpdateData,
             { new: true }
-        );
+        ).select('-password');
 
         // Update shipper info
+        const updateData = {};
+        
+        if (licenseNumber) updateData.licenseNumber = licenseNumber;
+        if (vehicleType) updateData.vehicleType = vehicleType;
+        if (vehicleNumber) updateData.vehicleNumber = vehicleNumber;
+        if (parsedServiceAreas) updateData.serviceAreas = parsedServiceAreas;
+        if (parsedWorkingHours) updateData.workingHours = parsedWorkingHours;
+        if (maxWeight) updateData.maxWeight = maxWeight;
+        if (maxVolume) updateData.maxVolume = maxVolume;
+        if (parsedBankInfo) updateData.bankInfo = parsedBankInfo;
+        
+        // Handle document uploads properly
+        if (Object.keys(documentPaths).length > 0) {
+            // Get existing shipper to preserve document paths that aren't being updated
+            const existingShipper = await Shipper.findOne({ userId });
+            const existingDocs = existingShipper?.documents || {};
+            
+            updateData.documents = {
+                ...existingDocs,
+                ...documentPaths
+            };
+            
+            console.log('Updated documents:', updateData.documents);
+        }
+
         const shipper = await Shipper.findOneAndUpdate(
             { userId },
-            {
-                licenseNumber,
-                vehicleType,
-                vehicleNumber,
-                serviceAreas,
-                workingHours
-            },
+            updateData,
             { new: true }
-        );
+        ).populate('userId', '-password');
+
+        // Ensure we have the shipper object
+        if (!shipper) {
+            return res.status(404).json({
+                success: false,
+                message: 'Shipper not found'
+            });
+        }
+
+        console.log('Updated shipper:', shipper);
 
         res.status(200).json({
             success: true,

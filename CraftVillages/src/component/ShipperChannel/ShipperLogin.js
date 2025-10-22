@@ -62,7 +62,7 @@ const ShipperLogin = () => {
                     'SELLER_STAFF': '/staff-dashboard',
                     'RETURN_STAFF': '/staff-dashboard',
                     'SHIPPER': '/shipper-dashboard',
-                    'SELLER': '/seller-dashboard',
+                    'SELLER': '/',
                     'BUYER': '/'
                 };
 
