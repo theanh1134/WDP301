@@ -44,4 +44,15 @@ async function getShopDetailById(shopId) {
   }
 }
 
-module.exports = { getAllShopsWithUsers, getShopDetailById };
+async function adminToggleShop(shopId) {
+    const shop = await Shop.findById(shopId);
+    if (!shop) throw new Error('Shop not found');
+
+    await shop.toggleActiveStatus();
+    return {
+        message: shop.isActive ? 'Shop has been unbanned (activated).' : 'Shop has been banned (deactivated).',
+        shop
+    };
+}
+
+module.exports = { getAllShopsWithUsers, getShopDetailById, adminToggleShop };

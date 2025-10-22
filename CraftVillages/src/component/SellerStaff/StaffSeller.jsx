@@ -4,16 +4,15 @@ import { SearchOutlined, UserAddOutlined, FileExcelOutlined, EyeOutlined, EditOu
 import './StaffSeller.scss';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const StaffSeller = () => {
   const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState([]);
   const [shops, setShops] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 10,
-    total: 0
+    pageSize: 10
   });
 
   const navigate = useNavigate();
@@ -21,7 +20,7 @@ const StaffSeller = () => {
   // Column definitions for the table
   const columns = [
     {
-      title: 'Shop Name',
+      title: 'Tên Cửa Hàng',
       dataIndex: 'shopName',
       key: 'name',
       width: '20%',
@@ -35,33 +34,33 @@ const StaffSeller = () => {
       align: 'center',
     },
     {
-      title: 'Phone',
+      title: 'Số Điện Thoại',
       dataIndex: ['sellerId', 'phoneNumber'],
       key: 'role',
       width: '15%',
       align: 'center',
     },
     {
-      title: 'Status',
+      title: 'Trạng Thái',
       dataIndex: 'isActive',
       key: 'isActive',
       width: '12%',
       align: 'center',
       render: (isActive) => (
         <Tag color={isActive !== null && isActive ? 'success' : 'error'}>
-          {isActive !== null && isActive ? 'Active': 'Inactive'}
+          {isActive !== null && isActive ? 'Hoạt động': 'Đã khóa'}
         </Tag>
       ),
     },
     {
-      title: 'Joined Date',
+      title: 'Ngày Gia Nhập',
       dataIndex: 'createdAt',
-      key: 'joinedDate',
+      key: 'createdAt',
       width: '15%',
       align: 'center',
     },
     {
-      title: 'Actions',
+      title: 'Hành Động',
       key: 'actions',
       width: '10%',
       align: 'center',
@@ -77,7 +76,7 @@ const StaffSeller = () => {
                 danger
                 style={{  fontSize:'20px'  }} 
                 icon={<LockOutlined />} 
-                onClick={() => handleBan(record)}
+                onClick={() => handleToggleActive(record)}
               />
             </Tooltip>
           ) : (
@@ -86,7 +85,7 @@ const StaffSeller = () => {
                 type="text"
                 style={{ color: '#52c41a', fontSize:'20px'  }} 
                 icon={<UnlockOutlined />}
-                onClick={() => handleUnban(record)}
+                onClick={() => handleToggleActive(record)}
               />
             </Tooltip>
           )}
@@ -99,19 +98,22 @@ const StaffSeller = () => {
     navigate(`/staff-seller/${record._id}`)
   };
 
-  const handleBan = (record) => {
-    console.log('Ban user:', record);
-    // TODO: Implement API call here
-    const updatedUser = { ...record, isActive: false };
-    setUsers(users.map(user => user._id === record._id ? updatedUser : user));
-  };
+const handleToggleActive = async (record) => {
+  console.log('Toggle active for:', record);
+  console.log('Toggle active for:', record._id);
 
-  const handleUnban = (record) => {
-    console.log('Unban user:', record);
-    // // TODO: Implement API call here
-    const updatedUser = { ...record, isActive: true };
-    setUsers(users.map(user => user._id === record._id ? updatedUser : user));
-  };
+  // Đảo trạng thái isActive
+  const updatedUser = { ...record, isActive: !record.isActive };
+
+  await axios.patch(`http://localhost:9999/staff/shops/${record._id}/toggle`)
+  toast.success(record.isActive ? 'Khóa cửa hàng thành công':'Mở khóa cửa hàng thành công');
+  // Cập nhật lại state users
+  setShops(prevUsers =>
+    prevUsers.map(user =>
+      user._id === record._id ? updatedUser : user
+    )
+  );
+};
 
   const handleTableChange = (newPagination) => {
     fetchUsers({

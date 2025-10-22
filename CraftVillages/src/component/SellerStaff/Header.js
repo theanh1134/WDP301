@@ -59,17 +59,6 @@ const Header = ({ searchQuery, setSearchQuery, currentUser }) => {
   return (
     <TopBar>
       <SearchBar>
-        <Form.Control
-          type="text"
-          placeholder="Tìm kiếm đơn hàng, sản phẩm..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <InputGroup.Text
-          style={{ background: "white", border: "1px solid #e0e0e0", borderLeft: "none" }}
-        >
-          <FaSearch style={{ color: "#999" }} />
-        </InputGroup.Text>
       </SearchBar>
 
       <TopBarActions>

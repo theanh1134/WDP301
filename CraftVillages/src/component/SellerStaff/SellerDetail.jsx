@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Descriptions, Divider, Typography, Table, Button, Space, message, Image } from 'antd';
 import axios from 'axios';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeftOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 
@@ -9,6 +10,7 @@ const ShopDetailPage = () => {
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(false);
   const { id } = useParams();
+  const navigate = useNavigate();
 
   // 🟩 Giả lập API gọi thật (bạn có thể thay bằng endpoint thật)
   useEffect(() => {
@@ -86,6 +88,11 @@ const ShopDetailPage = () => {
 
   return (
     <div style={{ margin: '0 auto' }}>
+      <button onClick={() => navigate('/staff-seller')} style={{
+        background: 'none',
+        border: 'none'
+      }}><ArrowLeftOutlined /> Quay lại trang danh sách</button>
+
       {/* ================= Thông tin cửa hàng ================= */}
       <Card
         title={<Title level={3}>{shop.shopName}</Title>}
@@ -94,11 +101,6 @@ const ShopDetailPage = () => {
           boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
           padding: '20px',
         }}
-        // extra={
-        //   <Button type="primary" onClick={() => message.info('Chức năng chỉnh sửa sẽ được thêm sau')}>
-        //     Chỉnh sửa
-        //   </Button>
-        // }
       >
         <Descriptions column={1} bordered size="middle">
           <Descriptions.Item label="Tên cửa hàng">{shop.shopName}</Descriptions.Item>

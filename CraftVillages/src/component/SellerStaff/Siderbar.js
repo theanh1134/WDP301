@@ -80,7 +80,7 @@ const Sidebar = ({
             <SubMenuItem
               onClick={() => navigate('/staff-seller')}
             >
-              <span>Tất cả</span>
+              <span>Tất Cả Cửa Hàng</span>
             </SubMenuItem>
             {/* <SubMenuItem
             >
@@ -94,7 +94,7 @@ const Sidebar = ({
       <MenuSection>
         <MenuItem onClick={() => toggleMenu("productManagement")}>
           <FaBox />
-          <span style={{ flex: 1 }}>Quản Lý Sản Phẩm</span>
+          <span style={{ flex: 1 }}>Quản Lý Hoàn Hàng</span>
           {expandedMenus.productManagement ? <FaChevronDown /> : <FaChevronRight />}
         </MenuItem>
         {expandedMenus.productManagement && (

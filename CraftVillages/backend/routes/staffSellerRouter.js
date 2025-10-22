@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllShopsWithUsers, getShopDetailById } = require('../controllers/staffSellerController');
+const { getAllShopsWithUsers, getShopDetailById, adminToggleShop } = require('../controllers/staffSellerController');
 
 router.get('/shops', async (req, res) => {
   try {
@@ -28,6 +28,16 @@ router.get('/shops/:id',  async (req, res) => {
       message: error.message || 'Lỗi server khi lấy chi tiết shop',
     });
   }
+});
+
+router.patch('/shops/:shopId/toggle', async (req, res) => {
+    try {
+        const { shopId } = req.params;
+        const result = await adminToggleShop(shopId);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
 });
 
 module.exports = router;
