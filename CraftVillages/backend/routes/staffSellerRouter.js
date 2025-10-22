@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getAllShopsWithUsers, getShopDetailById, adminToggleShop } = require('../controllers/staffSellerController');
+const { getAllReturns, getReturnById, approveReturn, rejectReturn } = require('../controllers/staffReturnController');
 
 router.get('/shops', async (req, res) => {
   try {
@@ -39,5 +40,11 @@ router.patch('/shops/:shopId/toggle', async (req, res) => {
         res.status(400).json({ message: error.message });
     }
 });
+
+router.get('/returns', getAllReturns)
+router.get('/returns/:id', getReturnById)
+
+router.patch('/returns/:id/approve', approveReturn);
+router.patch('/returns/:id/reject', rejectReturn);
 
 module.exports = router;

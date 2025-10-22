@@ -62,13 +62,7 @@ const Header = ({ searchQuery, setSearchQuery, currentUser }) => {
       </SearchBar>
 
       <TopBarActions>
-        <IconButton>
-          <FaBell />
-          <span className="badge">3</span>
-        </IconButton>
-        <IconButton>
-          <FaQuestionCircle />
-        </IconButton>
+
         <div
           style={{
             display: "flex",

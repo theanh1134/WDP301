@@ -71,12 +71,6 @@ const ShopDetailPage = () => {
       align: 'center',
       render: (price) => price.toLocaleString('vi-VN') + "VND",
     },
-    // {
-    //   title: 'Tồn kho',
-    //   dataIndex: 'stock',
-    //   key: ['products', 'productName'],
-    //   align: 'center',
-    // },
     {
       title: 'Mô tả',
       dataIndex: 'description',

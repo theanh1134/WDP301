@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Input, Card, Space, Tag, Button, Row, Col, Tooltip, Dropdown, message } from 'antd';
-import { SearchOutlined, UserAddOutlined, FileExcelOutlined, EyeOutlined, EditOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { Table, Input, Card, Space, Tag, Button, Row, Col, Tooltip,  } from 'antd';
+import { SearchOutlined,  EyeOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 import './StaffSeller.scss';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -95,7 +95,7 @@ const StaffSeller = () => {
   ];
 
   const handleViewDetails = (record) => {
-    navigate(`/staff-seller/${record._id}`)
+    navigate(`/staff/${record._id}`)
   };
 
 const handleToggleActive = async (record) => {

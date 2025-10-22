@@ -2,10 +2,8 @@
 import React from "react";
 import styled from "styled-components";
 import {
-  FaBox, FaShoppingCart, FaBullhorn, FaChartLine,
-  FaMoneyBillWave, FaComments, FaCog, FaChevronDown, FaChevronRight
+  FaBox, FaShoppingCart,  FaChevronDown, FaChevronRight
 } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
 
 const SidebarWrapper = styled.div`
   width: 220px;
@@ -64,8 +62,7 @@ const Sidebar = ({
   return (
     <SidebarWrapper>
       <SidebarHeader>
-        <h5>🏺 {sellerData.shopName}</h5>
-        <p>{sellerData.email}</p>
+        <h5>🏺 Staff</h5>
       </SidebarHeader>
 
       {/* Quản Lý Đơn Hàng */}
@@ -78,7 +75,7 @@ const Sidebar = ({
         {expandedMenus.orderManagement && (
           <>
             <SubMenuItem
-              onClick={() => navigate('/staff-seller')}
+              onClick={() => navigate('/staff')}
             >
               <span>Tất Cả Cửa Hàng</span>
             </SubMenuItem>
@@ -99,7 +96,9 @@ const Sidebar = ({
         </MenuItem>
         {expandedMenus.productManagement && (
           <>
-            <SubMenuItem>
+            <SubMenuItem
+              onClick={() => navigate('/staff/returns')}
+            >
               <span>Tất Cả Sản Phẩm</span>
             </SubMenuItem>
           </>
