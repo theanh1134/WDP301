@@ -326,7 +326,7 @@ function Header() {
               {/* Navigation Links */}
               <Nav style={styles.navLinks}>
                 <StyledNavLink href="/" className="active">Trang chủ</StyledNavLink>
-                <StyledNavLink href="#cua-hang">Cửa hàng</StyledNavLink>
+            
                 <StyledNavLink href="/blog">Thông tin</StyledNavLink>
                 <StyledNavLink href="/contact">Liên hệ</StyledNavLink>
               </Nav>
