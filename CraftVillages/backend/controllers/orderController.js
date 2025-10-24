@@ -7,10 +7,44 @@ const nodemailer = require('nodemailer');
 const checkout = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { shippingAddress, paymentMethod } = req.body;
+    const { shippingAddress, paymentMethod, fullName } = req.body;
 
-    console.log('Checkout request:', { userId, shippingAddress, paymentMethod });
-    console.log('Request body:', req.body);
+    console.log('Checkout request:', { userId, shippingAddress, paymentMethod, fullName });
+    console.log('Full request body:', JSON.stringify(req.body, null, 2));
+
+    // Validate required fields
+    if (!shippingAddress) {
+      return res.status(400).json({ message: 'Shipping address is required' });
+    }
+
+    if (!shippingAddress.recipientName || !shippingAddress.phoneNumber || !shippingAddress.fullAddress) {
+      console.error('Missing shipping address fields:', {
+        recipientName: shippingAddress.recipientName,
+        phoneNumber: shippingAddress.phoneNumber,
+        fullAddress: shippingAddress.fullAddress
+      });
+      return res.status(400).json({
+        message: 'Thiếu thông tin địa chỉ giao hàng',
+        details: {
+          missingRecipientName: !shippingAddress.recipientName,
+          missingPhoneNumber: !shippingAddress.phoneNumber,
+          missingFullAddress: !shippingAddress.fullAddress
+        }
+      });
+    }
+
+    // Validate phone number format
+    const phoneRegex = /^[0-9]{10,11}$/;
+    if (!phoneRegex.test(shippingAddress.phoneNumber)) {
+      console.error('Invalid phone number format:', shippingAddress.phoneNumber);
+      return res.status(400).json({
+        message: `Số điện thoại không hợp lệ. Phải có 10-11 chữ số. Nhận được: "${shippingAddress.phoneNumber}"`
+      });
+    }
+
+    if (!fullName) {
+      return res.status(400).json({ message: 'Full name is required' });
+    }
 
     // 1️⃣ Tìm cart theo userId
     const cart = await Cart.findOne({ userId, status: 'ACTIVE' });
@@ -31,24 +65,40 @@ const checkout = async (req, res) => {
       return res.status(400).json({ message: 'Vui lòng chọn ít nhất một sản phẩm để thanh toán' });
     }
 
+    console.log('Selected items from cart:', selectedItems.map(item => ({
+      productId: item.productId,
+      productIdType: typeof item.productId,
+      productName: item.productName,
+      quantity: item.quantity
+    })));
+
     // 2️⃣ Kiểm tra và trừ số lượng tồn kho (chỉ cho items đã chọn)
     // Đồng thời lấy costPrice thực tế từ batch
     console.log('Checking and reserving inventory...');
     const itemsWithCostPrice = [];
 
     for (const item of selectedItems) {
-      const product = await Product.findById(item.productId);
+      // Convert to plain object to avoid Mongoose document issues
+      const itemObj = item.toObject ? item.toObject() : item;
+
+      console.log('Processing item:', {
+        productId: itemObj.productId,
+        productIdExists: !!itemObj.productId,
+        productName: itemObj.productName
+      });
+
+      const product = await Product.findById(itemObj.productId);
 
       if (!product) {
         return res.status(404).json({
-          message: `Sản phẩm ${item.productName} không tồn tại`
+          message: `Sản phẩm ${itemObj.productName} không tồn tại`
         });
       }
 
       // Check if product has enough inventory
-      if (!product.canFulfillQuantity(item.quantity)) {
+      if (!product.canFulfillQuantity(itemObj.quantity)) {
         return res.status(400).json({
-          message: `Sản phẩm ${item.productName} không đủ số lượng trong kho. Còn lại: ${product.totalQuantityAvailable}, yêu cầu: ${item.quantity}`
+          message: `Sản phẩm ${itemObj.productName} không đủ số lượng trong kho. Còn lại: ${product.totalQuantityAvailable}, yêu cầu: ${itemObj.quantity}`
         });
       }
 
@@ -62,45 +112,105 @@ const checkout = async (req, res) => {
 
       // Reserve inventory
       try {
-        await product.reserveInventory(item.quantity);
-        console.log(`Reserved ${item.quantity} units of product ${product.productName}`);
+        await product.reserveInventory(itemObj.quantity);
+        console.log(`Reserved ${itemObj.quantity} units of product ${product.productName}`);
 
-        // Lưu item với costPrice thực tế
-        itemsWithCostPrice.push({
-          ...item,
+        // Lưu item với costPrice thực tế - Explicitly set all fields
+        const itemWithCost = {
+          productId: itemObj.productId,
+          shopId: itemObj.shopId,
+          productName: itemObj.productName,
+          thumbnailUrl: itemObj.thumbnailUrl,
+          priceAtAdd: itemObj.priceAtAdd,
+          quantity: itemObj.quantity,
+          isSelected: itemObj.isSelected,
+          addedAt: itemObj.addedAt,
+          costPrice: costPrice
+        };
+
+        itemsWithCostPrice.push(itemWithCost);
+
+        console.log(`Item added to order:`, {
+          productId: itemWithCost.productId,
+          productIdType: typeof itemWithCost.productId,
+          productIdToString: itemWithCost.productId ? itemWithCost.productId.toString() : 'NULL',
+          productName: itemWithCost.productName,
           costPrice: costPrice
         });
       } catch (error) {
         console.error('Error reserving inventory:', error);
         return res.status(400).json({
-          message: `Không thể đặt hàng sản phẩm ${item.productName}: ${error.message}`
+          message: `Không thể đặt hàng sản phẩm ${itemObj.productName}: ${error.message}`
         });
       }
     }
 
     // 3️⃣ Chuẩn bị dữ liệu tạo Order (chỉ với items đã chọn)
-    const selectedSubtotal = itemsWithCostPrice.reduce((sum, item) => sum + (item.priceAtAdd * item.quantity), 0);
+    console.log('Items with cost price:', itemsWithCostPrice.map(item => ({
+      productName: item.productName,
+      priceAtAdd: item.priceAtAdd,
+      quantity: item.quantity,
+      costPrice: item.costPrice,
+      total: item.priceAtAdd * item.quantity
+    })));
+
+    const selectedSubtotal = itemsWithCostPrice.reduce((sum, item) => {
+      const itemTotal = (item.priceAtAdd || 0) * (item.quantity || 0);
+      console.log(`Item ${item.productName}: ${item.priceAtAdd} x ${item.quantity} = ${itemTotal}`);
+      return sum + itemTotal;
+    }, 0);
+
     const selectedShippingFee = cart.estimatedShipping || 0;
     const selectedTotal = selectedSubtotal + selectedShippingFee;
+
+    console.log('Order totals:', {
+      subtotal: selectedSubtotal,
+      shippingFee: selectedShippingFee,
+      total: selectedTotal
+    });
+
+    // Log items before mapping
+    console.log('=== PREPARING ORDER ITEMS ===');
+    itemsWithCostPrice.forEach((item, index) => {
+      console.log(`Item ${index}:`, {
+        productId: item.productId,
+        productIdExists: !!item.productId,
+        productIdString: item.productId ? item.productId.toString() : 'NULL',
+        productName: item.productName,
+        quantity: item.quantity,
+        priceAtAdd: item.priceAtAdd,
+        costPrice: item.costPrice
+      });
+    });
 
     const orderData = {
       buyerInfo: {
         userId: userId,
-        fullName: req.body.fullName || 'Unknown User', // Có thể lấy từ frontend
+        fullName: req.body.fullName || 'Unknown User',
       },
       shippingAddress: {
         recipientName: shippingAddress.recipientName,
         phoneNumber: shippingAddress.phoneNumber,
         fullAddress: shippingAddress.fullAddress,
       },
-      items: itemsWithCostPrice.map((item) => ({
-        productId: item.productId,
-        productName: item.productName,
-        quantity: item.quantity,
-        priceAtPurchase: item.priceAtAdd,
-        thumbnailUrl: item.thumbnailUrl,
-        costPriceAtPurchase: item.costPrice, // ✅ Dùng costPrice thực tế từ batch
-      })),
+      items: itemsWithCostPrice.map((item, index) => {
+        const orderItem = {
+          productId: item.productId,
+          productName: item.productName || 'Unknown Product',
+          quantity: item.quantity || 1,
+          priceAtPurchase: item.priceAtAdd || 0,
+          thumbnailUrl: item.thumbnailUrl || '',
+          costPriceAtPurchase: item.costPrice || 0,
+        };
+
+        console.log(`Mapped order item ${index}:`, {
+          productId: orderItem.productId,
+          productIdExists: !!orderItem.productId,
+          productName: orderItem.productName
+        });
+
+        return orderItem;
+      }),
       paymentInfo: {
         method: paymentMethod || 'COD',
         amount: selectedTotal,
@@ -115,9 +225,32 @@ const checkout = async (req, res) => {
     };
 
     // 4️⃣ Tạo Order mới
+    console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
     const newOrder = new Order(orderData);
-    const savedOrder = await newOrder.save();
-    console.log('Order created successfully:', savedOrder._id);
+
+    let savedOrder;
+    try {
+      savedOrder = await newOrder.save();
+      console.log('Order created successfully:', savedOrder._id);
+    } catch (saveError) {
+      console.error('Error saving order:', saveError);
+      console.error('Validation errors:', saveError.errors);
+
+      // Return detailed validation error
+      if (saveError.name === 'ValidationError') {
+        const validationErrors = Object.keys(saveError.errors).map(key => ({
+          field: key,
+          message: saveError.errors[key].message
+        }));
+        return res.status(400).json({
+          message: 'Order validation failed',
+          errors: validationErrors,
+          details: saveError.message
+        });
+      }
+
+      throw saveError; // Re-throw if not a validation error
+    }
 
     // 5️⃣ Xóa CHỈ các items đã thanh toán khỏi cart (giữ lại items chưa chọn)
     cart.items = cart.items.filter(item => !item.isSelected);
@@ -153,9 +286,11 @@ const checkout = async (req, res) => {
     });
   } catch (error) {
     console.error('Error during checkout:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       message: 'Checkout failed',
       error: error.message,
+      details: error.stack
     });
   }
 };

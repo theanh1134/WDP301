@@ -184,20 +184,42 @@ orderSchema.pre('save', function (next) {
 
     // Validate subtotal
     if (this.subtotal !== calculatedSubtotal) {
-        next(new Error('Subtotal does not match items total'));
+        console.error('Subtotal validation failed:', {
+            provided: this.subtotal,
+            calculated: calculatedSubtotal,
+            difference: this.subtotal - calculatedSubtotal,
+            items: this.items.map(item => ({
+                name: item.productName,
+                price: item.priceAtPurchase,
+                quantity: item.quantity,
+                total: item.priceAtPurchase * item.quantity
+            }))
+        });
+        next(new Error(`Subtotal does not match items total. Expected: ${calculatedSubtotal}, Got: ${this.subtotal}`));
         return;
     }
 
     // Validate final amount
     const expectedFinal = this.subtotal + this.shippingFee + this.tipAmount;
     if (this.finalAmount !== expectedFinal) {
-        next(new Error('Final amount does not match total'));
+        console.error('Final amount validation failed:', {
+            provided: this.finalAmount,
+            calculated: expectedFinal,
+            subtotal: this.subtotal,
+            shippingFee: this.shippingFee,
+            tipAmount: this.tipAmount
+        });
+        next(new Error(`Final amount does not match total. Expected: ${expectedFinal}, Got: ${this.finalAmount}`));
         return;
     }
 
     // Validate payment amount matches final amount
     if (this.paymentInfo.amount !== this.finalAmount) {
-        next(new Error('Payment amount does not match final amount'));
+        console.error('Payment amount validation failed:', {
+            paymentAmount: this.paymentInfo.amount,
+            finalAmount: this.finalAmount
+        });
+        next(new Error(`Payment amount does not match final amount. Expected: ${this.finalAmount}, Got: ${this.paymentInfo.amount}`));
         return;
     }
 
