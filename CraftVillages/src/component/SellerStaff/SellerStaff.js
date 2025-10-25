@@ -487,7 +487,7 @@ function ProductCard({ product, onRefresh, shopId, onAddInventory }) {
     );
 }
 
-function SellerStaff() {
+function SellerDashboard() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
@@ -1022,4 +1022,4 @@ function SellerStaff() {
     );
 }
 
-export default SellerStaff;
+export default SellerDashboard;
