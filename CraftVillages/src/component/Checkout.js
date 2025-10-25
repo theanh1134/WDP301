@@ -135,19 +135,69 @@ function Checkout() {
                 return;
             }
 
+            // Validate required fields
+            console.log('=== VALIDATING FORM DATA ===');
+            console.log('Form data:', formData);
+
+            if (!formData.fullName || formData.fullName.trim() === '') {
+                alert('Vui lòng nhập họ tên');
+                return;
+            }
+
+            if (!formData.phone || formData.phone.trim() === '') {
+                alert('Vui lòng nhập số điện thoại');
+                return;
+            }
+
+            // Validate phone number (10-11 digits only)
+            const phoneDigits = formData.phone.replace(/\D/g, '');
+            console.log('Phone validation:', { original: formData.phone, digits: phoneDigits, length: phoneDigits.length });
+
+            if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+                alert('Số điện thoại phải có 10-11 chữ số');
+                return;
+            }
+
+            // Validate address fields
+            if (!formData.address || formData.address.trim() === '') {
+                alert('Vui lòng nhập địa chỉ');
+                return;
+            }
+
+            if (!formData.city || formData.city.trim() === '') {
+                alert('Vui lòng nhập tỉnh/thành phố');
+                return;
+            }
+
+            const fullAddress = [
+                formData.address,
+                formData.ward,
+                formData.district,
+                formData.city,
+                formData.country
+            ].filter(Boolean).join(', ');
+
+            console.log('Full address:', fullAddress);
+
+            if (!fullAddress || fullAddress.trim() === '') {
+                alert('Địa chỉ không hợp lệ');
+                return;
+            }
+
             const payload = {
-                fullName: formData.fullName,
+                fullName: formData.fullName.trim(),
                 shippingAddress: {
-                    recipientName: formData.fullName,
-                    phoneNumber: formData.phone,
-                    fullAddress: [formData.address, formData.ward, formData.district, formData.city, formData.country].filter(Boolean).join(', ')
+                    recipientName: formData.fullName.trim(),
+                    phoneNumber: phoneDigits, // Send only digits
+                    fullAddress: fullAddress
                 },
                 paymentMethod: paymentMethod.toUpperCase(),
-                note: formData.notes,
+                note: formData.notes || '',
                 email: userData?.email || user?.email || ''
             };
 
-            console.log('Checkout payload:', payload);
+            console.log('=== SENDING CHECKOUT REQUEST ===');
+            console.log('Checkout payload:', JSON.stringify(payload, null, 2));
             console.log('User ID:', user?._id || user?.id);
             console.log('User data from DB:', userData);
             console.log('Cart detail:', cartDetail);
@@ -169,9 +219,43 @@ function Checkout() {
                 navigate(`/order-success/${res.data?.order?._id}`, { state: { summary: { total } } });
             }
         } catch (error) {
-            console.error('Checkout error:', error);
-            console.error('Error response:', error.response?.data);
-            alert(`Lỗi đặt hàng: ${error.response?.data?.message || error.message}`);
+            console.error('=== CHECKOUT ERROR DEBUG ===');
+            console.error('Full error object:', error);
+            console.error('Error response data:', error.response?.data);
+            console.error('Error response status:', error.response?.status);
+            console.error('Error message:', error.message);
+
+            // Log validation errors if present
+            if (error.response?.data?.errors) {
+                console.error('Validation errors:', error.response.data.errors);
+            }
+            if (error.response?.data?.details) {
+                console.error('Error details:', error.response.data.details);
+            }
+            console.error('=== END DEBUG ===');
+
+            // Show more detailed error message
+            let errorMessage = 'Lỗi đặt hàng:\n';
+
+            if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+                // Show validation errors
+                errorMessage += error.response.data.errors.map(err =>
+                    `- ${err.field}: ${err.message}`
+                ).join('\n');
+            } else if (error.response?.data?.message) {
+                errorMessage += error.response.data.message;
+                if (error.response?.data?.details) {
+                    errorMessage += '\n\nChi tiết: ' + JSON.stringify(error.response.data.details, null, 2);
+                }
+            } else if (error.response?.data?.error) {
+                errorMessage += error.response.data.error;
+            } else if (error.message) {
+                errorMessage += error.message;
+            } else {
+                errorMessage += 'Vui lòng thử lại sau';
+            }
+
+            alert(errorMessage);
         }
     };
 
