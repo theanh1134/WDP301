@@ -38,22 +38,6 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
-    shipperCode: {
-        type: String,
-        unique: true,
-        sparse: true,
-        default: null
-    },
-    supportedMethods: [{
-        type: String,
-        enum: ['STANDARD', 'EXPRESS', 'SAME_DAY'],
-        default: 'STANDARD'
-    }],
-    supportedZones: [{
-        type: String,
-        enum: ['URBAN_HN_HCM', 'INTERPROVINCIAL', 'RURAL'],
-        default: 'URBAN_HN_HCM'
-    }],
     addresses: [{
         type: mongoose.Schema.Types.Mixed
     }],
@@ -64,10 +48,6 @@ const userSchema = new mongoose.Schema({
     isEmailVerified: {
         type: Boolean,
         default: false
-    },
-    verifiedAt: {
-        type: Date,
-        default: null
     },
     verificationCode: {
         type: String,
@@ -88,10 +68,6 @@ const userSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
-
-userSchema.index({ shipperCode: 1 });
-userSchema.index({ supportedMethods: 1 });
-userSchema.index({ supportedZones: 1 });
 
 userSchema.pre('save', async function (next) {
     if (!this.isModified('passwordHash')) return next();
