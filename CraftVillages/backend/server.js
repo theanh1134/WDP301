@@ -52,6 +52,7 @@ app.use('/orders', orderRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/conversations', conversationRoutes);
+// Note: shipperRoutes already registered at '/shipper' through indexRoutes - no need to duplicate
 
 const categoryRoutes = require('./routes/categoryRoutes');
 app.use('/api/categories', categoryRoutes);
