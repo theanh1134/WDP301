@@ -8,10 +8,14 @@ const User = require('../models/User');
 const getDashboardStats = async (req, res, next) => {
     try {
         const { userId } = req.params;
+        console.log('[getDashboardStats] Received request for userId:', userId);
 
         // Find shipper
         const shipper = await Shipper.findOne({ userId });
+        console.log('[getDashboardStats] Found shipper:', shipper ? shipper._id : 'NOT FOUND');
+        
         if (!shipper) {
+            console.log('[getDashboardStats] No shipper found for userId:', userId);
             return res.status(404).json({
                 success: false,
                 message: 'Shipper not found'
@@ -251,9 +255,15 @@ const getEarnings = async (req, res, next) => {
 const getProfile = async (req, res, next) => {
     try {
         const { userId } = req.params;
+        console.log('[getProfile] Received request for userId:', userId);
+        console.log('[getProfile] Request params:', req.params);
+        console.log('[getProfile] Request user:', req.user);
 
         const user = await User.findById(userId);
+        console.log('[getProfile] Found user:', user ? user.email : 'NOT FOUND');
+        
         if (!user) {
+            console.log('[getProfile] User not found for ID:', userId);
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
@@ -261,13 +271,17 @@ const getProfile = async (req, res, next) => {
         }
 
         const shipper = await Shipper.findOne({ userId });
+        console.log('[getProfile] Found shipper:', shipper ? shipper._id : 'NOT FOUND');
+        
         if (!shipper) {
+            console.log('[getProfile] Shipper profile not found for userId:', userId);
             return res.status(404).json({
                 success: false,
                 message: 'Shipper profile not found'
             });
         }
 
+        console.log('[getProfile] Sending success response');
         res.status(200).json({
             success: true,
             data: {
@@ -282,6 +296,7 @@ const getProfile = async (req, res, next) => {
             }
         });
     } catch (error) {
+        console.error('[getProfile] Error:', error);
         next(error);
     }
 };
