@@ -238,8 +238,28 @@ class AuthService {
     }
 
     getCurrentUser() {
-        const user = localStorage.getItem('user');
-        return user ? JSON.parse(user) : null;
+        try {
+            const userJson = localStorage.getItem('user');
+            if (!userJson) {
+                console.log('No user found in localStorage');
+                return null;
+            }
+            
+            console.log('Raw user data from localStorage:', userJson);
+            const user = JSON.parse(userJson);
+            
+            // Ensure shipperInfo is included if it exists
+            if (user && user.shipperInfo) {
+                console.log('Found shipper info in user:', user.shipperInfo);
+            } else {
+                console.log('No shipper info found in user object');
+            }
+            
+            return user;
+        } catch (error) {
+            console.error('Error parsing user from localStorage:', error);
+            return null;
+        }
     }
 
     async changePassword(userId, oldPassword, newPassword) {
