@@ -105,8 +105,23 @@ const Sidebar = ({
         )}
       </MenuSection>
 
-
-
+      {/* Quản Lý Sản Phẩm */}
+      <MenuSection>
+        <MenuItem onClick={() => toggleMenu("Management")}>
+          <FaBox />
+          <span style={{ flex: 1 }}>Quản Lý Đơn Hàng</span>
+          {expandedMenus.Management ? <FaChevronDown /> : <FaChevronRight />}
+        </MenuItem>
+        {expandedMenus.Management && (
+          <>
+            <SubMenuItem
+              onClick={() => navigate('/staff/orders')}
+            >
+              <span>Tất Cả Đơn Hàng</span>
+            </SubMenuItem>
+          </>
+        )}
+      </MenuSection>
 
     </SidebarWrapper>
   );

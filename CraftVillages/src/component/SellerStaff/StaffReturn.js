@@ -17,6 +17,21 @@ const StaffReturn = () => {
 
   const navigate = useNavigate();
 
+  const getVietnameseStatus = (status) => {
+    switch (status) {
+      case "REQUESTED":
+        return "Đang chờ duyệt";
+      case "APPROVED":
+        return "Đã chấp nhận";
+      case "PICKUP_SCHEDULED":
+        return "Đã lên lịch lấy hàng";
+      case "REJECTED":
+        return "Đã từ chối";
+      default:
+        return status;
+    }
+  };
+
   // 🧩 Cột mới của bảng
   const columns = [
     {
@@ -56,7 +71,7 @@ const StaffReturn = () => {
           case 'REJECTED': color = 'red'; break;
           default: color = 'default';
         }
-        return <Tag color={color}>{status}</Tag>;
+        return <Tag color={color}>{getVietnameseStatus(status)}</Tag>;
       }
     },
     {

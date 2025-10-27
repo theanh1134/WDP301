@@ -304,6 +304,7 @@ function AddProduct() {
                 sku: formData.sku || '',
                 images: formData.images
             };
+            console.log(productData)
 
             const response = await productService.createProduct(productData);
 

@@ -42,6 +42,21 @@ const rejectReturn = async () => {
     navigate(-1)
   }
 
+  const getVietnameseStatus = (status) => {
+    switch (status) {
+      case "REQUESTED":
+        return "Đang chờ duyệt";
+      case "APPROVED":
+        return "Đã chấp nhận";
+      case "PICKUP_SCHEDULED":
+        return "Đã lên lịch lấy hàng";
+      case "REJECTED":
+        return "Đã từ chối";
+      default:
+        return status;
+    }
+  };
+
   const columns = [
     {
       title: "Ảnh sản phẩm",
@@ -81,6 +96,7 @@ const rejectReturn = async () => {
     },
   ];
 
+
   if (loading) return <p>Đang tải...</p>;
   if (!returnData) return <p>Không tìm thấy dữ liệu.</p>;
 
@@ -113,7 +129,7 @@ const rejectReturn = async () => {
                     : "blue"
                 }
               >
-                {returnData.status}
+                {getVietnameseStatus(returnData.status)}
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Cửa hàng">
@@ -129,7 +145,7 @@ const rejectReturn = async () => {
         </Card>
 
         {/* Danh sách sản phẩm */}
-        <Card title="Danh sách sản phẩm" bordered={false}>
+        <Card title="Sản phẩm hoàn trả" bordered={false}>
           <Table
             columns={columns}
             dataSource={returnData.items}
@@ -137,6 +153,25 @@ const rejectReturn = async () => {
             pagination={false}
           />
         </Card>
+
+        {/* Hiển thị hình ảnh bằng chứng */}
+        {returnData.evidences && returnData.evidences.length > 0 && (
+          <Card title="Hình ảnh bằng chứng" bordered={false}>
+            <Space wrap>
+              {returnData.evidences.map((evidence) => (
+                <Image
+                  key={evidence._id}
+                  src={`http://localhost:9999${evidence.url}`}
+                  alt="Evidence"
+                  width={150}
+                  height={150}
+                  style={{ objectFit: "cover", borderRadius: 8 }}
+                />
+              ))}
+            </Space>
+          </Card>
+        )}
+
 
         {/* Hành động */}
         <Space>

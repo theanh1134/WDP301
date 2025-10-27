@@ -28,6 +28,8 @@ import ShopDetailPage from '../component/SellerStaff/SellerDetail';
 import DashboardLayout from '../component/SellerStaff/DashboardLayout';
 import StaffReturn from '../component/SellerStaff/StaffReturn';
 import ReturnDetailPage from '../component/SellerStaff/StaffReturnDetail';
+import ConfirmPage from '../component/ConfirmPage';
+import OrderStaff from '../component/OrderStaff/OrderStaff';
 
 // Create router with future flags enabled
 export const router = createBrowserRouter(
@@ -81,6 +83,14 @@ export const router = createBrowserRouter(
                 }
             />
             <Route
+                path="return"
+                element={
+                    <ProtectedRoute>
+                        <ConfirmPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
                 path="orders/:id"
                 element={
                     <ProtectedRoute>
@@ -102,6 +112,7 @@ export const router = createBrowserRouter(
                 <Route path=":id" element={<ShopDetailPage/>}/>
                 <Route path="returns" element={<StaffReturn/>}/>
                 <Route path="returns/:id" element={<ReturnDetailPage/>}/>
+                <Route path="orders" element={<OrderStaff />}/>
             </Route>
         </Route>
     ),

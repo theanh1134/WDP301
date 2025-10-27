@@ -5,6 +5,8 @@ import Header from './Header';
 import orderService from '../services/orderService';
 import { toast } from 'react-toastify';
 import { getImageUrl } from '../utils/imageHelper';
+import ProductModal from './ProductModal';
+import { useNavigate } from 'react-router-dom';
 
 const StatusBadge = ({ status }) => {
     const map = { PENDING: 'warning', CONFIRMED: 'primary', PAID: 'success', CANCELLED: 'secondary' };
@@ -38,6 +40,12 @@ function OrderHistory() {
     const [deletingReview, setDeletingReview] = useState(false);
     const [orderReviews, setOrderReviews] = useState({}); // Lưu trữ review của từng order
 
+    // refund    
+    const [isOpen, setIsOpen] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    const navigate = useNavigate();
+
     useEffect(() => {
         const load = async () => {
             try {
@@ -68,8 +76,8 @@ function OrderHistory() {
 
     useEffect(() => {
         let list = [...orders];
-        if (status !== 'ALL') list = list.filter(o => (o.status || o.paymentInfo?.status) === status);
-        if (q.trim()) list = list.filter(o => o._id.toLowerCase().includes(q.trim().toLowerCase()));
+        if (status !== 'ALL') list = list.filter(o => (o._doc.status || o._doc.paymentInfo?.status) === status);
+        if (q.trim()) list = list.filter(o => o._doc._id.toLowerCase().includes(q.trim().toLowerCase()));
         setFiltered(list);
     }, [q, status, orders]);
 
@@ -78,6 +86,29 @@ function OrderHistory() {
         const orderStatus = order.status || order.paymentInfo?.status;
         return orderStatus === 'PENDING';
     };
+
+    const checkRefund = (order) => {
+        return order._doc.status === 'DELIVERED' && !isSevenDaysPassed(order.createdAt) && order.returnedProductIds.length !== order?._doc.items.length
+    }
+
+    function isSevenDaysPassed(dateString) {
+        const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+        const targetDate = new Date(dateString);
+        const diffMs = nowVN.getTime() - targetDate.getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        return diffMs >= sevenDaysMs;
+    }
+
+    const handleConfirm = (ids, orderId) => {
+        setSelectedIds(ids);
+        setIsOpen(false);
+        navigate("/return", { state: { selectedIds: ids, orderId: orderId } });
+    };
+
+    function isIdInList(list, id) {
+        if (!Array.isArray(list)) return false;
+        return list.some(item => String(item) === String(id));
+    }
 
     // Hàm xử lý hủy đơn hàng
     const handleCancelOrder = (order) => {
@@ -379,6 +410,7 @@ function OrderHistory() {
                         { key: 'CONFIRMED', label: 'Vận chuyển', icon: <FaTruck className="me-1" /> },
                         { key: 'PAID', label: 'Hoàn thành', icon: <FaCheckCircle className="me-1" /> },
                         { key: 'CANCELLED', label: 'Đã hủy', icon: <FaTimesCircle className="me-1" /> },
+                        { key: 'RETURN', label: 'Hoàn hàng', icon: <FaTimesCircle className="me-1" /> },
                     ].map(t => (
                         <button key={t.key} className="btn btn-sm" style={styles.tab(status === t.key)} onClick={() => setStatus(t.key)}>{t.icon}{t.label}</button>
                     ))}
@@ -394,16 +426,17 @@ function OrderHistory() {
                     <Card className="text-center py-4 text-muted" style={styles.orderCard}>Bạn chưa có đơn hàng nào</Card>
                 ) : (
                     filtered.map(o => (
-                        <Card key={o._id} className="mb-3" style={styles.orderCard}>
+                        <>
+                        <Card key={o._doc._id} className="mb-3" style={styles.orderCard}>
                             <div style={styles.orderHeader}>
                                 <div className="d-flex align-items-center" style={{ gap: 10 }}>
-                                    <strong>#{o._id.slice(-6)}</strong>
-                                    <span className="text-muted small">{new Date(o.createdAt).toLocaleString('vi-VN')}</span>
+                                    <strong>#{o._doc._id.slice(-6)}</strong>
+                                    <span className="text-muted small">{new Date(o._doc.createdAt).toLocaleString('vi-VN')}</span>
                                 </div>
-                                <StatusBadge status={o.status || o.paymentInfo?.status} />
+                                <StatusBadge status={o._doc.status || o._doc.paymentInfo?.status} />
                             </div>
                             <Card.Body>
-                                {(o.items || []).map((it, idx) => (
+                                {(o._doc.items || []).map((it, idx) => (
                                     <div key={idx} style={styles.itemRow}>
                                         <div className="d-flex align-items-center" style={{ gap: 12 }}>
                                             {it.thumbnailUrl ? (
@@ -415,31 +448,36 @@ function OrderHistory() {
                                                 <div className="fw-semibold">{it.productName}</div>
                                                 <div className="text-muted small">x {it.quantity}</div>
                                             </div>
+                                            <div>
+                                                {isIdInList(o.returnedProductIds, it.productId) && (<>
+                                                    <span class="badge bg-success">Hoàn hàng</span>
+                                                </>)}
+                                            </div>
                                         </div>
                                         <div className="text-end">{(it.priceAtPurchase || it.priceAtAdd || 0).toLocaleString()} VND</div>
                                     </div>
                                 ))}
 
                                 <div style={styles.footer}>
-                                    <div className="text-muted small">Thanh toán: <span className="d-inline-flex align-items-center"><FaMoneyBillWave className="me-1" />{o.paymentInfo?.method || 'COD'}</span></div>
+                                    <div className="text-muted small">Thanh toán: <span className="d-inline-flex align-items-center"><FaMoneyBillWave className="me-1" />{o._doc.paymentInfo?.method || 'COD'}</span></div>
                                     <div>
                                         <span className="me-2">Thành tiền:</span>
-                                        <strong className="text-primary">{(o.finalAmount || 0).toLocaleString()} VND</strong>
+                                        <strong className="text-primary">{(o._doc.finalAmount || 0).toLocaleString()} VND</strong>
                                     </div>
                                 </div>
 
                                 {/* Cancellation Reason */}
-                                {o.status === 'CANCELLED' && o.cancellationReason && (
+                                {o._doc.status === 'CANCELLED' && o._doc.cancellationReason && (
                                     <div className="mt-3 p-2" style={{ background: '#fff3cd', borderLeft: '4px solid #ffc107', borderRadius: 4 }}>
                                         <div className="d-flex align-items-start gap-2">
                                             <FaTimesCircle style={{ color: '#856404', marginTop: 2 }} />
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#856404' }}>
-                                                    Lý do hủy: {o.cancellationReason}
+                                                    Lý do hủy: {o._doc.cancellationReason}
                                                 </div>
-                                                {o.cancelledBy && (
+                                                {o._doc.cancelledBy && (
                                                     <div style={{ fontSize: '0.8rem', color: '#856404', marginTop: 4 }}>
-                                                        Hủy bởi: {o.cancelledBy === 'SELLER' ? 'Người bán' : o.cancelledBy === 'BUYER' ? 'Bạn' : 'Quản trị viên'}
+                                                        Hủy bởi: {o._doc.cancelledBy === 'SELLER' ? 'Người bán' : o._doc.cancelledBy === 'BUYER' ? 'Bạn' : 'Quản trị viên'}
                                                     </div>
                                                 )}
                                             </div>
@@ -448,9 +486,14 @@ function OrderHistory() {
                                 )}
 
                                 <div className="text-end mt-3">
-                                    <a href={`/orders/${o._id}`} className="btn btn-outline-primary btn-sm">Xem chi tiết</a>
-                                    {o.items && o.items.length > 0 && (
-                                        <a href={`/products/${o.items[0].productId}`} className="btn btn-warning btn-sm ms-2">Mua lại</a>
+                                    {
+                                        checkRefund(o) && (
+                                            <button onClick={() => setIsOpen(true)} className="btn btn-sm" style={{marginRight: 10, color: "green", border: "1px solid green"}}>Hoàn hàng</button>
+                                        )
+                                    }
+                                    <a href={`/orders/${o._doc._id}`} className="btn btn-outline-primary btn-sm">Xem chi tiết</a>
+                                    {o._doc.items && o._doc.items.length > 0 && (
+                                        <a href={`/products/${o._doc.items[0].productId}`} className="btn btn-warning btn-sm ms-2">Mua lại</a>
                                     )}
                                     {canCancelOrder(o) && (
                                         <button
@@ -462,10 +505,10 @@ function OrderHistory() {
                                         </button>
                                     )}
                                     {canReviewProduct(o) && (
-                                        hasReview(o._id) ? (
+                                        hasReview(o._doc._id) ? (
                                             <button
                                                 className="btn btn-outline-info btn-sm ms-2"
-                                                onClick={() => handleViewReview(o._id)}
+                                                onClick={() => handleViewReview(o._doc._id)}
                                             >
                                                 <FaEye className="me-1" />
                                                 Xem đánh giá
@@ -473,7 +516,7 @@ function OrderHistory() {
                                         ) : (
                                             <button
                                                 className="btn btn-outline-success btn-sm ms-2"
-                                                onClick={() => handleReviewProduct(o.items[0], o)}
+                                                onClick={() => handleReviewProduct(o._doc.items[0], o)}
                                             >
                                                 <FaStar className="me-1" />
                                                 Đánh giá
@@ -483,6 +526,14 @@ function OrderHistory() {
                                 </div>
                             </Card.Body>
                         </Card>
+                        <ProductModal
+                            open={isOpen}
+                            products={o._doc.items}
+                            orderId={o._doc._id}
+                            onCancel={() => setIsOpen(false)}
+                            onConfirm={handleConfirm}
+                            />
+                        </>
                     ))
                 )}
 
@@ -731,7 +782,7 @@ function OrderHistory() {
                                     <small>
                                         <strong>Lưu ý:</strong>
                                         {userReview.canEdit && ' Bạn có thể chỉnh sửa đánh giá này 1 lần duy nhất. '}
-                                        {userReview.canDelete && ' Bạn có thể xóa đánh giá này trong vòng 3 ngày kể từ ngày tạo. '}
+                                        {userReview.canDelete && ' Bạn có thể xóa đánh giá này trong vòng 3 ngày kể từ ngày tạo._doc. '}
                                         {!userReview.canEdit && ' Bạn đã hết quyền chỉnh sửa đánh giá này. '}
                                         {!userReview.canDelete && ' Bạn không thể xóa đánh giá này sau 3 ngày. '}
                                     </small>
@@ -881,11 +932,10 @@ function OrderHistory() {
                         </Button>
                     </Modal.Footer>
                 </Modal>
+                
             </Container>
         </>
     );
 }
 
 export default OrderHistory;
-
-
