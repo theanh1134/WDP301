@@ -2,6 +2,7 @@ const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const nodemailer = require('nodemailer');
+const _return = require('../models/return');
 
 // [POST] /api/cart/:userId/checkout
 const checkout = async (req, res) => {
@@ -301,7 +302,16 @@ const getOrdersByUser = async (req, res) => {
   try {
     const { userId } = req.params;
     const orders = await Order.find({ 'buyerInfo.userId': userId }).sort({ createdAt: -1 });
-    res.json({ success: true, data: orders });
+    const ordersWithReturned = await Promise.all(
+      orders.map(async (order) => {
+        const returnedProductIds = await getReturnedProductIdsByOrderId(order._id);
+        return {
+          ...order,
+          returnedProductIds,
+        };
+      })
+    );
+    res.json({ success: true, data: ordersWithReturned });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch orders', error: error.message });
   }
@@ -313,11 +323,37 @@ const getOrderById = async (req, res) => {
     const { id } = req.params;
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-    res.json({ success: true, data: order });
+    const returnedProductIds = await getReturnedProductIdsByOrderId(order._id);
+
+    const orderWithReturned = {
+      ...order,
+      returnedProductIds
+    };
+    res.json({ success: true, data: orderWithReturned });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch order', error: error.message });
   }
 };
+
+async function getReturnedProductIdsByOrderId(orderId) {
+  try {
+    const returns = await _return.find({ orderId }).select('items.productId').lean();
+
+    if (!returns || returns.length === 0) return [];
+
+    // Lấy tất cả productId từ các items
+    const allIds = returns.flatMap(ret => ret.items.map(i => String(i.productId)));
+
+    // Loại bỏ trùng lặp
+    const uniqueIds = [...new Set(allIds)];
+
+    return uniqueIds;
+  } catch (error) {
+    console.error('Error getting returned product IDs:', error);
+    throw error;
+  }
+}
+
 
 // Cancel order
 const cancelOrder = async (req, res) => {
@@ -441,6 +477,16 @@ const getOrdersByShop = async (req, res) => {
         productIds.some(pid => pid.toString() === item.productId.toString())
       )
     }));
+
+    // const ordersWithReturned = await Promise.all(
+    //   filteredOrders.map(async (order) => {
+    //     const returnedProductIds = await getReturnedProductIdsByOrderId(order._id);
+    //     return {
+    //       ...order,
+    //       returnedProductIds,
+    //     };
+    //   })
+    // );
 
     res.json({
       success: true,
@@ -1187,6 +1233,20 @@ const getProductAnalytics = async (req, res) => {
     });
   }
 };
+
+async function checkReturnExists(orderId, productId) {
+  try {
+    const exists = await _return.findOne({
+      orderId,
+      'items.productId': productId
+    }).lean();
+
+    return !!exists; // true nếu có document, false nếu không
+  } catch (error) {
+    console.error('Error checking return existence:', error);
+    throw error;
+  }
+}
 
 module.exports = {
   checkout,

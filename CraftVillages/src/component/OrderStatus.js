@@ -18,12 +18,14 @@ function OrderStatus() {
     const { id } = useParams();
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [listReturn, setListReturn] = useState([])
 
     useEffect(() => {
         const load = async () => {
             try {
                 const data = await orderService.getOrderById(id);
-                setOrder(data);
+                setOrder(data._doc);
+                setListReturn(data.returnedProductIds)
             } finally {
                 setLoading(false);
             }
@@ -53,6 +55,11 @@ function OrderStatus() {
         const colorMap = { PENDING: 'warning', PROCESSING: 'warning', CONFIRMED: 'primary', SHIPPED: 'info', DELIVERED: 'success', CANCELLED: 'secondary', REFUNDED: 'secondary' };
         return <Badge bg={colorMap[order.status] || 'secondary'}>{labelMap[order.status] || order.status}</Badge>;
     };
+
+    function isIdInList(list, id) {
+        if (!Array.isArray(list)) return false;
+        return list.some(item => String(item) === String(id));
+    }
 
     return (
         <>
@@ -124,6 +131,11 @@ function OrderStatus() {
                                                 <div className="text-muted small">Mã sản phẩm: {String(it.productId).slice(-6)}</div>
                                                 <div className="text-muted small">Đơn giá: {(it.priceAtPurchase || 0).toLocaleString()} VND</div>
                                                 <div className="text-muted small">Số lượng: {it.quantity}</div>
+                                            </div>
+                                            <div>
+                                                {isIdInList(listReturn, it.productId) && (<>
+                                                    <span class="badge bg-success">Hoàn hàng</span>
+                                                </>)}
                                             </div>
                                         </div>
                                         <div className="text-end">

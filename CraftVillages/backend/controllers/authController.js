@@ -186,14 +186,12 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Skip email verification for development (test accounts)
-        // In production, uncomment this check:
-        // if (!user.isEmailVerified) {
-        //     return res.status(401).json({
-        //         success: false,
-        //         message: 'Please verify your email first'
-        //     });
-        // }
+        if (!user.isEmailVerified) {
+            return res.status(401).json({
+                success: false,
+                message: 'Please verify your email first'
+            });
+        }
 
         const isPasswordValid = await user.comparePassword(password);
         if (!isPasswordValid) {
@@ -229,7 +227,6 @@ const login = async (req, res, next) => {
                     fullName: user.fullName,
                     email: user.email,
                     role: user.roleId.roleName,
-                    roleId: user.roleId._id,
                     isEmailVerified: user.isEmailVerified,
                     ...(shopInfo && shopInfo) // Thêm shopId, shopName, avatarUrl nếu là seller
                 }

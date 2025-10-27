@@ -31,31 +31,19 @@ function Login() {
             const response = await authService.login(email, password);
 
             if (response.success) {
-                // Get user data
+                // Check if user is email verified
+                if (response.data && response.data.user && !response.data.user.isEmailVerified) {
+                    setError('Vui lòng xác nhận email trước khi đăng nhập. Kiểm tra hộp thư của bạn.');
+                    return;
+                }
+
+                // Welcome toast with user's full name
                 const user = response.data?.user || authService.getCurrentUser();
                 const fullName = user?.fullName || user?.name || user?.username || user?.email || 'bạn';
-                const userRole = user?.role || 'BUYER';
-
-                // Welcome toast
                 toast.success(`Chào mừng, ${fullName}!`, { autoClose: 2500 });
 
-                // Smart redirect based on role
-                const redirects = {
-                    'ADMIN_BUSINESS': '/admin-dashboard',
-                    'SELLER_STAFF': '/staff-dashboard',
-                    'RETURN_STAFF': '/staff-dashboard',
-                    'SHIPPER': '/shipper-dashboard',
-                    'SELLER': '/seller-dashboard',
-                    'BUYER': '/'
-                };
-
-                const redirectUrl = redirects[userRole] || '/';
-                console.log(`🔀 Redirecting to ${redirectUrl} (Role: ${userRole})`);
-                
-                // Small delay to show success message
-                setTimeout(() => {
-                    window.location.href = redirectUrl;
-                }, 1500);
+                // Redirect to home page or dashboard
+                window.location.href = '/';
             }
         } catch (error) {
             setError(error.message);

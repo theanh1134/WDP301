@@ -181,4 +181,13 @@ shopSchema.pre('save', async function(next) {
     next();
 });
 
+// Toggle active status (for admin ban/unban)
+shopSchema.methods.toggleActiveStatus = async function() {
+    this.isActive = !this.isActive;
+    this.lastActivityAt = new Date();
+    await this.save();
+    return this;
+};
+
+
 module.exports = mongoose.model('Shop', shopSchema);
