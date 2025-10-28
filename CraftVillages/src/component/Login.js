@@ -42,8 +42,22 @@ function Login() {
                 const fullName = user?.fullName || user?.name || user?.username || user?.email || 'bạn';
                 toast.success(`Chào mừng, ${fullName}!`, { autoClose: 2500 });
 
-                // Redirect to home page or dashboard
-                window.location.href = '/';
+                // Smart redirect based on role
+                const userRole = user?.role || 'BUYER';
+                const redirects = {
+                    'ADMIN_BUSINESS': '/admin-dashboard',
+                    'SELLER_STAFF': '/staff-dashboard',
+                    'RETURN_STAFF': '/staff-dashboard',
+                    'SHIPPER': '/shipper-dashboard',
+                    'SELLER': '/',
+                    'BUYER': '/'
+                };
+
+                const redirectUrl = redirects[userRole] || '/';
+                console.log(`🔀 Redirecting to ${redirectUrl} (Role: ${userRole})`);
+                
+                // Redirect to appropriate dashboard
+                window.location.href = redirectUrl;
             }
         } catch (error) {
             setError(error.message);
