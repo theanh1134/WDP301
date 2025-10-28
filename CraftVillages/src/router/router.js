@@ -23,13 +23,14 @@ import OrderStatus from '../component/OrderStatus';
 import ShopProducts from '../component/ShopProducts';
 import ChatPage from '../component/Chat/ChatPage';
 import StaffSeller from '../component/SellerStaff/StaffSeller';
-import StaffLayout from '../component/SellerStaff/StaffLayout';
 import ShopDetailPage from '../component/SellerStaff/SellerDetail';
 import DashboardLayout from '../component/SellerStaff/DashboardLayout';
 import StaffReturn from '../component/SellerStaff/StaffReturn';
 import ReturnDetailPage from '../component/SellerStaff/StaffReturnDetail';
 import ConfirmPage from '../component/ConfirmPage';
 import OrderStaff from '../component/OrderStaff/OrderStaff';
+import ShipperLogin from '../component/ShipperChannel/ShipperLogin';
+import ShipperDashboard from '../component/ShipperChannel/ShipperDashboard';
 
 // Create router with future flags enabled
 export const router = createBrowserRouter(
@@ -114,6 +115,31 @@ export const router = createBrowserRouter(
                 <Route path="returns/:id" element={<ReturnDetailPage/>}/>
                 <Route path="orders" element={<OrderStaff />}/>
             </Route>
+            {/* Staff Dashboard alias routes */}
+            <Route path="staff-dashboard" element={<DashboardLayout />}>
+                <Route path="" element={<StaffSeller/>}/>
+                <Route path=":id" element={<ShopDetailPage/>}/>
+                <Route path="returns" element={<StaffReturn/>}/>
+                <Route path="returns/:id" element={<ReturnDetailPage/>}/>
+                <Route path="orders" element={<OrderStaff />}/>
+            </Route>
+            {/* Admin Dashboard alias route (same as staff for now) */}
+            <Route path="admin-dashboard" element={<DashboardLayout />}>
+                <Route path="" element={<StaffSeller/>}/>
+                <Route path=":id" element={<ShopDetailPage/>}/>
+                <Route path="returns" element={<StaffReturn/>}/>
+                <Route path="returns/:id" element={<ReturnDetailPage/>}/>
+                <Route path="orders" element={<OrderStaff />}/>
+            </Route>
+            <Route path="shipper-login" element={<ShipperLogin />} />
+            <Route
+                path="shipper-dashboard"
+                element={
+                    <ProtectedRoute>
+                        <ShipperDashboard />
+                    </ProtectedRoute>
+                }
+            />
         </Route>
     ),
     {
