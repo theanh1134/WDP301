@@ -48,8 +48,10 @@ const rejectReturn = async () => {
         return "Đang chờ duyệt";
       case "APPROVED":
         return "Đã chấp nhận";
-      case "PICKUP_SCHEDULED":
-        return "Đã lên lịch lấy hàng";
+      case "SHIPPED":
+        return "Đang hoàn hàng";
+      case "RETURNED":
+        return "Đã hoàn hàng";
       case "REJECTED":
         return "Đã từ chối";
       default:

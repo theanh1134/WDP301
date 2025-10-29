@@ -55,6 +55,36 @@ exports.createReturns = async (req, res) => {
   }
 };
 
+async function countUserReturnsInLastMonth(userId) {
+  const now = new Date();
+  const lastMonth = new Date();
+  lastMonth.setMonth(now.getMonth() - 1);
+
+  const count = await Return.countDocuments({
+    buyerId: userId,
+    status: { $in: ['REQUESTED', 'APPROVED', 'SHIPPED', 'RETURNED'] },
+    createdAt: { $gte: lastMonth, $lte: now }
+  });
+
+  return count;
+}
+
+exports.countRefund = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const count = await countUserReturnsInLastMonth(userId);
+
+    return res.status(200).json({
+      count: count
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+}
 
 async function getReturnedProductIdsByOrderId(orderId) {
   try {

@@ -7,10 +7,11 @@ import { toast } from 'react-toastify';
 import { getImageUrl } from '../utils/imageHelper';
 import ProductModal from './ProductModal';
 import { useNavigate } from 'react-router-dom';
+import { RiRefund2Line } from 'react-icons/ri';
 
 const StatusBadge = ({ status }) => {
-    const map = { PENDING: 'warning', CONFIRMED: 'primary', PAID: 'success', CANCELLED: 'secondary' };
-    const labelMap = { PENDING: 'Đang xử lý', CONFIRMED: 'Đã xác nhận', PAID: 'Đã thanh toán', CANCELLED: 'Đã hủy' };
+    const map = { PENDING: 'warning', CONFIRMED: 'primary', PAID: 'success', CANCELLED: 'secondary', SHIPPED: 'primary', DELIVERED: 'success' };
+    const labelMap = { PENDING: 'Đang xử lý', CONFIRMED: 'Đã xác nhận', PAID: 'Đã thanh toán', CANCELLED: 'Đã hủy', SHIPPED: 'Đang giao hàng', DELIVERED: 'Giao hàng thành công' };
     return <Badge bg={map[status] || 'secondary'}>{labelMap[status] || status}</Badge>;
 };
 
@@ -107,7 +108,26 @@ function OrderHistory() {
 
     function isIdInList(list, id) {
         if (!Array.isArray(list)) return false;
-        return list.some(item => String(item) === String(id));
+        const a = list.find(item => String(item.productId) === String(id));
+        if(a === undefined) return null
+        return a.status
+    }
+
+    function getMessageReturn(text) {
+        switch(text) {
+            case "REQUESTED":
+                return "Đang yêu cầu hoàn hàng"
+            case "APPROVED":
+                return "Chấp nhận yêu cầu hoàn hàng"
+            case "REJECTED":
+                return "Yêu cầu yêu cầu hoàn hàng bị từ chối"
+            case "SHIPPED":
+                return "Đang hoàn hàng"
+            case "RETURNED":
+                return "Hoàn hàng thành công"
+            default:
+                return ""
+        }
     }
 
     // Hàm xử lý hủy đơn hàng
@@ -410,7 +430,7 @@ function OrderHistory() {
                         { key: 'CONFIRMED', label: 'Vận chuyển', icon: <FaTruck className="me-1" /> },
                         { key: 'PAID', label: 'Hoàn thành', icon: <FaCheckCircle className="me-1" /> },
                         { key: 'CANCELLED', label: 'Đã hủy', icon: <FaTimesCircle className="me-1" /> },
-                        { key: 'RETURN', label: 'Hoàn hàng', icon: <FaTimesCircle className="me-1" /> },
+                        { key: 'RETURN', label: 'Hoàn hàng', icon: <RiRefund2Line className="me-1" /> },
                     ].map(t => (
                         <button key={t.key} className="btn btn-sm" style={styles.tab(status === t.key)} onClick={() => setStatus(t.key)}>{t.icon}{t.label}</button>
                     ))}
@@ -449,9 +469,7 @@ function OrderHistory() {
                                                 <div className="text-muted small">x {it.quantity}</div>
                                             </div>
                                             <div>
-                                                {isIdInList(o.returnedProductIds, it.productId) && (<>
-                                                    <span class="badge bg-success">Hoàn hàng</span>
-                                                </>)}
+                                                <span class="badge bg-success">{getMessageReturn(isIdInList(o.returnedProductIds, it.productId))}</span>
                                             </div>
                                         </div>
                                         <div className="text-end">{(it.priceAtPurchase || it.priceAtAdd || 0).toLocaleString()} VND</div>
@@ -528,6 +546,7 @@ function OrderHistory() {
                         </Card>
                         <ProductModal
                             open={isOpen}
+                            returnids={o.returnedProductIds}
                             products={o._doc.items}
                             orderId={o._doc._id}
                             onCancel={() => setIsOpen(false)}

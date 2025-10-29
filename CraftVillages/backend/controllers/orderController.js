@@ -337,15 +337,21 @@ const getOrderById = async (req, res) => {
 
 async function getReturnedProductIdsByOrderId(orderId) {
   try {
-    const returns = await _return.find({ orderId }).select('items.productId').lean();
+    const returns = await _return.find({ orderId }).select('items.productId status').lean();
 
     if (!returns || returns.length === 0) return [];
 
     // Lấy tất cả productId từ các items
-    const allIds = returns.flatMap(ret => ret.items.map(i => String(i.productId)));
+    const allIds = returns.flatMap(ret => 
+      ret.items.map(i => {
+        console.log(i)
+        return ({ productId: String(i.productId), status: ret.status })})
+    );
 
     // Loại bỏ trùng lặp
     const uniqueIds = [...new Set(allIds)];
+
+    console.log(uniqueIds)
 
     return uniqueIds;
   } catch (error) {
