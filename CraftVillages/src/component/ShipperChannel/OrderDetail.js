@@ -94,6 +94,13 @@ function OrderDetail({ show, onHide, order, onUpdateStatus }) {
 
     setLoading(true);
     try {
+      console.log('Submitting status update:', {
+        shipmentId: order.id,
+        status: newStatus,
+        notes,
+        photosCount: photos.length
+      });
+      
       await onUpdateStatus(order.id, newStatus, notes, photos);
       
       // Reset form
@@ -101,9 +108,12 @@ function OrderDetail({ show, onHide, order, onUpdateStatus }) {
       setPhotos([]);
       setPhotoPreview([]);
       
+      toast.success('Cập nhật trạng thái thành công');
       onHide();
     } catch (error) {
-      toast.error('Có lỗi xảy ra');
+      console.error('Error in handleSubmit:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Có lỗi xảy ra';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

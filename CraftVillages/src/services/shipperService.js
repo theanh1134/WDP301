@@ -72,10 +72,13 @@ class ShipperService {
     }
 
     // Update order status
-    async updateOrderStatus(orderId, status, notes = '', photos = []) {
+    async updateOrderStatus(shipmentId, status, notes = '', photos = []) {
         try {
             const token = localStorage.getItem('authToken');
-            const response = await axios.put(`${API_URL}/shipper/orders/${orderId}/status`, {
+            console.log(`Calling API: PUT /shipper/shipment/${shipmentId}/status`);
+            console.log('Payload:', { status, notes, photos: photos.length });
+            
+            const response = await axios.put(`${API_URL}/shipper/shipment/${shipmentId}/status`, {
                 status,
                 notes,
                 photos
@@ -84,9 +87,12 @@ class ShipperService {
                     'Authorization': `Bearer ${token}`
                 }
             });
+            
+            console.log('Update status response:', response.data);
             return response.data;
         } catch (error) {
             console.error('Error updating order status:', error);
+            console.error('Error response:', error.response?.data);
             throw error;
         }
     }

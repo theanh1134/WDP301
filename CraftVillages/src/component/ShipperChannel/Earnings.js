@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Form, Row, Col, Table, OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
+import { Card, Button, Form, Row, Col, Table, OverlayTrigger, Tooltip, Badge, Spinner } from 'react-bootstrap';
 import styled from 'styled-components';
 import { FaDownload, FaCalendar } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import shipperService from '../../services/shipperService';
 
 const EarningsWrapper = styled.div`
   .summary-cards {
@@ -63,63 +64,41 @@ const earningsData = [
   { date: '07/01', earnings: 820000, completedOrders: 9 },
 ];
 
-const transactionData = [
-  {
-    id: '1',
-    date: '2025-01-21',
-    orderId: 'ORD-001',
-    customerName: 'Nguyễn Văn A',
-    amount: 720000,
-    shippingFee: 30000,
-    bonus: 5000,
-    total: 35000,
-    status: 'COMPLETED'
-  },
-  {
-    id: '2',
-    date: '2025-01-21',
-    orderId: 'ORD-002',
-    customerName: 'Trần Thị B',
-    amount: 950000,
-    shippingFee: 25000,
-    bonus: 0,
-    total: 25000,
-    status: 'COMPLETED'
-  },
-  {
-    id: '3',
-    date: '2025-01-20',
-    orderId: 'ORD-003',
-    customerName: 'Lê Văn C',
-    amount: 1200000,
-    shippingFee: 40000,
-    bonus: 10000,
-    total: 50000,
-    status: 'COMPLETED'
-  },
-  {
-    id: '4',
-    date: '2025-01-20',
-    orderId: 'ORD-004',
-    customerName: 'Phạm Thị D',
-    amount: 580000,
-    shippingFee: 20000,
-    bonus: 0,
-    total: 20000,
-    status: 'PENDING'
-  }
-];
-
 function Earnings({ userId }) {
-  const [startDate, setStartDate] = useState('2025-01-01');
-  const [endDate, setEndDate] = useState('2025-01-31');
+  // Get current month date range
+  const getCurrentMonthRange = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    return {
+      start: firstDay.toISOString().split('T')[0],
+      end: lastDay.toISOString().split('T')[0]
+    };
+  };
+  
+  const currentMonth = getCurrentMonthRange();
+  const [startDate, setStartDate] = useState(currentMonth.start);
+  const [endDate, setEndDate] = useState(currentMonth.end);
   const [selectedMonth, setSelectedMonth] = useState('current');
-  const [transactions] = useState(transactionData);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [chartData, setChartData] = useState(earningsData);
+  const [summary, setSummary] = useState({
+    totalEarnings: 0,
+    totalBonus: 0,
+    totalDeductions: 0
+  });
 
   useEffect(() => {
     // Load earnings data based on date range
-    loadEarnings();
-  }, [startDate, endDate]);
+    if (userId) {
+      loadEarnings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, userId]);
 
   const getMonthDateRange = (monthOffset) => {
     const today = new Date();
@@ -178,15 +157,86 @@ function Earnings({ userId }) {
 
   const loadEarnings = async () => {
     try {
-      // API call here
-      // const response = await shipperService.getEarnings(userId, startDate, endDate);
-      // setTransactions(response.data);
+      setLoading(true);
+      console.log('Loading earnings for userId:', userId, 'from', startDate, 'to', endDate);
       
-      // Mock delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const response = await shipperService.getEarnings(userId, startDate, endDate);
+      console.log('Earnings response:', response);
+      
+      if (response && response.success) {
+        // Set transactions data
+        const earningsRecords = response.data || [];
+        
+        // Transform API data to match table format
+        const transformedTransactions = earningsRecords.map(record => ({
+          id: record._id,
+          date: new Date(record.date || record.createdAt).toLocaleDateString('vi-VN'),
+          orderId: record.orderId?.orderNumber || record.orderId?._id || 'N/A',
+          customerName: record.orderId?.shippingAddress?.recipientName || 
+                       record.orderId?.buyerInfo?.fullName || 'Khách hàng',
+          amount: record.orderId?.finalAmount || record.orderId?.subtotal || 0,
+          shippingFee: record.earnings?.baseFee || 0,
+          bonus: record.earnings?.bonus || 0,
+          total: record.earnings?.total || 0,
+          status: record.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
+        }));
+        
+        console.log('Transformed transactions:', transformedTransactions);
+        setTransactions(transformedTransactions);
+        
+        // Set summary data
+        if (response.summary) {
+          setSummary({
+            totalEarnings: response.summary.totalEarnings || 0,
+            totalBonus: response.summary.totalBonus || 0,
+            totalDeductions: response.summary.totalDeductions || 0
+          });
+        }
+        
+        // Generate chart data from earnings records
+        const chartDataMap = new Map();
+        earningsRecords.forEach(record => {
+          const date = new Date(record.date || record.createdAt);
+          const dateKey = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+          
+          if (!chartDataMap.has(dateKey)) {
+            chartDataMap.set(dateKey, {
+              date: dateKey,
+              earnings: 0,
+              completedOrders: 0
+            });
+          }
+          
+          const dayData = chartDataMap.get(dateKey);
+          dayData.earnings += record.earnings?.total || 0;
+          if (record.status === 'COMPLETED') {
+            dayData.completedOrders += 1;
+          }
+        });
+        
+        const generatedChartData = Array.from(chartDataMap.values()).sort((a, b) => {
+          const [dayA, monthA] = a.date.split('/');
+          const [dayB, monthB] = b.date.split('/');
+          return new Date(2025, parseInt(monthA) - 1, parseInt(dayA)) - 
+                 new Date(2025, parseInt(monthB) - 1, parseInt(dayB));
+        });
+        
+        console.log('Generated chart data:', generatedChartData);
+        
+        if (generatedChartData.length > 0) {
+          setChartData(generatedChartData);
+        }
+        
+      } else {
+        console.error('Failed to load earnings:', response?.message);
+        setTransactions([]);
+      }
     } catch (error) {
       console.error('Error loading earnings:', error);
       toast.error('Không thể tải dữ liệu thu nhập');
+      setTransactions([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -225,8 +275,8 @@ function Earnings({ userId }) {
     }
   };
 
-  // Calculate totals
-  const totalEarnings = transactions.reduce((sum, t) => sum + t.total, 0);
+  // Calculate totals from actual data
+  const totalEarnings = summary.totalEarnings || transactions.reduce((sum, t) => sum + t.total, 0);
   const completedOrders = transactions.filter(t => t.status === 'COMPLETED').length;
   const pendingAmount = transactions
     .filter(t => t.status === 'PENDING')
@@ -343,7 +393,7 @@ function Earnings({ userId }) {
           <StatBox gradient="#e3f2fd" gradient2="#bbdefb">
             <div className="card-body">
               <div className="stat-value" style={{ color: '#1976d2' }}>
-                {totalEarnings.toLocaleString()}
+                {Math.round(totalEarnings).toLocaleString('vi-VN')}
               </div>
               <div className="stat-label">Tổng thu nhập</div>
               <small className="text-muted">VND</small>
@@ -362,7 +412,7 @@ function Earnings({ userId }) {
           <StatBox gradient="#fff3e0" gradient2="#ffe0b2">
             <div className="card-body">
               <div className="stat-value" style={{ color: '#f57c00' }}>
-                {avgPerOrder.toLocaleString()}
+                {Math.round(avgPerOrder).toLocaleString('vi-VN')}
               </div>
               <div className="stat-label">Thu nhập trung bình/đơn</div>
               <small className="text-muted">VND</small>
@@ -372,7 +422,7 @@ function Earnings({ userId }) {
           <StatBox gradient="#f3e5f5" gradient2="#e1bee7">
             <div className="card-body">
               <div className="stat-value" style={{ color: '#7b1fa2' }}>
-                {pendingAmount.toLocaleString()}
+                {Math.round(pendingAmount).toLocaleString('vi-VN')}
               </div>
               <div className="stat-label">Chờ thanh toán</div>
               <small className="text-muted">VND</small>
@@ -383,36 +433,58 @@ function Earnings({ userId }) {
         {/* Charts */}
         <div className="chart-container">
           <h5 className="mb-3">📈 Biểu đồ thu nhập</h5>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={earningsData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <ChartTooltip formatter={(value) => `${value.toLocaleString()} VND`} />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="earnings" 
-                stroke="#1976d2" 
-                name="Thu nhập (VND)"
-                strokeWidth={2}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" />
+              <p className="mt-2 text-muted">Đang tải dữ liệu...</p>
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="text-center py-5">
+              <p className="text-muted">Không có dữ liệu biểu đồ</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <ChartTooltip formatter={(value) => `${value.toLocaleString()} VND`} />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="earnings" 
+                  stroke="#1976d2" 
+                  name="Thu nhập (VND)"
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         <div className="chart-container">
           <h5 className="mb-3">📊 Biểu đồ số đơn hoàn thành</h5>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={earningsData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <ChartTooltip />
-              <Legend />
-              <Bar dataKey="completedOrders" fill="#2e7d32" name="Số đơn hoàn thành" />
-            </BarChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" />
+              <p className="mt-2 text-muted">Đang tải dữ liệu...</p>
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="text-center py-5">
+              <p className="text-muted">Không có dữ liệu biểu đồ</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <ChartTooltip />
+                <Legend />
+                <Bar dataKey="completedOrders" fill="#2e7d32" name="Số đơn hoàn thành" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -422,67 +494,74 @@ function Earnings({ userId }) {
           <h5 className="mb-0">💰 Chi tiết giao dịch</h5>
         </Card.Header>
         <Card.Body>
-          <div className="table-responsive">
-            <Table hover>
-              <thead>
-                <tr>
-                  <th>Ngày</th>
-                  <th>Mã đơn hàng</th>
-                  <th>Khách hàng</th>
-                  <th>Giá trị đơn hàng</th>
-                  <th>Phí giao hàng</th>
-                  <th>Thưởng</th>
-                  <th>Tổng cộng</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" />
+              <p className="mt-2 text-muted">Đang tải dữ liệu giao dịch...</p>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <Table hover>
+                <thead>
                   <tr>
-                    <td colSpan="8" className="text-center py-4 text-muted">
-                      Không có dữ liệu giao dịch
-                    </td>
+                    <th>Ngày</th>
+                    <th>Mã đơn hàng</th>
+                    <th>Khách hàng</th>
+                    <th>Giá trị đơn hàng</th>
+                    <th>Phí giao hàng</th>
+                    <th>Thưởng</th>
+                    <th>Tổng cộng</th>
+                    <th>Trạng thái</th>
                   </tr>
-                ) : (
-                  transactions.map(transaction => (
-                    <tr key={transaction.id}>
-                      <td>{transaction.date}</td>
-                      <td>
-                        <strong>{transaction.orderId}</strong>
+                </thead>
+                <tbody>
+                  {transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="text-center py-4 text-muted">
+                        Không có dữ liệu giao dịch trong khoảng thời gian này
                       </td>
-                      <td>{transaction.customerName}</td>
-                      <td>{transaction.amount.toLocaleString()} VND</td>
-                      <td>
-                        <OverlayTrigger
-                          placement="top"
-                          overlay={
-                            <Tooltip>
-                              Phí cơ bản giao hàng
-                            </Tooltip>
-                          }
-                        >
-                          <span>{transaction.shippingFee.toLocaleString()} VND</span>
-                        </OverlayTrigger>
-                      </td>
-                      <td>
-                        {transaction.bonus > 0 ? (
-                          <span className="text-success">+{transaction.bonus.toLocaleString()} VND</span>
-                        ) : (
-                          <span className="text-muted">-</span>
-                        )}
-                      </td>
-                      <td>
-                        <strong style={{ color: '#1976d2', fontSize: '1.1rem' }}>
-                          {transaction.total.toLocaleString()} VND
-                        </strong>
-                      </td>
-                      <td>{renderStatusBadge(transaction.status)}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
-          </div>
+                  ) : (
+                    transactions.map(transaction => (
+                      <tr key={transaction.id}>
+                        <td>{transaction.date}</td>
+                        <td>
+                          <strong>{transaction.orderId}</strong>
+                        </td>
+                        <td>{transaction.customerName}</td>
+                        <td>{transaction.amount.toLocaleString()} VND</td>
+                        <td>
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={
+                              <Tooltip>
+                                Phí cơ bản giao hàng
+                              </Tooltip>
+                            }
+                          >
+                            <span>{transaction.shippingFee.toLocaleString()} VND</span>
+                          </OverlayTrigger>
+                        </td>
+                        <td>
+                          {transaction.bonus > 0 ? (
+                            <span className="text-success">+{transaction.bonus.toLocaleString()} VND</span>
+                          ) : (
+                            <span className="text-muted">-</span>
+                          )}
+                        </td>
+                        <td>
+                          <strong style={{ color: '#1976d2', fontSize: '1.1rem' }}>
+                            {transaction.total.toLocaleString()} VND
+                          </strong>
+                        </td>
+                        <td>{renderStatusBadge(transaction.status)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </div>
+          )}
         </Card.Body>
       </Card>
     </EarningsWrapper>

@@ -6,7 +6,7 @@ import shipperService from '../../services/shipperService';
 import { toast } from 'react-toastify';
 import styled, { keyframes } from 'styled-components';
 import {
-    FaTruck, FaMapMarkerAlt, FaClock, FaMoneyBillWave, 
+    FaTruck, FaMapMarkerAlt, FaClock, 
     FaStar, FaBell, FaCog, FaSearch, FaChevronDown, 
     FaChevronRight, FaCheckCircle, FaEye,
     FaUser, FaMotorcycle, FaCar, FaBicycle
@@ -417,52 +417,96 @@ function ShipperDashboard() {
 
     const loadShipperStats = async (userId) => {
         try {
-            // Mock data - thay thế bằng API call thực tế
-            setStats({
-                totalOrders: 45,
-                completedOrders: 42,
-                pendingOrders: 3,
-                totalEarnings: 1250000,
-                rating: 4.8
-            });
+            console.log('Loading real dashboard stats for userId:', userId);
+            const response = await shipperService.getDashboardStats(userId);
+            console.log('Dashboard stats response:', response);
+            
+            if (response && response.success) {
+                setStats({
+                    totalOrders: response.data.totalOrders || 0,
+                    completedOrders: response.data.completedOrders || 0,
+                    pendingOrders: response.data.pendingOrders || 0,
+                    totalEarnings: response.data.totalEarnings || 0,
+                    rating: response.data.rating || 0
+                });
+            } else {
+                console.error('Failed to load stats:', response?.message);
+                // Set default values if API fails
+                setStats({
+                    totalOrders: 0,
+                    completedOrders: 0,
+                    pendingOrders: 0,
+                    totalEarnings: 0,
+                    rating: 0
+                });
+            }
         } catch (error) {
             console.error('Error loading stats:', error);
+            toast.error('Không thể tải thống kê');
+            // Set default values on error
+            setStats({
+                totalOrders: 0,
+                completedOrders: 0,
+                pendingOrders: 0,
+                totalEarnings: 0,
+                rating: 0
+            });
         }
     };
 
     const loadOrders = async (userId) => {
         try {
-            // Mock data - thay thế bằng API call thực tế
-            setOrders([
-                {
-                    id: '1',
-                    orderId: 'ORD-001',
-                    customerName: 'Nguyễn Văn A',
-                    address: '123 Lê Lợi, Quận 1, TP.HCM',
-                    phone: '0901234567',
-                    items: 'Khăn choàng thổ cẩm x2',
-                    totalAmount: 720000,
-                    shippingFee: 30000,
-                    status: 'PICKED_UP',
-                    estimatedDelivery: '2025-01-15T14:00:00Z',
-                    distance: '5.2 km'
-                },
-                {
-                    id: '2',
-                    orderId: 'ORD-002',
-                    customerName: 'Trần Thị B',
-                    address: '456 Nguyễn Huệ, Quận 1, TP.HCM',
-                    phone: '0907654321',
-                    items: 'Hộp sơn mài cao cấp x1',
-                    totalAmount: 950000,
-                    shippingFee: 25000,
-                    status: 'OUT_FOR_DELIVERY',
-                    estimatedDelivery: '2025-01-15T16:00:00Z',
-                    distance: '3.8 km'
-                }
-            ]);
+            console.log('Loading real orders for userId:', userId);
+            const response = await shipperService.getAssignedOrders(userId);
+            console.log('Orders response:', response);
+            
+            if (response && response.success) {
+                // Transform API data to match component format
+                const transformedOrders = (response.data || []).map(shipment => {
+                    console.log('Processing shipment:', shipment);
+                    
+                    // Get delivery address from order
+                    const deliveryAddr = shipment.orderId?.shippingAddress?.fullAddress || 
+                                        shipment.deliveryLocation?.address || '';
+                    const phone = shipment.orderId?.shippingAddress?.phoneNumber || 
+                                 shipment.orderId?.buyerInfo?.phoneNumber || 'N/A';
+                    
+                    // Format items list
+                    let itemsList = 'N/A';
+                    if (shipment.orderId?.items && Array.isArray(shipment.orderId.items)) {
+                        itemsList = shipment.orderId.items.map(item => 
+                            `${item.productName || 'Sản phẩm'} x${item.quantity}`
+                        ).join(', ');
+                    }
+                    
+                    return {
+                        id: shipment._id,
+                        orderId: shipment.orderId?.orderNumber || shipment.orderId?._id || shipment._id,
+                        customerName: shipment.orderId?.shippingAddress?.recipientName || 
+                                     shipment.orderId?.buyerInfo?.fullName || 'Khách hàng',
+                        address: deliveryAddr,
+                        phone: phone,
+                        items: itemsList,
+                        totalAmount: shipment.orderId?.finalAmount || shipment.orderId?.subtotal || 0,
+                        shippingFee: shipment.shippingFee?.total || 
+                                    shipment.shippingFee?.baseFee || 
+                                    shipment.orderId?.shippingFee || 0,
+                        status: shipment.status,
+                        estimatedDelivery: shipment.estimatedDeliveryTime || new Date(),
+                        distance: shipment.distance ? `${shipment.distance.toFixed(1)} km` : 'N/A'
+                    };
+                });
+                
+                console.log('Transformed orders:', transformedOrders);
+                setOrders(transformedOrders);
+            } else {
+                console.error('Failed to load orders:', response?.message);
+                setOrders([]);
+            }
         } catch (error) {
             console.error('Error loading orders:', error);
+            toast.error('Không thể tải danh sách đơn hàng');
+            setOrders([]);
         }
     };
     
@@ -576,21 +620,26 @@ function ShipperDashboard() {
         setShowOrderDetail(true);
     };
 
-    const handleUpdateOrderStatus = async (orderId, status, notes, photos) => {
+    const handleUpdateOrderStatus = async (shipmentId, status, notes, photos) => {
         try {
             // Call API to update order status
-            console.log('Updating order status:', { orderId, status, notes, photos });
-            await shipperService.updateOrderStatus(orderId, status, notes, photos);
+            console.log('Updating shipment status:', { shipmentId, status, notes, photos });
+            await shipperService.updateOrderStatus(shipmentId, status, notes, photos);
             
             // Update local state
             setOrders(prev => prev.map(order => 
-                order.id === orderId ? { ...order, status } : order
+                order.id === shipmentId ? { ...order, status } : order
             ));
+            
+            // Reload orders to get fresh data
+            await loadOrders(currentUser._id || currentUser.id);
             
             toast.success('Cập nhật trạng thái đơn hàng thành công');
         } catch (error) {
             console.error('Error updating order status:', error);
-            toast.error('Có lỗi xảy ra khi cập nhật trạng thái');
+            console.error('Error details:', error.response?.data);
+            const errorMsg = error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật trạng thái';
+            toast.error(errorMsg);
         }
     };
 
@@ -633,6 +682,7 @@ function ShipperDashboard() {
                     </div>
                 </StatCard>
 
+                {/* Temporarily hidden - Revenue card 
                 <StatCard>
                     <div className="card-body">
                         <div className="stat-icon" style={{ backgroundColor: '#f3e5f5', color: '#7b1fa2' }}>
@@ -642,6 +692,7 @@ function ShipperDashboard() {
                         <div className="stat-label">Tổng thu nhập (VND)</div>
                     </div>
                 </StatCard>
+                */}
 
                 <StatCard>
                     <div className="card-body">
@@ -1011,6 +1062,7 @@ function ShipperDashboard() {
                     )}
                 </MenuSection>
 
+                {/* Temporarily hidden - Earnings menu
                 <MenuSection>
                     <MenuItem onClick={() => toggleMenu('earnings')}>
                         {expandedMenus.earnings ? <FaChevronDown /> : <FaChevronRight />}
@@ -1028,6 +1080,7 @@ function ShipperDashboard() {
                         </>
                     )}
                 </MenuSection>
+                */}
 
                 <MenuSection>
                     <MenuItem 
