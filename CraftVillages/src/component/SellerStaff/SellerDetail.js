@@ -82,7 +82,7 @@ const ShopDetailPage = () => {
 
   return (
     <div style={{ margin: '0 auto' }}>
-      <button onClick={() => navigate('/staff-seller')} style={{
+      <button onClick={() => navigate('/staff')} style={{
         background: 'none',
         border: 'none'
       }}><ArrowLeftOutlined /> Quay lại trang danh sách</button>

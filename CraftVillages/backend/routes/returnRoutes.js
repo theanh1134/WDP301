@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { createReturns, getReturnedProductIds } = require("../controllers/returnController");
+const { createReturns, getReturnedProductIds, countRefund } = require("../controllers/returnController");
 
 // 🟢 Cấu hình Multer để lưu file trong /uploads/returns
 const storage = multer.diskStorage({
@@ -27,5 +27,6 @@ const upload = multer({ storage });
 router.post("/", upload.array("files"), createReturns);
 
 router.get('/order/:orderId/product-ids', getReturnedProductIds);
+router.get('/count-return/:userId', countRefund);
 
 module.exports = router;

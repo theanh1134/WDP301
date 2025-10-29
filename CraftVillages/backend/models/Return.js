@@ -75,7 +75,11 @@ const ReturnSchema = new mongoose.Schema(
       enum: ['PICKUP', 'DROP_OFF'],
       required: true
     },
-
+    shippingFee: {
+        type: Number,
+        required: [true, 'Shipping fee is required'],
+        min: [0, 'Shipping fee must be non-negative']
+    },
     pickupAddress: { type: PickupAddressSchema },
     dropoff: { type: DropoffSchema },
 
@@ -86,7 +90,7 @@ const ReturnSchema = new mongoose.Schema(
         'REQUESTED',
         'APPROVED',
         'REJECTED',
-        'PICKUP_SCHEDULED',
+        'SHIPPED',
         'RETURNED',
         'REFUNDED',
         'COMPLETED',
