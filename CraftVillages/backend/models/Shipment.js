@@ -9,12 +9,12 @@ const shipmentSchema = new mongoose.Schema({
     shipperId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Shipper',
-        required: true
+        required: false // Allow null for available orders
     },
     status: {
         type: String,
-        enum: ['ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'],
-        default: 'ASSIGNED'
+        enum: ['CREATED', 'PENDING', 'READY_FOR_PICKUP', 'ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'],
+        default: 'READY_FOR_PICKUP'
     },
     assignedBy: {
         type: mongoose.Schema.Types.ObjectId,

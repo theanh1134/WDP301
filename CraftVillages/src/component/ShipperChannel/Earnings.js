@@ -418,16 +418,6 @@ function Earnings({ userId }) {
               <small className="text-muted">VND</small>
             </div>
           </StatBox>
-
-          <StatBox gradient="#f3e5f5" gradient2="#e1bee7">
-            <div className="card-body">
-              <div className="stat-value" style={{ color: '#7b1fa2' }}>
-                {Math.round(pendingAmount).toLocaleString('vi-VN')}
-              </div>
-              <div className="stat-label">Chờ thanh toán</div>
-              <small className="text-muted">VND</small>
-            </div>
-          </StatBox>
         </div>
 
         {/* Charts */}

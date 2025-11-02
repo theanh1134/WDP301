@@ -366,6 +366,7 @@ function ShipperDashboard() {
     });
 
     const [orders, setOrders] = useState([]);
+    const [availableOrders, setAvailableOrders] = useState([]); // Orders without shipper
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [showOrderDetail, setShowOrderDetail] = useState(false);
 
@@ -403,6 +404,7 @@ function ShipperDashboard() {
                 // Then load statistics and orders
                 await loadShipperStats(user._id || user.id);
                 await loadOrders(user._id || user.id);
+                await loadAvailableOrders(); // Load available orders
 
                 setLoading(false);
             } catch (error) {
@@ -507,6 +509,77 @@ function ShipperDashboard() {
             console.error('Error loading orders:', error);
             toast.error('Không thể tải danh sách đơn hàng');
             setOrders([]);
+        }
+    };
+
+    // Load available orders (orders without shipper)
+    const loadAvailableOrders = async () => {
+        try {
+            console.log('Loading available orders...');
+            const response = await shipperService.getAvailableOrders();
+            console.log('Available orders response:', response);
+            
+            if (response && response.success) {
+                // Transform API data
+                const transformedOrders = (response.data || []).map(shipment => {
+                    const deliveryAddr = shipment.orderId?.shippingAddress?.fullAddress || 
+                                        shipment.deliveryLocation?.address || '';
+                    const phone = shipment.orderId?.shippingAddress?.phoneNumber || 
+                                 shipment.orderId?.buyerInfo?.phoneNumber || 'N/A';
+                    
+                    let itemsList = 'N/A';
+                    if (shipment.orderId?.items && Array.isArray(shipment.orderId.items)) {
+                        itemsList = shipment.orderId.items.map(item => 
+                            `${item.productName || 'Sản phẩm'} x${item.quantity}`
+                        ).join(', ');
+                    }
+                    
+                    return {
+                        id: shipment._id,
+                        orderId: shipment.orderId?.orderNumber || shipment.orderId?._id || shipment._id,
+                        customerName: shipment.orderId?.shippingAddress?.recipientName || 
+                                     shipment.orderId?.buyerInfo?.fullName || 'Khách hàng',
+                        address: deliveryAddr,
+                        phone: phone,
+                        items: itemsList,
+                        totalAmount: shipment.orderId?.finalAmount || shipment.orderId?.subtotal || 0,
+                        status: shipment.status,
+                        pickupLocation: shipment.pickupLocation?.address || 'N/A',
+                        estimatedDistance: shipment.estimatedDistance || 0,
+                        createdAt: shipment.createdAt
+                    };
+                });
+                
+                setAvailableOrders(transformedOrders);
+            }
+        } catch (error) {
+            console.error('Error loading available orders:', error);
+            toast.error('Không thể tải danh sách đơn hàng có sẵn');
+            setAvailableOrders([]);
+        }
+    };
+
+    // Accept an order
+    const handleAcceptOrder = async (shipmentId) => {
+        try {
+            if (!currentUser) return;
+            
+            console.log('Accepting order:', shipmentId);
+            const response = await shipperService.acceptOrder(currentUser._id || currentUser.id, shipmentId);
+            
+            if (response && response.success) {
+                toast.success('Đã nhận đơn hàng thành công!');
+                // Reload both lists
+                await loadAvailableOrders();
+                await loadOrders(currentUser._id || currentUser.id);
+            }
+        } catch (error) {
+            console.error('Error accepting order:', error);
+            if (error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error('Không thể nhận đơn hàng');
+            }
         }
     };
     
@@ -643,6 +716,67 @@ function ShipperDashboard() {
         }
     };
 
+    // Quick status update without opening modal
+    const handleQuickStatusUpdate = async (shipmentId, newStatus) => {
+        try {
+            let statusLabel = '';
+            switch(newStatus) {
+                case 'PICKED_UP': statusLabel = 'Đã lấy hàng'; break;
+                case 'OUT_FOR_DELIVERY': statusLabel = 'Đang giao hàng'; break;
+                case 'DELIVERED': statusLabel = 'Giao thành công'; break;
+                case 'FAILED': statusLabel = 'Giao thất bại'; break;
+                default: statusLabel = newStatus;
+            }
+            
+            console.log(`Quick updating shipment ${shipmentId} to ${newStatus}`);
+            await shipperService.updateOrderStatus(shipmentId, newStatus, `Cập nhật: ${statusLabel}`, []);
+            
+            // Update local state immediately for better UX
+            setOrders(prev => prev.map(order => 
+                order.id === shipmentId ? { ...order, status: newStatus } : order
+            ));
+            
+            toast.success(`✅ ${statusLabel} thành công!`);
+            
+            // Reload to sync with server
+            await loadOrders(currentUser._id || currentUser.id);
+        } catch (error) {
+            console.error('Error in quick status update:', error);
+            const errorMsg = error.response?.data?.message || 'Không thể cập nhật trạng thái';
+            toast.error(errorMsg);
+        }
+    };
+
+    // Handle image upload
+    const handleImageUpload = async (shipmentId, statusContext, files) => {
+        if (!files || files.length === 0) return;
+        
+        try {
+            toast.info(`📸 Đang tải lên ${files.length} ảnh...`);
+            
+            const formData = new FormData();
+            Array.from(files).forEach(file => {
+                formData.append('photos', file);
+            });
+            formData.append('status', statusContext);
+            formData.append('notes', `Ảnh chứng từ ${statusContext}`);
+            
+            console.log(`Uploading ${files.length} photos for shipment ${shipmentId}`);
+            
+            // Upload photos through API
+            await shipperService.uploadEvidencePhotos(shipmentId, formData);
+            
+            toast.success(`✅ Đã tải lên ${files.length} ảnh thành công!`);
+            
+            // Reload orders to show updated photos
+            await loadOrders(currentUser._id || currentUser.id);
+        } catch (error) {
+            console.error('Error uploading images:', error);
+            const errorMsg = error.response?.data?.message || 'Không thể tải ảnh lên';
+            toast.error(errorMsg);
+        }
+    };
+
     const renderDashboard = () => (
         <div>
             <div className="mb-5">
@@ -682,17 +816,19 @@ function ShipperDashboard() {
                     </div>
                 </StatCard>
 
-                {/* Temporarily hidden - Revenue card 
                 <StatCard>
                     <div className="card-body">
                         <div className="stat-icon" style={{ backgroundColor: '#f3e5f5', color: '#7b1fa2' }}>
-                            <FaMoneyBillWave />
+                            💰
                         </div>
-                        <div className="stat-value" style={{ fontSize: '1.5rem' }}>{(stats.totalEarnings / 1000000).toFixed(1)}M</div>
-                        <div className="stat-label">Tổng thu nhập (VND)</div>
+                        <div className="stat-value" style={{ fontSize: '1.8rem', color: '#7b1fa2' }}>
+                            {stats.totalEarnings >= 1000000 
+                                ? `${(stats.totalEarnings / 1000000).toFixed(1)}M` 
+                                : `${(stats.totalEarnings / 1000).toFixed(0)}K`}
+                        </div>
+                        <div className="stat-label">Tổng thu nhập</div>
                     </div>
                 </StatCard>
-                */}
 
                 <StatCard>
                     <div className="card-body">
@@ -707,10 +843,108 @@ function ShipperDashboard() {
 
             </StatsGrid>
 
-            {/* Recent Orders */}
+            {/* Available Orders - Always Shown */}
+            <Card style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)', overflow: 'hidden', marginBottom: '2rem' }}>
+                <Card.Header style={{ background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', borderBottom: '3px solid #4caf50', padding: '1.75rem', borderRadius: '16px 16px 0 0' }}>
+                    <div className="d-flex justify-content-between align-items-center">
+                        <h5 className="mb-0" style={{ fontWeight: '800', color: '#2e7d32', fontSize: '1.15rem' }}>
+                            🛍️ Đơn hàng có sẵn - Chọn đơn để giao
+                        </h5>
+                        <Badge bg="success" style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
+                            {availableOrders.length} đơn
+                        </Badge>
+                    </div>
+                </Card.Header>
+                <Card.Body style={{ padding: '2rem' }}>
+                    {availableOrders.length === 0 ? (
+                        <div className="text-center py-5">
+                            <FaTruck size={64} className="text-muted mb-3" style={{ opacity: 0.2 }} />
+                            <p className="text-muted" style={{ fontSize: '1.05rem', fontWeight: '500' }}>
+                                Không có đơn hàng có sẵn
+                            </p>
+                            <small className="text-muted">Các đơn hàng chưa có shipper sẽ hiển thị ở đây</small>
+                        </div>
+                    ) : (
+                        availableOrders.map(order => (
+                            <OrderCard key={order.id}>
+                                <div className="order-header">
+                                    <div className="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 style={{ color: '#4caf50' }}>#{order.orderId}</h6>
+                                            <small className="text-muted">{order.customerName}</small>
+                                        </div>
+                                        <div className="text-end">
+                                            <Badge bg="success" style={{ fontSize: '0.9rem' }}>Chưa có shipper</Badge>
+                                            <div className="mt-2">
+                                                <small className="text-muted d-block" style={{ fontWeight: '600' }}>
+                                                    <FaMapMarkerAlt className="me-1" />
+                                                    {order.estimatedDistance ? `${order.estimatedDistance} km` : 'N/A'}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="order-body">
+                                    <div className="row g-3">
+                                        <div className="col-md-8">
+                                            <div className="row">
+                                                <div className="col-md-6">
+                                                    <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📦 Sản phẩm</p>
+                                                    <p className="mb-3 text-muted" style={{ fontWeight: '500' }}>{order.items}</p>
+                                                </div>
+                                                <div className="col-md-6">
+                                                    <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📞 Liên hệ</p>
+                                                    <p className="mb-3" style={{ fontWeight: '600', color: '#333' }}>{order.phone}</p>
+                                                </div>
+                                            </div>
+                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📍 Lấy hàng từ</p>
+                                            <p className="mb-3 text-muted" style={{ fontWeight: '500' }}>{order.pickupLocation}</p>
+                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📍 Giao đến</p>
+                                            <p className="mb-3 text-muted" style={{ fontWeight: '500' }}>{order.address}</p>
+                                        </div>
+                                        <div className="col-md-4">
+                                            <div className="text-center p-3" style={{ background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)', borderRadius: '12px' }}>
+                                                <p className="mb-2" style={{ color: '#f57c00', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>💰 Tổng tiền</p>
+                                                <p className="mb-3" style={{ fontSize: '1.5rem', fontWeight: '700', color: '#e65100' }}>
+                                                    {order.totalAmount.toLocaleString('vi-VN')} đ
+                                                </p>
+                                                
+                                                <Button 
+                                                    variant="success" 
+                                                    size="lg" 
+                                                    className="w-100"
+                                                    onClick={() => handleAcceptOrder(order.id)}
+                                                    style={{ 
+                                                        fontWeight: '700', 
+                                                        fontSize: '1.1rem',
+                                                        padding: '0.75rem',
+                                                        boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)'
+                                                    }}
+                                                >
+                                                    <FaTruck className="me-2" />
+                                                    Nhận đơn ngay
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </OrderCard>
+                        ))
+                    )}
+                </Card.Body>
+            </Card>
+
+            {/* My Orders */}
             <Card style={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)', overflow: 'hidden' }}>
                 <Card.Header style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)', borderBottom: '3px solid #b8860b', padding: '1.75rem', borderRadius: '16px 16px 0 0' }}>
-                    <h5 className="mb-0" style={{ fontWeight: '800', color: '#333', fontSize: '1.15rem' }}>📋 Đơn hàng gần đây</h5>
+                    <div className="d-flex justify-content-between align-items-center">
+                        <h5 className="mb-0" style={{ fontWeight: '800', color: '#333', fontSize: '1.15rem' }}>
+                            📋 Đơn hàng của tôi
+                        </h5>
+                        <Badge bg="primary" style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
+                            {orders.length} đơn
+                        </Badge>
+                    </div>
                 </Card.Header>
                 <Card.Body style={{ padding: '2rem' }}>
                     {orders.length === 0 ? (
@@ -740,44 +974,145 @@ function ShipperDashboard() {
                                 </div>
                                 <div className="order-body">
                                     <div className="row g-3">
-                                        <div className="col-md-6">
-                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📦 Sản phẩm</p>
-                                            <p className="mb-3 text-muted" style={{ fontWeight: '500' }}>{order.items}</p>
-                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📍 Địa chỉ</p>
-                                            <p className="mb-3 text-muted" style={{ fontWeight: '500' }}>{order.address}</p>
-                                            <p style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📞 SĐT</p>
-                                            <p style={{ fontWeight: '600', color: '#333' }}>{order.phone}</p>
+                                        <div className="col-md-8">
+                                            <div className="row">
+                                                <div className="col-md-6">
+                                                    <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>� Sản phẩm</p>
+                                                    <p className="mb-3 text-muted" style={{ fontWeight: '500' }}>{order.items}</p>
+                                                    <p style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📞 SĐT</p>
+                                                    <p style={{ fontWeight: '600', color: '#333' }}>{order.phone}</p>
+                                                </div>
+                                                <div className="col-md-6">
+                                                    <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>💰 Tổng tiền</p>
+                                                    <p className="mb-3" style={{ fontSize: '1.3rem', fontWeight: '800', color: '#2e7d32' }}>{order.totalAmount.toLocaleString()} đ</p>
+                                                    <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>🚚 Phí ship</p>
+                                                    <p style={{ fontWeight: '700', fontSize: '1.05rem', color: '#b8860b' }}>{order.shippingFee.toLocaleString()} đ</p>
+                                                </div>
+                                            </div>
+                                            <p className="mb-2 mt-3" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📍 Địa chỉ giao hàng</p>
+                                            <p className="text-muted" style={{ fontWeight: '500' }}>{order.address}</p>
                                         </div>
-                                        <div className="col-md-6">
-                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>💰 Tổng tiền</p>
-                                            <p className="mb-3" style={{ fontSize: '1.3rem', fontWeight: '800', color: '#2e7d32' }}>{order.totalAmount.toLocaleString()} VND</p>
-                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>🚚 Phí ship</p>
-                                            <p className="mb-3" style={{ fontWeight: '700', fontSize: '1.05rem', color: '#b8860b' }}>{order.shippingFee.toLocaleString()} VND</p>
-                                            <p style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>⏰ Dự kiến giao</p>
-                                            <p className="text-muted" style={{ fontWeight: '500' }}>{new Date(order.estimatedDelivery).toLocaleString('vi-VN')}</p>
+                                        <div className="col-md-4">
+                                            <div className="d-flex flex-column gap-2">
+                                                {/* Quick Action Buttons */}
+                                                {order.status === 'ASSIGNED' && (
+                                                    <>
+                                                        <Button 
+                                                            variant="primary" 
+                                                            size="md"
+                                                            onClick={() => handleQuickStatusUpdate(order.id, 'PICKED_UP')}
+                                                            className="w-100"
+                                                            style={{ fontWeight: '700', borderRadius: '8px' }}
+                                                        >
+                                                            📦 Đã lấy hàng
+                                                        </Button>
+                                                        <label 
+                                                            htmlFor={`upload-pickup-${order.id}`}
+                                                            className="btn btn-outline-primary w-100 mb-0"
+                                                            style={{ fontWeight: '600', borderRadius: '8px', cursor: 'pointer' }}
+                                                        >
+                                                            📸 Chụp ảnh lấy hàng
+                                                        </label>
+                                                        <input 
+                                                            id={`upload-pickup-${order.id}`}
+                                                            type="file" 
+                                                            accept="image/*"
+                                                            capture="environment"
+                                                            multiple
+                                                            style={{ display: 'none' }}
+                                                            onChange={(e) => handleImageUpload(order.id, 'PICKED_UP', e.target.files)}
+                                                        />
+                                                    </>
+                                                )}
+                                                
+                                                {order.status === 'PICKED_UP' && (
+                                                    <>
+                                                        <Button 
+                                                            variant="warning" 
+                                                            size="md"
+                                                            onClick={() => handleQuickStatusUpdate(order.id, 'OUT_FOR_DELIVERY')}
+                                                            className="w-100"
+                                                            style={{ fontWeight: '700', borderRadius: '8px', color: '#fff' }}
+                                                        >
+                                                            🚚 Đang giao hàng
+                                                        </Button>
+                                                        <label 
+                                                            htmlFor={`upload-transit-${order.id}`}
+                                                            className="btn btn-outline-warning w-100 mb-0"
+                                                            style={{ fontWeight: '600', borderRadius: '8px', cursor: 'pointer' }}
+                                                        >
+                                                            📸 Chụp ảnh trên đường
+                                                        </label>
+                                                        <input 
+                                                            id={`upload-transit-${order.id}`}
+                                                            type="file" 
+                                                            accept="image/*"
+                                                            capture="environment"
+                                                            multiple
+                                                            style={{ display: 'none' }}
+                                                            onChange={(e) => handleImageUpload(order.id, 'OUT_FOR_DELIVERY', e.target.files)}
+                                                        />
+                                                    </>
+                                                )}
+                                                
+                                                {order.status === 'OUT_FOR_DELIVERY' && (
+                                                    <>
+                                                        <Button 
+                                                            variant="success" 
+                                                            size="lg"
+                                                            onClick={() => handleQuickStatusUpdate(order.id, 'DELIVERED')}
+                                                            className="w-100"
+                                                            style={{ fontWeight: '700', borderRadius: '8px', boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)' }}
+                                                        >
+                                                            ✅ Giao thành công
+                                                        </Button>
+                                                        <label 
+                                                            htmlFor={`upload-delivered-${order.id}`}
+                                                            className="btn btn-outline-success w-100 mb-0"
+                                                            style={{ fontWeight: '600', borderRadius: '8px', cursor: 'pointer' }}
+                                                        >
+                                                            📸 Chụp ảnh bàn giao
+                                                        </label>
+                                                        <input 
+                                                            id={`upload-delivered-${order.id}`}
+                                                            type="file" 
+                                                            accept="image/*"
+                                                            capture="environment"
+                                                            multiple
+                                                            style={{ display: 'none' }}
+                                                            onChange={(e) => handleImageUpload(order.id, 'DELIVERED', e.target.files)}
+                                                        />
+                                                        <Button 
+                                                            variant="danger" 
+                                                            size="sm"
+                                                            onClick={() => handleQuickStatusUpdate(order.id, 'FAILED')}
+                                                            className="w-100"
+                                                            style={{ fontWeight: '600', borderRadius: '8px' }}
+                                                        >
+                                                            ❌ Giao thất bại
+                                                        </Button>
+                                                    </>
+                                                )}
+                                                
+                                                {order.status === 'DELIVERED' && (
+                                                    <div className="text-center p-3" style={{ background: '#e8f5e9', borderRadius: '8px' }}>
+                                                        <FaCheckCircle size={32} className="text-success mb-2" />
+                                                        <p className="mb-0 text-success" style={{ fontWeight: '700' }}>Đã giao hàng</p>
+                                                    </div>
+                                                )}
+                                                
+                                                <Button 
+                                                    variant="outline-secondary" 
+                                                    size="sm"
+                                                    onClick={() => handleOrderClick(order)}
+                                                    className="w-100"
+                                                    style={{ fontWeight: '600', borderRadius: '8px' }}
+                                                >
+                                                    <FaEye className="me-2" />
+                                                    Xem chi tiết
+                                                </Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="mt-4 d-flex gap-2">
-                                        <Button 
-                                            variant="outline-primary" 
-                                            size="sm"
-                                            onClick={() => handleOrderClick(order)}
-                                            style={{ borderRadius: '8px', fontWeight: '700', padding: '0.5rem 1rem' }}
-                                        >
-                                            <FaEye className="me-2" />
-                                            Xem chi tiết
-                                        </Button>
-                                        {order.status === 'PICKED_UP' && (
-                                            <Button 
-                                                variant="success" 
-                                                size="sm"
-                                                onClick={() => handleOrderClick(order)}
-                                                style={{ borderRadius: '8px', fontWeight: '700', padding: '0.5rem 1rem' }}
-                                            >
-                                                <FaCheckCircle className="me-2" />
-                                                Xác nhận giao hàng
-                                            </Button>
-                                        )}
                                     </div>
                                 </div>
                             </OrderCard>
@@ -1062,7 +1397,6 @@ function ShipperDashboard() {
                     )}
                 </MenuSection>
 
-                {/* Temporarily hidden - Earnings menu
                 <MenuSection>
                     <MenuItem onClick={() => toggleMenu('earnings')}>
                         {expandedMenus.earnings ? <FaChevronDown /> : <FaChevronRight />}
@@ -1074,13 +1408,12 @@ function ShipperDashboard() {
                                 active={activeMenu === 'earnings'} 
                                 onClick={() => setActiveMenu('earnings')}
                             >
-                                <FaMoneyBillWave />
+                                💰
                                 <span>Chi tiết thu nhập</span>
                             </SubMenuItem>
                         </>
                     )}
                 </MenuSection>
-                */}
 
                 <MenuSection>
                     <MenuItem 
@@ -1092,6 +1425,7 @@ function ShipperDashboard() {
                     </MenuItem>
                 </MenuSection>
 
+                {/* Hidden - Settings menu
                 <MenuSection>
                     <MenuItem onClick={() => toggleMenu('settings')}>
                         {expandedMenus.settings ? <FaChevronDown /> : <FaChevronRight />}
@@ -1110,6 +1444,7 @@ function ShipperDashboard() {
                         </>
                     )}
                 </MenuSection>
+                */}
             </Sidebar>
 
             {/* Main Content */}

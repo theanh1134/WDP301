@@ -401,6 +401,71 @@ class ShipperService {
             console.error('Error updating localStorage:', error);
         }
     }
+
+    // Get available orders (orders without shipper assigned)
+    async getAvailableOrders(page = 1, limit = 20) {
+        try {
+            const token = localStorage.getItem('authToken');
+            console.log('[getAvailableOrders] Calling API:', `${API_URL}/shipper/orders/available/list`);
+            console.log('[getAvailableOrders] Token exists:', !!token);
+            
+            const response = await axios.get(`${API_URL}/shipper/orders/available/list`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                params: { page, limit }
+            });
+            
+            console.log('[getAvailableOrders] Response:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('[getAvailableOrders] Error:', error);
+            console.error('[getAvailableOrders] Error response:', error.response?.data);
+            console.error('[getAvailableOrders] Error status:', error.response?.status);
+            throw error;
+        }
+    }
+
+    // Accept an order (shipper picks an order)
+    async acceptOrder(userId, shipmentId) {
+        try {
+            const token = localStorage.getItem('authToken');
+            console.log(`Accepting order: shipmentId=${shipmentId}, userId=${userId}`);
+            const response = await axios.post(`${API_URL}/shipper/orders/${userId}/accept`, {
+                shipmentId
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            console.log('Accept order response:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Error accepting order:', error);
+            console.error('Error response:', error.response?.data);
+            throw error;
+        }
+    }
+
+    // Upload evidence photos
+    async uploadEvidencePhotos(shipmentId, formData) {
+        try {
+            const token = localStorage.getItem('authToken');
+            console.log(`Uploading evidence photos for shipment: ${shipmentId}`);
+            const response = await axios.post(`${API_URL}/shipper/shipment/${shipmentId}/upload-photos`, formData, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            console.log('Upload photos response:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Error uploading photos:', error);
+            console.error('Error response:', error.response?.data);
+            throw error;
+        }
+    }
 }
 
 const shipperService = new ShipperService();

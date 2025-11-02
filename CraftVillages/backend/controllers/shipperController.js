@@ -107,6 +107,107 @@ const getOrders = async (req, res, next) => {
     }
 };
 
+// Get Available Orders (orders without shipper)
+const getAvailableOrders = async (req, res, next) => {
+    try {
+        console.log('[getAvailableOrders] Request received');
+        const { page = 1, limit = 20 } = req.query;
+
+        // Find shipments that don't have a shipper assigned yet
+        // and order status is confirmed (ready for shipping)
+        const query = {
+            $or: [
+                { shipperId: null },
+                { shipperId: { $exists: false } }
+            ],
+            status: { $in: ['CREATED', 'PENDING', 'READY_FOR_PICKUP'] }
+        };
+        
+        console.log('[getAvailableOrders] Query:', JSON.stringify(query));
+
+        const shipments = await Shipment.find(query)
+            .populate('orderId')
+            .sort({ createdAt: -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
+
+        const total = await Shipment.countDocuments(query);
+        
+        console.log('[getAvailableOrders] Found shipments:', shipments.length);
+        console.log('[getAvailableOrders] Total count:', total);
+
+        res.status(200).json({
+            success: true,
+            data: shipments,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(total / limit),
+                totalItems: total
+            }
+        });
+    } catch (error) {
+        console.error('[getAvailableOrders] Error:', error);
+        next(error);
+    }
+};
+
+// Accept Order (shipper picks an order)
+const acceptOrder = async (req, res, next) => {
+    try {
+        const { userId } = req.params;
+        const { shipmentId } = req.body;
+
+        // Find shipper
+        const shipper = await Shipper.findOne({ userId });
+        if (!shipper) {
+            return res.status(404).json({
+                success: false,
+                message: 'Shipper not found'
+            });
+        }
+
+        // Find shipment
+        const shipment = await Shipment.findById(shipmentId);
+        if (!shipment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Shipment not found'
+            });
+        }
+
+        // Check if already assigned
+        if (shipment.shipperId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Đơn hàng đã được shipper khác nhận'
+            });
+        }
+
+        // Assign shipper
+        shipment.shipperId = shipper._id;
+        shipment.status = 'ASSIGNED';
+        shipment.assignedAt = new Date();
+        
+        // Add to tracking history
+        shipment.trackingHistory.push({
+            status: 'ASSIGNED',
+            notes: `Đơn hàng đã được shipper ${shipper.licenseNumber} nhận`,
+            timestamp: new Date()
+        });
+
+        await shipment.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Nhận đơn hàng thành công',
+            data: shipment
+        });
+    } catch (error) {
+        console.error('[acceptOrder] Error:', error);
+        next(error);
+    }
+};
+
 // Get Order Detail
 const getOrderDetail = async (req, res, next) => {
     try {
@@ -176,6 +277,15 @@ const updateOrderStatus = async (req, res, next) => {
                 photos: photos || [],
                 notes: notes || ''
             };
+            
+            // ⭐ Sync order status to DELIVERED
+            const Order = require('../models/Order');
+            const order = await Order.findById(shipment.orderId);
+            if (order && order.status !== 'DELIVERED') {
+                await order.updateStatus('DELIVERED', 'Đơn hàng đã được giao thành công bởi shipper');
+                await order.save();
+                console.log(`✅ Order ${order.orderNumber} status synced to DELIVERED`);
+            }
         }
 
         await shipment.save();
@@ -213,6 +323,14 @@ const getEarnings = async (req, res, next) => {
         }
 
         const earnings = await ShipperEarnings.find(query)
+            .populate({
+                path: 'orderId',
+                select: 'orderNumber finalAmount subtotal shippingAddress buyerInfo'
+            })
+            .populate({
+                path: 'shipmentId',
+                select: 'status distance actualDeliveryTime'
+            })
             .sort({ date: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
@@ -538,6 +656,15 @@ const confirmDelivery = async (req, res, next) => {
         });
 
         await shipment.save();
+
+        // ⭐ Sync order status to DELIVERED
+        const Order = require('../models/Order');
+        const order = await Order.findById(shipment.orderId);
+        if (order && order.status !== 'DELIVERED') {
+            await order.updateStatus('DELIVERED', 'Đơn hàng đã được giao thành công bởi shipper');
+            await order.save();
+            console.log(`✅ Order ${order.orderNumber} status synced to DELIVERED`);
+        }
 
         // Create earnings record
         try {
@@ -896,11 +1023,74 @@ const rateShipper = async (req, res, next) => {
     }
 };
 
+// Upload Evidence Photos
+const uploadEvidencePhotos = async (req, res, next) => {
+    try {
+        const { shipmentId } = req.params;
+        const { status, notes } = req.body;
+        
+        console.log(`[uploadEvidencePhotos] Shipment: ${shipmentId}, Files: ${req.files?.length || 0}`);
+        
+        const shipment = await Shipment.findById(shipmentId);
+        if (!shipment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Shipment not found'
+            });
+        }
+
+        // Process uploaded photos
+        const photoUrls = [];
+        if (req.files && req.files.length > 0) {
+            req.files.forEach(file => {
+                const photoUrl = `/uploads/shipper/${file.filename}`;
+                photoUrls.push(photoUrl);
+                console.log(`Uploaded photo: ${photoUrl}`);
+            });
+        }
+
+        // Add photos to tracking history
+        if (!shipment.trackingHistory) {
+            shipment.trackingHistory = [];
+        }
+
+        shipment.trackingHistory.push({
+            status: status || shipment.status,
+            notes: notes || `Uploaded ${photoUrls.length} evidence photos`,
+            timestamp: new Date(),
+            photos: photoUrls
+        });
+
+        // Store photos in shipment evidencePhotos array
+        if (!shipment.evidencePhotos) {
+            shipment.evidencePhotos = [];
+        }
+        shipment.evidencePhotos.push(...photoUrls);
+
+        await shipment.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Uploaded ${photoUrls.length} photos successfully`,
+            data: {
+                shipment,
+                photoUrls
+            }
+        });
+    } catch (error) {
+        console.error('[uploadEvidencePhotos] Error:', error);
+        next(error);
+    }
+};
+
 module.exports = {
     getDashboardStats,
     getOrders,
+    getAvailableOrders,
+    acceptOrder,
     getOrderDetail,
     updateOrderStatus,
+    uploadEvidencePhotos,
     getEarnings,
     getProfile,
     updateProfile,

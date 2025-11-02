@@ -52,8 +52,11 @@ router.get('/dashboard/:userId', shipperController.getDashboardStats);
 
 // Orders Management
 router.get('/orders/:userId', shipperController.getOrders);
+router.get('/orders/available/list', shipperController.getAvailableOrders); // Get orders without shipper
+router.post('/orders/:userId/accept', shipperController.acceptOrder); // Accept an order
 router.get('/shipment/:shipmentId', shipperController.getOrderDetail);
 router.put('/shipment/:shipmentId/status', shipperController.updateOrderStatus);
+router.post('/shipment/:shipmentId/upload-photos', upload.array('photos', 5), shipperController.uploadEvidencePhotos);
 router.post('/orders/:shipmentId/confirm-delivery', upload.array('photos', 5), shipperController.confirmDelivery);
 
 // Earnings
