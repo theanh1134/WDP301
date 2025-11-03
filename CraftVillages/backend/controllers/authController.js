@@ -85,7 +85,7 @@ const verifyEmail = async (req, res, next) => {
     try {
         const { email, code } = req.body;
 
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }).populate('roleId');
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -123,7 +123,7 @@ const verifyEmail = async (req, res, next) => {
                     id: user._id,
                     fullName: user.fullName,
                     email: user.email,
-                    role: user.roleId
+                    role: user.roleId.roleName
                 }
             }
         });

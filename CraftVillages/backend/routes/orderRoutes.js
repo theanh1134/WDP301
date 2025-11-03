@@ -5,6 +5,7 @@ const {
   getOrdersByUser,
   getOrderById,
   cancelOrder,
+  confirmDelivery,
   getOrdersByShop,
   updateOrderStatus,
   getOrderStatistics,
@@ -19,6 +20,7 @@ router.post("/:userId/checkout", checkout);
 router.get("/user/:userId", auth, getOrdersByUser);
 router.get("/detail/:id", auth, getOrderById);
 router.put("/:orderId/cancel", auth, cancelOrder);
+router.put("/:orderId/confirm-delivery", auth, confirmDelivery);
 
 // Seller order management routes
 router.get("/shop/:shopId", auth, getOrdersByShop);

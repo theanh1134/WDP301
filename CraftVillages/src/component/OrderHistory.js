@@ -9,9 +9,23 @@ import ProductModal from './ProductModal';
 import { useNavigate } from 'react-router-dom';
 import { RiRefund2Line } from 'react-icons/ri';
 
-const StatusBadge = ({ status }) => {
-    const map = { PENDING: 'warning', CONFIRMED: 'primary', PAID: 'success', CANCELLED: 'secondary', SHIPPED: 'primary', DELIVERED: 'success' };
-    const labelMap = { PENDING: 'Đang xử lý', CONFIRMED: 'Đã xác nhận', PAID: 'Đã thanh toán', CANCELLED: 'Đã hủy', SHIPPED: 'Đang giao hàng', DELIVERED: 'Giao hàng thành công' };
+const StatusBadge = ({ status, buyerConfirmed }) => {
+    const map = { 
+        PENDING: 'warning', 
+        CONFIRMED: 'primary', 
+        SHIPPED: 'info',
+        DELIVERED: buyerConfirmed ? 'success' : 'warning',
+        PAID: 'success', 
+        CANCELLED: 'secondary' 
+    };
+    const labelMap = { 
+        PENDING: 'Đang xử lý', 
+        CONFIRMED: 'Đã xác nhận', 
+        SHIPPED: 'Đang giao',
+        DELIVERED: buyerConfirmed ? 'Đã nhận hàng thành công' : 'Đã giao hàng',
+        PAID: 'Đã thanh toán', 
+        CANCELLED: 'Đã hủy' 
+    };
     return <Badge bg={map[status] || 'secondary'}>{labelMap[status] || status}</Badge>;
 };
 
@@ -45,6 +59,10 @@ function OrderHistory() {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
 
+    // Confirm delivery
+    const [showConfirmDeliveryModal, setShowConfirmDeliveryModal] = useState(false);
+    const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -54,20 +72,25 @@ function OrderHistory() {
                 setOrders(list);
                 setFiltered(list);
 
-                // Load reviews cho các order PAID
+                // Load reviews cho các order DELIVERED (đã hoàn thành)
                 const reviews = {};
                 for (const order of list) {
                     if (canReviewProduct(order)) {
                         try {
-                            const review = await orderService.getUserReview(order._id);
-                            reviews[order._id] = review;
+                            // Sử dụng order._doc._id vì cấu trúc có _doc
+                            const orderId = order._doc?._id || order._id;
+                            const review = await orderService.getUserReview(orderId);
+                            reviews[orderId] = review;
+                            console.log(`Loaded review for order ${orderId}`);
                         } catch (error) {
                             // Không có review cho order này
-                            console.log(`No review found for order ${order._id}`);
+                            const orderId = order._doc?._id || order._id;
+                            console.log(`No review found for order ${orderId}`);
                         }
                     }
                 }
                 setOrderReviews(reviews);
+                console.log('Total reviews loaded:', Object.keys(reviews).length);
             } finally {
                 setLoading(false);
             }
@@ -176,10 +199,75 @@ function OrderHistory() {
         }
     };
 
+    // Hàm kiểm tra có thể xác nhận đã nhận hàng không
+    const canConfirmDelivery = (order) => {
+        const orderStatus = order._doc?.status || order.status || order._doc?.paymentInfo?.status || order.paymentInfo?.status;
+        // CHỈ hiển thị nút khi Shipper ĐÃ GIAO HÀNG (status = DELIVERED)
+        // Nhưng buyer chưa xác nhận (chưa có buyerConfirmed hoặc = false)
+        const buyerConfirmed = order._doc?.buyerConfirmed || order.buyerConfirmed;
+        return orderStatus === 'DELIVERED' && !buyerConfirmed;
+    };
+
+    // Hàm xử lý xác nhận đã nhận hàng
+    const handleConfirmDelivery = (order) => {
+        setSelectedOrder(order);
+        setShowConfirmDeliveryModal(true);
+    };
+
+    // Hàm xác nhận đã nhận hàng
+    const confirmDelivery = async () => {
+        if (!selectedOrder) return;
+
+        setConfirmingDelivery(true);
+        try {
+            // Gọi API xác nhận đã nhận hàng
+            await orderService.confirmDelivery(selectedOrder._doc._id);
+
+            // Cập nhật state local ngay lập tức - đánh dấu buyer đã xác nhận
+            setOrders(prev => prev.map(order =>
+                order._doc._id === selectedOrder._doc._id
+                    ? { 
+                        ...order, 
+                        _doc: { 
+                            ...order._doc, 
+                            buyerConfirmed: true,
+                            buyerConfirmedAt: new Date()
+                        } 
+                    }
+                    : order
+            ));
+
+            // Cập nhật filtered để UI thay đổi ngay
+            setFiltered(prev => prev.map(order =>
+                order._doc._id === selectedOrder._doc._id
+                    ? { 
+                        ...order, 
+                        _doc: { 
+                            ...order._doc, 
+                            buyerConfirmed: true,
+                            buyerConfirmedAt: new Date()
+                        } 
+                    }
+                    : order
+            ));
+
+            toast.success('✅ Đã xác nhận nhận hàng thành công! Bạn có thể đánh giá sản phẩm ngay bây giờ.');
+            setShowConfirmDeliveryModal(false);
+            setSelectedOrder(null);
+        } catch (error) {
+            console.error('Error confirming delivery:', error);
+            const errorMsg = error.response?.data?.message || 'Có lỗi xảy ra khi xác nhận nhận hàng. Vui lòng thử lại.';
+            toast.error(errorMsg);
+        } finally {
+            setConfirmingDelivery(false);
+        }
+    };
+
     // Hàm kiểm tra có thể đánh giá không
     const canReviewProduct = (order) => {
-        const orderStatus = order.status || order.paymentInfo?.status;
-        return orderStatus === 'PAID';
+        const orderStatus = order._doc?.status || order.status || order._doc?.paymentInfo?.status || order.paymentInfo?.status;
+        // Chỉ cho phép đánh giá khi đơn hàng đã hoàn thành (DELIVERED)
+        return orderStatus === 'DELIVERED';
     };
 
     // Hàm kiểm tra đã có review chưa
@@ -211,7 +299,9 @@ function OrderHistory() {
             return;
         }
 
-        setSelectedProduct({ ...product, orderId: order._id });
+        // Sử dụng order._doc._id vì cấu trúc order có _doc
+        const orderId = order._doc?._id || order._id;
+        setSelectedProduct({ ...product, orderId: orderId });
         setReviewData({
             rating: 5,
             title: '',
@@ -240,24 +330,25 @@ function OrderHistory() {
                 images: reviewData.images
             });
 
-            toast.success('Đánh giá đã được gửi thành công!');
-            setShowReviewModal(false);
-
-            // Lấy đánh giá vừa tạo để hiển thị
+            toast.success('✅ Đánh giá đã được gửi thành công! Bạn có thể xem lại đánh giá của mình.');
+            
+            // Lấy đánh giá vừa tạo để cập nhật state
             try {
                 const newReview = await orderService.getUserReview(selectedProduct.orderId);
-                setUserReview(newReview);
-                setShowViewReviewModal(true);
-
-                // Cập nhật orderReviews để nút "Đánh giá" chuyển thành "Xem đánh giá"
+                
+                // Cập nhật orderReviews để nút "Đánh giá" chuyển thành "Xem đánh giá" NGAY LẬP TỨC
                 setOrderReviews(prev => ({
                     ...prev,
                     [selectedProduct.orderId]: newReview
                 }));
+                
+                console.log('Review added to orderReviews:', selectedProduct.orderId);
             } catch (error) {
                 console.error('Error fetching new review:', error);
             }
 
+            // Đóng modal và reset
+            setShowReviewModal(false);
             setSelectedProduct(null);
 
             // Reset form
@@ -429,7 +520,8 @@ function OrderHistory() {
                         { key: 'ALL', label: 'Tất cả', icon: <FaReceipt className="me-1" /> },
                         { key: 'PENDING', label: 'Chờ xác nhận', icon: <FaClock className="me-1" /> },
                         { key: 'CONFIRMED', label: 'Vận chuyển', icon: <FaTruck className="me-1" /> },
-                        { key: 'PAID', label: 'Hoàn thành', icon: <FaCheckCircle className="me-1" /> },
+                        { key: 'SHIPPED', label: 'Đang giao', icon: <FaTruck className="me-1" /> },
+                        { key: 'DELIVERED', label: 'Hoàn thành', icon: <FaCheckCircle className="me-1" /> },
                         { key: 'CANCELLED', label: 'Đã hủy', icon: <FaTimesCircle className="me-1" /> },
                         { key: 'RETURN', label: 'Hoàn hàng', icon: <RiRefund2Line className="me-1" /> },
                     ].map(t => (
@@ -454,7 +546,10 @@ function OrderHistory() {
                                     <strong>#{o._doc._id.slice(-6)}</strong>
                                     <span className="text-muted small">{new Date(o._doc.createdAt).toLocaleString('vi-VN')}</span>
                                 </div>
-                                <StatusBadge status={o._doc.status || o._doc.paymentInfo?.status} />
+                                <StatusBadge 
+                                    status={o._doc.status || o._doc.paymentInfo?.status} 
+                                    buyerConfirmed={o._doc.buyerConfirmed}
+                                />
                             </div>
                             <Card.Body>
                                 {(o._doc.items || []).map((it, idx) => (
@@ -523,6 +618,16 @@ function OrderHistory() {
                                             Hủy đơn
                                         </button>
                                     )}
+                                    {canConfirmDelivery(o) && (
+                                        <button
+                                            className="btn btn-success btn-sm ms-2"
+                                            onClick={() => handleConfirmDelivery(o)}
+                                            style={{ fontWeight: '600' }}
+                                        >
+                                            <FaCheckCircle className="me-1" />
+                                            Đã nhận hàng
+                                        </button>
+                                    )}
                                     {canReviewProduct(o) && (
                                         hasReview(o._doc._id) ? (
                                             <button
@@ -584,6 +689,55 @@ function OrderHistory() {
                                 </>
                             ) : (
                                 'Xác nhận hủy'
+                            )}
+                        </Button>
+                    </Modal.Footer>
+                </Modal>
+
+                {/* Modal xác nhận đã nhận hàng */}
+                <Modal show={showConfirmDeliveryModal} onHide={() => setShowConfirmDeliveryModal(false)} centered>
+                    <Modal.Header closeButton style={{ borderBottom: '2px solid #28a745' }}>
+                        <Modal.Title className="d-flex align-items-center">
+                            <FaCheckCircle className="me-2 text-success" />
+                            Xác nhận đã nhận hàng
+                        </Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body style={{ padding: '25px' }}>
+                        <div className="text-center mb-3">
+                            <FaTruck size={48} className="text-success mb-3" />
+                        </div>
+                        <p className="text-center" style={{ fontSize: '1.05rem', marginBottom: '15px' }}>
+                            Bạn đã nhận được đơn hàng <strong>#{selectedOrder?._doc?._id?.slice(-6)}</strong>?
+                        </p>
+                        <div className="alert alert-info" style={{ fontSize: '0.9rem' }}>
+                            <strong>Lưu ý:</strong>
+                            <ul className="mb-0 mt-2" style={{ paddingLeft: '20px' }}>
+                                <li>Vui lòng kiểm tra kỹ sản phẩm trước khi xác nhận</li>
+                                <li>Sau khi xác nhận, đơn hàng sẽ chuyển sang trạng thái "Hoàn thành"</li>
+                                <li>Bạn có thể đánh giá sản phẩm sau khi xác nhận</li>
+                            </ul>
+                        </div>
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" onClick={() => setShowConfirmDeliveryModal(false)}>
+                            Để sau
+                        </Button>
+                        <Button
+                            variant="success"
+                            onClick={confirmDelivery}
+                            disabled={confirmingDelivery}
+                            style={{ minWidth: '140px' }}
+                        >
+                            {confirmingDelivery ? (
+                                <>
+                                    <Spinner animation="border" size="sm" className="me-2" />
+                                    Đang xử lý...
+                                </>
+                            ) : (
+                                <>
+                                    <FaCheckCircle className="me-2" />
+                                    Xác nhận
+                                </>
                             )}
                         </Button>
                     </Modal.Footer>

@@ -709,14 +709,7 @@ function SellerStaff() {
                     )}
                 </MenuSection>
 
-                {/* Kênh Marketing */}
-                <MenuSection>
-                    <MenuItem onClick={() => toggleMenu('marketing')}>
-                        <FaBullhorn />
-                        <span style={{ flex: 1 }}>Kênh Marketing</span>
-                        {expandedMenus.marketing ? <FaChevronDown /> : <FaChevronRight />}
-                    </MenuItem>
-                </MenuSection>
+                
 
                 {/* Tài Chính */}
                 <MenuSection>
@@ -763,14 +756,7 @@ function SellerStaff() {
                     )}
                 </MenuSection>
 
-                {/* Chăm Sóc Khách Hàng */}
-                <MenuSection>
-                    <MenuItem onClick={() => toggleMenu('customerCare')}>
-                        <FaComments />
-                        <span style={{ flex: 1 }}>Chăm Sóc Khách Hàng</span>
-                        {expandedMenus.customerCare ? <FaChevronDown /> : <FaChevronRight />}
-                    </MenuItem>
-                </MenuSection>
+                
 
                 {/* Cài Đặt */}
                 <MenuSection>

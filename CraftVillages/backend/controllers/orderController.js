@@ -420,6 +420,64 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+// Confirm delivery by buyer
+const confirmDelivery = async (req, res) => {
+  try {
+    console.log('Confirm delivery request:', req.params);
+    const { orderId } = req.params;
+
+    // Tìm đơn hàng
+    const order = await Order.findById(orderId);
+    console.log('Found order:', order ? 'Yes' : 'No');
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Đơn hàng không tồn tại'
+      });
+    }
+
+    // Kiểm tra trạng thái đơn hàng
+    const currentStatus = order.status || order.paymentInfo?.status;
+    console.log('Current status:', currentStatus);
+
+    // CHỈ cho phép xác nhận khi Shipper đã giao hàng (DELIVERED)
+    if (currentStatus !== 'DELIVERED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Chỉ có thể xác nhận sau khi shipper đã giao hàng'
+      });
+    }
+
+    // Kiểm tra đã xác nhận chưa
+    if (order.buyerConfirmed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bạn đã xác nhận nhận hàng rồi'
+      });
+    }
+
+    // Đánh dấu buyer đã xác nhận
+    order.buyerConfirmed = true;
+    order.buyerConfirmedAt = new Date();
+    await order.save();
+
+    console.log('Buyer confirmed delivery successfully');
+
+    res.json({
+      success: true,
+      message: 'Đã xác nhận nhận hàng thành công',
+      order: order
+    });
+  } catch (error) {
+    console.error('Error confirming delivery:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Có lỗi xảy ra khi xác nhận nhận hàng',
+      error: error.message
+    });
+  }
+};
+
 // Get orders by shop (for seller dashboard)
 const getOrdersByShop = async (req, res) => {
   try {
@@ -547,6 +605,63 @@ const updateOrderStatus = async (req, res) => {
         order.cancellationReason = cancellationReason;
         order.cancelledBy = 'SELLER';
         order.cancelledAt = new Date();
+      }
+
+      // ⭐ Auto-create shipment when order is CONFIRMED (Option 2 - Tự động hơn)
+      if (status === 'CONFIRMED' || status === 'SHIPPED') {
+        const Shipment = require('../models/Shipment');
+        
+        // Check if shipment already exists
+        const existingShipment = await Shipment.findOne({ orderId: order._id });
+        
+        if (!existingShipment) {
+          console.log('Creating shipment for order:', order._id);
+          
+          // Calculate shipping fee for shipper (platform pays)
+          const estimatedDistance = 10; // km - TODO: Calculate real distance
+          const baseFee = 15000; // 15k base
+          const distanceFee = estimatedDistance * 3000; // 3k per km
+          const totalFee = baseFee + distanceFee; // Total shipper earnings
+          
+          const newShipment = new Shipment({
+            orderId: order._id,
+            status: 'READY_FOR_PICKUP',
+            pickupLocation: {
+              address: 'Địa chỉ shop', // TODO: Get from shop data
+              coordinates: {
+                lat: 0,
+                lng: 0
+              }
+            },
+            deliveryLocation: {
+              address: order.shippingAddress?.fullAddress || 'N/A',
+              coordinates: {
+                lat: 0,
+                lng: 0
+              }
+            },
+            distance: estimatedDistance,
+            estimatedDistance: estimatedDistance,
+            estimatedDuration: 30,
+            shippingFee: {
+              baseFee: baseFee,
+              distanceFee: distanceFee,
+              weightFee: 0,
+              bonus: 0,
+              total: totalFee
+            },
+            trackingHistory: [{
+              status: 'READY_FOR_PICKUP',
+              notes: 'Đơn hàng sẵn sàng để shipper lấy hàng',
+              timestamp: new Date()
+            }]
+          });
+          
+          await newShipment.save();
+          console.log(`✅ Shipment created: ${newShipment._id} | Fee: ${totalFee.toLocaleString()}đ`);
+        } else {
+          console.log('Shipment already exists for this order');
+        }
       }
 
       await order.save();
@@ -1259,6 +1374,7 @@ module.exports = {
   getOrdersByUser,
   getOrderById,
   cancelOrder,
+  confirmDelivery,
   getOrdersByShop,
   updateOrderStatus,
   getOrderStatistics,
