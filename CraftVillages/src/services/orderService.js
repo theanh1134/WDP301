@@ -106,6 +106,22 @@ class OrderService {
         return res.data;
     }
 
+    async confirmDelivery(orderId) {
+        const token = localStorage.getItem('authToken');
+        console.log('Token for confirm delivery:', token ? 'Token exists' : 'No token found');
+
+        if (!token) {
+            throw new Error('No authentication token found. Please login again.');
+        }
+
+        const res = await axios.put(`${API_URL}/orders/${orderId}/confirm-delivery`, {}, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return res.data;
+    }
+
     async submitReview(reviewData) {
         const token = localStorage.getItem('authToken');
         const user = JSON.parse(localStorage.getItem('user'));

@@ -152,6 +152,16 @@ const orderSchema = new mongoose.Schema({
         enum: ['PENDING', 'PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'],
         default: 'PENDING'
     },
+    buyerConfirmed: {
+        type: Boolean,
+        default: false,
+        comment: 'True when buyer confirms receipt of goods'
+    },
+    buyerConfirmedAt: {
+        type: Date,
+        default: null,
+        comment: 'Timestamp when buyer confirmed receipt'
+    },
     cancellationReason: {
         type: String,
         default: null,

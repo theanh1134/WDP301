@@ -414,6 +414,64 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+// Confirm delivery by buyer
+const confirmDelivery = async (req, res) => {
+  try {
+    console.log('Confirm delivery request:', req.params);
+    const { orderId } = req.params;
+
+    // Tìm đơn hàng
+    const order = await Order.findById(orderId);
+    console.log('Found order:', order ? 'Yes' : 'No');
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Đơn hàng không tồn tại'
+      });
+    }
+
+    // Kiểm tra trạng thái đơn hàng
+    const currentStatus = order.status || order.paymentInfo?.status;
+    console.log('Current status:', currentStatus);
+
+    // CHỈ cho phép xác nhận khi Shipper đã giao hàng (DELIVERED)
+    if (currentStatus !== 'DELIVERED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Chỉ có thể xác nhận sau khi shipper đã giao hàng'
+      });
+    }
+
+    // Kiểm tra đã xác nhận chưa
+    if (order.buyerConfirmed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bạn đã xác nhận nhận hàng rồi'
+      });
+    }
+
+    // Đánh dấu buyer đã xác nhận
+    order.buyerConfirmed = true;
+    order.buyerConfirmedAt = new Date();
+    await order.save();
+
+    console.log('Buyer confirmed delivery successfully');
+
+    res.json({
+      success: true,
+      message: 'Đã xác nhận nhận hàng thành công',
+      order: order
+    });
+  } catch (error) {
+    console.error('Error confirming delivery:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Có lỗi xảy ra khi xác nhận nhận hàng',
+      error: error.message
+    });
+  }
+};
+
 // Get orders by shop (for seller dashboard)
 const getOrdersByShop = async (req, res) => {
   try {
@@ -1310,6 +1368,7 @@ module.exports = {
   getOrdersByUser,
   getOrderById,
   cancelOrder,
+  confirmDelivery,
   getOrdersByShop,
   updateOrderStatus,
   getOrderStatistics,

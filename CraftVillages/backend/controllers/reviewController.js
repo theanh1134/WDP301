@@ -50,12 +50,12 @@ const submitReview = async (req, res) => {
             });
         }
 
-        // Check if order is PAID
+        // Check if order is PAID or DELIVERED
         const orderStatus = order.status || order.paymentInfo?.status;
-        if (orderStatus !== 'PAID') {
+        if (orderStatus !== 'PAID' && orderStatus !== 'DELIVERED') {
             return res.status(400).json({
                 success: false,
-                message: 'Chỉ có thể đánh giá sản phẩm sau khi đơn hàng đã thanh toán'
+                message: 'Chỉ có thể đánh giá sản phẩm sau khi đơn hàng đã hoàn thành'
             });
         }
 

@@ -40,9 +40,10 @@ function OrderStatus() {
             PROCESSING: 1,
             CONFIRMED: 1,
             SHIPPED: 2,
-            DELIVERED: 3,
+            DELIVERED: 4, // Đã hoàn thành - hiển thị đến step cuối
             CANCELLED: 0,
-            REFUNDED: 4
+            REFUNDED: 4,
+            PAID: 4 // Giữ lại cho tương thích
         };
         const idx = mapOrderToStep[order.status] ?? 0;
         const stepIndex = ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'PAID'].indexOf(stepKey);
