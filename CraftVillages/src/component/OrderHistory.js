@@ -89,7 +89,8 @@ function OrderHistory() {
     };
 
     const checkRefund = (order) => {
-        return order._doc.status === 'DELIVERED' && !isSevenDaysPassed(order.createdAt) && order.returnedProductIds.length !== order?._doc.items.length
+        console.log(order._doc.createdAt)
+        return order._doc.status === 'DELIVERED' && !isSevenDaysPassed(order._doc.createdAt) && order.returnedProductIds.length !== order?._doc.items.length
     }
 
     function isSevenDaysPassed(dateString) {
@@ -97,7 +98,7 @@ function OrderHistory() {
         const targetDate = new Date(dateString);
         const diffMs = nowVN.getTime() - targetDate.getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        return diffMs >= sevenDaysMs;
+        return +diffMs >= +sevenDaysMs;
     }
 
     const handleConfirm = (ids, orderId) => {
