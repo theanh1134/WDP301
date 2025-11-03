@@ -109,13 +109,13 @@ const updateReturnStatus = async (req, res, newStatus, note = '') => {
 
     // Nếu được duyệt -> có thể sinh thêm trạng thái kế tiếp (ví dụ tự động đặt lịch pickup)
     if (newStatus === 'APPROVED' && returnOrder.returnMethod === 'PICKUP') {
-      returnOrder.status = 'PICKUP_SCHEDULED';
-      returnOrder.statusEvents.push({
-        status: 'PICKUP_SCHEDULED',
-        at: new Date(),
-        by: { type: 'SYSTEM' },
-        note: 'Đặt lịch lấy hàng'
-      });
+      returnOrder.status = 'APPROVED';
+      // returnOrder.statusEvents.push({
+      //   status: 'APPROVED',
+      //   at: new Date(),
+      //   by: { type: 'SYSTEM' },
+      //   note: 'Đặt lịch lấy hàng'
+      // });
     }
 
     await returnOrder.save();
