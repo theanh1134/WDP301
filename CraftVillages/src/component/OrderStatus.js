@@ -59,7 +59,26 @@ function OrderStatus() {
 
     function isIdInList(list, id) {
         if (!Array.isArray(list)) return false;
-        return list.some(item => String(item) === String(id));
+        const a = list.find(item => String(item.productId) === String(id));
+        if(a === undefined) return null
+        return a.status
+    }
+
+    function getMessageReturn(text) {
+        switch(text) {
+            case "REQUESTED":
+                return "Đang yêu cầu hoàn hàng"
+            case "APPROVED":
+                return "Chấp nhận yêu cầu hoàn hàng"
+            case "REJECTED":
+                return "Yêu cầu yêu cầu hoàn hàng bị từ chối"
+            case "SHIPPED":
+                return "Đang hoàn hàng"
+            case "RETURNED":
+                return "Hoàn hàng thành công"
+            default:
+                return ""
+        }
     }
 
     return (
@@ -134,9 +153,7 @@ function OrderStatus() {
                                                 <div className="text-muted small">Số lượng: {it.quantity}</div>
                                             </div>
                                             <div>
-                                                {isIdInList(listReturn, it.productId) && (<>
-                                                    <span class="badge bg-success">Hoàn hàng</span>
-                                                </>)}
+                                                <span class="badge bg-success">{getMessageReturn(isIdInList(listReturn, it.productId))}</span>
                                             </div>
                                         </div>
                                         <div className="text-end">

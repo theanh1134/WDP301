@@ -673,12 +673,7 @@ function SellerStaff() {
                             >
                                 <span>Tất cả</span>
                             </SubMenuItem>
-                            <SubMenuItem
-                                active={activeMenu === 'cancelled-orders'}
-                                onClick={() => handleMenuClick('cancelled-orders')}
-                            >
-                                <span>Đơn hủy</span>
-                            </SubMenuItem>
+                            
                             <SubMenuItem
                                 active={activeMenu === 'return-refund'}
                                 onClick={() => handleMenuClick('return-refund')}

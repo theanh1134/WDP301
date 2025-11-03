@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { getImageUrl } from '../utils/imageHelper';
 import ProductModal from './ProductModal';
 import { useNavigate } from 'react-router-dom';
+import { RiRefund2Line } from 'react-icons/ri';
 
 const StatusBadge = ({ status, buyerConfirmed }) => {
     const map = { 
@@ -21,7 +22,7 @@ const StatusBadge = ({ status, buyerConfirmed }) => {
         PENDING: 'Đang xử lý', 
         CONFIRMED: 'Đã xác nhận', 
         SHIPPED: 'Đang giao',
-        DELIVERED: buyerConfirmed ? 'Đã hoàn thành' : 'Đã giao hàng',
+        DELIVERED: buyerConfirmed ? 'Đã nhận hàng thành công' : 'Đã giao hàng',
         PAID: 'Đã thanh toán', 
         CANCELLED: 'Đã hủy' 
     };
@@ -111,7 +112,8 @@ function OrderHistory() {
     };
 
     const checkRefund = (order) => {
-        return order._doc.status === 'DELIVERED' && !isSevenDaysPassed(order.createdAt) && order.returnedProductIds.length !== order?._doc.items.length
+        console.log(order._doc.createdAt)
+        return order._doc.status === 'DELIVERED' && !isSevenDaysPassed(order._doc.createdAt) && order.returnedProductIds.length !== order?._doc.items.length
     }
 
     function isSevenDaysPassed(dateString) {
@@ -119,7 +121,7 @@ function OrderHistory() {
         const targetDate = new Date(dateString);
         const diffMs = nowVN.getTime() - targetDate.getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        return diffMs >= sevenDaysMs;
+        return +diffMs >= +sevenDaysMs;
     }
 
     const handleConfirm = (ids, orderId) => {
@@ -130,7 +132,26 @@ function OrderHistory() {
 
     function isIdInList(list, id) {
         if (!Array.isArray(list)) return false;
-        return list.some(item => String(item) === String(id));
+        const a = list.find(item => String(item.productId) === String(id));
+        if(a === undefined) return null
+        return a.status
+    }
+
+    function getMessageReturn(text) {
+        switch(text) {
+            case "REQUESTED":
+                return "Đang yêu cầu hoàn hàng"
+            case "APPROVED":
+                return "Chấp nhận yêu cầu hoàn hàng"
+            case "REJECTED":
+                return "Yêu cầu yêu cầu hoàn hàng bị từ chối"
+            case "SHIPPED":
+                return "Đang hoàn hàng"
+            case "RETURNED":
+                return "Hoàn hàng thành công"
+            default:
+                return ""
+        }
     }
 
     // Hàm xử lý hủy đơn hàng
@@ -502,7 +523,7 @@ function OrderHistory() {
                         { key: 'SHIPPED', label: 'Đang giao', icon: <FaTruck className="me-1" /> },
                         { key: 'DELIVERED', label: 'Hoàn thành', icon: <FaCheckCircle className="me-1" /> },
                         { key: 'CANCELLED', label: 'Đã hủy', icon: <FaTimesCircle className="me-1" /> },
-                        { key: 'RETURN', label: 'Hoàn hàng', icon: <FaTimesCircle className="me-1" /> },
+                        { key: 'RETURN', label: 'Hoàn hàng', icon: <RiRefund2Line className="me-1" /> },
                     ].map(t => (
                         <button key={t.key} className="btn btn-sm" style={styles.tab(status === t.key)} onClick={() => setStatus(t.key)}>{t.icon}{t.label}</button>
                     ))}
@@ -544,9 +565,7 @@ function OrderHistory() {
                                                 <div className="text-muted small">x {it.quantity}</div>
                                             </div>
                                             <div>
-                                                {isIdInList(o.returnedProductIds, it.productId) && (<>
-                                                    <span class="badge bg-success">Hoàn hàng</span>
-                                                </>)}
+                                                <span class="badge bg-success">{getMessageReturn(isIdInList(o.returnedProductIds, it.productId))}</span>
                                             </div>
                                         </div>
                                         <div className="text-end">{(it.priceAtPurchase || it.priceAtAdd || 0).toLocaleString()} VND</div>
@@ -633,6 +652,7 @@ function OrderHistory() {
                         </Card>
                         <ProductModal
                             open={isOpen}
+                            returnids={o.returnedProductIds}
                             products={o._doc.items}
                             orderId={o._doc._id}
                             onCancel={() => setIsOpen(false)}

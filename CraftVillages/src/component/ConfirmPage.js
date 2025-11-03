@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Form,
   Input,
@@ -16,11 +16,14 @@ import orderService from "../services/orderService";
 const { Option } = Select;
 
 const ConfirmPage = () => {
+  const user = useMemo(() => { try { return JSON.parse(localStorage.getItem('user')) || null; } catch { return null; } }, []);
   const { state } = useLocation();
   const selectedIds = state?.selectedIds || [];
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fileList, setFileList] = useState([]);
+  const [countReturn, setCountReturn] = useState(0);
+  const navigate = useNavigate();
 
   const orderId = state?.orderId;
 
@@ -30,6 +33,8 @@ const ConfirmPage = () => {
         setLoading(true);
         const res = await orderService.getOrderById(orderId);
         setOrder(res);
+        const res1 = await axios.get(`http://localhost:9999/return/count-return/${user?._id || user?.id}`)
+        setCountReturn(res1.data.count)
       } catch (err) {
         message.error("Lấy thông tin đơn hàng thất bại");
       } finally {
@@ -43,7 +48,7 @@ const handleSubmit = async (values) => {
   if (!order) return;
 
   try {
-    const selectedItems = order.items.filter((item) =>
+    const selectedItems = order._doc.items.filter((item) =>
       selectedIds.includes(item.productId)
     );
 
@@ -51,21 +56,22 @@ const handleSubmit = async (values) => {
     //       ? values.refundMethod
     //       : null
 
-    // 🟢 Chuẩn bị mảng record hoàn hàng (chỉ dữ liệu text/json)
+    //  Chuẩn bị mảng record hoàn hàng (chỉ dữ liệu text/json)
     const returnRecords = selectedItems.map((item) => ({
       rmaCode: `RMA_${Date.now()}_${item.productId}`,
-      orderId: order._id,
-      buyerId: order.buyerInfo.userId,
+      orderId: order._doc._id,
+      buyerId: order._doc.buyerInfo.userId,
       // shopId: "SHOP_ID_123",
       reasonCode: values.reasonCode,
       reasonDetail: values.reasonDetail || "",
-      requestedResolution: values.requestedResolution,
+      requestedResolution: values.requestedResolution || 'REFUND',
       refundMethod: "ORIGINAL",
+      shippingFee:  countReturn === 0 ? 0 : countReturn === 1 ? 20000 : 40000,
       returnMethod: values.returnMethod,
       pickupAddress: {
-        recipientName: order.shippingAddress.recipientName,
-        phoneNumber: order.shippingAddress.phoneNumber,
-        fullAddress: order.shippingAddress.fullAddress,
+        recipientName: order._doc.shippingAddress.recipientName,
+        phoneNumber: order._doc.shippingAddress.phoneNumber,
+        fullAddress: order._doc.shippingAddress.fullAddress,
       },
       dropoff:
         values.returnMethod === "DROP_OFF"
@@ -88,7 +94,7 @@ const handleSubmit = async (values) => {
         {
           status: "REQUESTED",
           at: new Date(),
-          by: { type: "USER", id: order.buyerInfo.userId },
+          by: { type: "USER", id: order._doc.buyerInfo.userId },
           note: "Người mua yêu cầu hoàn hàng",
         },
       ],
@@ -101,7 +107,7 @@ const handleSubmit = async (values) => {
       },
     }));
 
-    // 🟢 Tạo FormData để gửi file + JSON
+    // Tạo FormData để gửi file + JSON
     const formData = new FormData();
     formData.append("data", JSON.stringify(returnRecords));
 
@@ -110,7 +116,7 @@ const handleSubmit = async (values) => {
       formData.append("files", file.originFileObj);
     });
 
-    console.log("📦 Payload FormData gửi BE:", returnRecords, fileList);
+    console.log(" Payload FormData gửi BE:", returnRecords, fileList);
 
     await axios.post("http://localhost:9999/return", formData, {
       headers: {
@@ -119,6 +125,7 @@ const handleSubmit = async (values) => {
     });
 
     message.success("Yêu cầu hoàn hàng đã được gửi thành công!");
+    navigate('/orders')
   } catch (err) {
     console.error(err);
     message.error("Có lỗi khi gửi yêu cầu hoàn hàng");
@@ -129,7 +136,7 @@ const handleSubmit = async (values) => {
   if (loading) return <p>Đang tải...</p>;
   if (!order) return <p>Không có dữ liệu đơn hàng.</p>;
 
-  const selectedItems = order.items.filter((i) =>
+  const selectedItems = order._doc.items.filter((i) =>
     selectedIds.includes(i.productId)
   );
 
@@ -139,13 +146,13 @@ const handleSubmit = async (values) => {
 
       <Card title="Thông tin đơn hàng" style={{ marginBottom: 20 }}>
         <p>
-          <b>Người mua:</b> {order.buyerInfo.fullName}
+          <b>Người mua:</b> {order._doc.buyerInfo.fullName}
         </p>
         <p>
-          <b>Địa chỉ giao:</b> {order.shippingAddress.fullAddress}
+          <b>Địa chỉ giao:</b> {order._doc.shippingAddress.fullAddress}
         </p>
         <p>
-          <b>Phương thức thanh toán:</b> {order.paymentInfo.method}
+          <b>Phương thức thanh toán:</b> {order._doc.paymentInfo.method}
         </p>
       </Card>
 
@@ -194,7 +201,7 @@ const handleSubmit = async (values) => {
           <Input.TextArea rows={3} placeholder="Nhập mô tả thêm (nếu có)" />
         </Form.Item>
 
-        <Form.Item
+        {/* <Form.Item
           name="requestedResolution"
           label="Yêu cầu xử lý"
           rules={[{ required: true, message: "Hãy chọn hướng xử lý" }]}
@@ -204,7 +211,7 @@ const handleSubmit = async (values) => {
             <Option value="REPLACE">Đổi hàng</Option>
             <Option value="REPAIR">Sửa chữa</Option>
           </Select>
-        </Form.Item>
+        </Form.Item> */}
 
         {/* <Form.Item name="refundMethod" label="Phương thức hoàn tiền (nếu có)">
           <Select placeholder="Chọn phương thức hoàn tiền">
@@ -224,6 +231,10 @@ const handleSubmit = async (values) => {
           </Select>
         </Form.Item>
 
+        <Form.Item label="Phí hoàn hàng (Chỉ miễn phí lần đầu hoàn hàng mỗi tháng)">
+          <p style={{fontWeight: 700}}>{(countReturn === 0 ? 0 : countReturn === 1 ? 20000 : 40000).toLocaleString()} VND</p>
+        </Form.Item>
+
         {/* 🟢 Upload evidences */}
         <Form.Item label="Minh chứng (hình ảnh / video)">
           <Upload
@@ -236,6 +247,8 @@ const handleSubmit = async (values) => {
             <Button icon={<UploadOutlined />}>Tải lên</Button>
           </Upload>
         </Form.Item>
+
+        
 
         <Form.Item>
           <Button type="primary" htmlType="submit">

@@ -23,10 +23,12 @@ const StaffReturn = () => {
         return "Đang chờ duyệt";
       case "APPROVED":
         return "Đã chấp nhận";
-      case "PICKUP_SCHEDULED":
-        return "Đã lên lịch lấy hàng";
       case "REJECTED":
         return "Đã từ chối";
+      case "SHIPPED":
+        return "Đang hoàn hàng";
+      case "RETURNED":
+        return "Đã hoàn hàng";
       default:
         return status;
     }

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Modal, Checkbox, List } from "antd";
 
-const ProductModal = ({ open, products, onCancel, onConfirm, orderId }) => {
+const ProductModal = ({ open, products, onCancel, onConfirm, orderId, returnids }) => {
   const [checkedList, setCheckedList] = useState([]);
 
   const handleCheck = (id, checked) => {
@@ -12,7 +12,16 @@ const ProductModal = ({ open, products, onCancel, onConfirm, orderId }) => {
     }
   };
 
+  function isIdInList(list, id) {
+        if (!Array.isArray(list)) return false;
+        return list.some(item => String(item.productId) === String(id));
+    }
+
   const handleConfirm = () => {
+    if(checkedList.length < 1 ) {
+      alert("hãy chọn ít nhất 1 sản phẩm")
+      return
+    }
     onConfirm(checkedList, orderId);
     setCheckedList([]); // reset sau khi xác nhận
   };
@@ -28,7 +37,9 @@ const ProductModal = ({ open, products, onCancel, onConfirm, orderId }) => {
     >
       <List
         dataSource={products}
-        renderItem={(p) => (
+        renderItem={(p) => {
+          if(isIdInList(returnids, p.productId)) return
+          return(
           <List.Item>
             <Checkbox
               checked={checkedList.includes(p.productId)}
@@ -37,7 +48,7 @@ const ProductModal = ({ open, products, onCancel, onConfirm, orderId }) => {
               {p.productName}
             </Checkbox>
           </List.Item>
-        )}
+        )}}
       />
     </Modal>
   );
