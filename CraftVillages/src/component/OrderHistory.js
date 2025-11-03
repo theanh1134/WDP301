@@ -71,20 +71,25 @@ function OrderHistory() {
                 setOrders(list);
                 setFiltered(list);
 
-                // Load reviews cho các order PAID
+                // Load reviews cho các order DELIVERED (đã hoàn thành)
                 const reviews = {};
                 for (const order of list) {
                     if (canReviewProduct(order)) {
                         try {
-                            const review = await orderService.getUserReview(order._id);
-                            reviews[order._id] = review;
+                            // Sử dụng order._doc._id vì cấu trúc có _doc
+                            const orderId = order._doc?._id || order._id;
+                            const review = await orderService.getUserReview(orderId);
+                            reviews[orderId] = review;
+                            console.log(`Loaded review for order ${orderId}`);
                         } catch (error) {
                             // Không có review cho order này
-                            console.log(`No review found for order ${order._id}`);
+                            const orderId = order._doc?._id || order._id;
+                            console.log(`No review found for order ${orderId}`);
                         }
                     }
                 }
                 setOrderReviews(reviews);
+                console.log('Total reviews loaded:', Object.keys(reviews).length);
             } finally {
                 setLoading(false);
             }
@@ -304,24 +309,25 @@ function OrderHistory() {
                 images: reviewData.images
             });
 
-            toast.success('Đánh giá đã được gửi thành công!');
-            setShowReviewModal(false);
-
-            // Lấy đánh giá vừa tạo để hiển thị
+            toast.success('✅ Đánh giá đã được gửi thành công! Bạn có thể xem lại đánh giá của mình.');
+            
+            // Lấy đánh giá vừa tạo để cập nhật state
             try {
                 const newReview = await orderService.getUserReview(selectedProduct.orderId);
-                setUserReview(newReview);
-                setShowViewReviewModal(true);
-
-                // Cập nhật orderReviews để nút "Đánh giá" chuyển thành "Xem đánh giá"
+                
+                // Cập nhật orderReviews để nút "Đánh giá" chuyển thành "Xem đánh giá" NGAY LẬP TỨC
                 setOrderReviews(prev => ({
                     ...prev,
                     [selectedProduct.orderId]: newReview
                 }));
+                
+                console.log('Review added to orderReviews:', selectedProduct.orderId);
             } catch (error) {
                 console.error('Error fetching new review:', error);
             }
 
+            // Đóng modal và reset
+            setShowReviewModal(false);
             setSelectedProduct(null);
 
             // Reset form
