@@ -270,21 +270,63 @@ const updateOrderStatus = async (req, res, next) => {
             };
         }
 
-        // If delivered, add proof
-        if (status === 'DELIVERED') {
-            shipment.actualDeliveryTime = new Date();
-            shipment.deliveryProof = {
-                photos: photos || [],
-                notes: notes || ''
-            };
+        // ⭐ Sync shipment status to order status
+        const Order = require('../models/Order');
+        const order = await Order.findById(shipment.orderId);
+        
+        if (order) {
+            let orderStatus = null;
+            let orderMessage = '';
             
-            // ⭐ Sync order status to DELIVERED
-            const Order = require('../models/Order');
-            const order = await Order.findById(shipment.orderId);
-            if (order && order.status !== 'DELIVERED') {
-                await order.updateStatus('DELIVERED', 'Đơn hàng đã được giao thành công bởi shipper');
-                await order.save();
-                console.log(`✅ Order ${order.orderNumber} status synced to DELIVERED`);
+            // Map shipment status to order status
+            switch (status) {
+                case 'PICKED_UP':
+                    if (order.status === 'PENDING' || order.status === 'PROCESSING') {
+                        orderStatus = 'CONFIRMED';
+                        orderMessage = 'Shipper đã nhận hàng từ người bán';
+                        shipment.actualPickupTime = new Date();
+                    }
+                    break;
+                    
+                case 'OUT_FOR_DELIVERY':
+                    if (order.status !== 'SHIPPED' && order.status !== 'DELIVERED') {
+                        orderStatus = 'SHIPPED';
+                        orderMessage = 'Đơn hàng đang được vận chuyển bởi shipper';
+                    }
+                    break;
+                    
+                case 'DELIVERED':
+                    if (order.status !== 'DELIVERED') {
+                        orderStatus = 'DELIVERED';
+                        orderMessage = 'Đơn hàng đã được giao thành công bởi shipper';
+                        shipment.actualDeliveryTime = new Date();
+                        shipment.deliveryProof = {
+                            photos: photos || [],
+                            notes: notes || ''
+                        };
+                    }
+                    break;
+                    
+                case 'FAILED':
+                    // Không thay đổi order status khi giao thất bại
+                    // Có thể thêm note vào order history
+                    break;
+                    
+                default:
+                    // Other statuses don't need to sync
+                    break;
+            }
+            
+            // Update order status if mapped
+            if (orderStatus) {
+                try {
+                    await order.updateStatus(orderStatus, orderMessage);
+                    await order.save();
+                    console.log(`✅ Order ${order.orderNumber} status synced: ${order.status} → ${orderStatus}`);
+                } catch (error) {
+                    console.error(`❌ Failed to sync order status:`, error.message);
+                    // Continue even if order update fails
+                }
             }
         }
 

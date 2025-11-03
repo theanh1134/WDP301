@@ -747,36 +747,6 @@ function ShipperDashboard() {
         }
     };
 
-    // Handle image upload
-    const handleImageUpload = async (shipmentId, statusContext, files) => {
-        if (!files || files.length === 0) return;
-        
-        try {
-            toast.info(`📸 Đang tải lên ${files.length} ảnh...`);
-            
-            const formData = new FormData();
-            Array.from(files).forEach(file => {
-                formData.append('photos', file);
-            });
-            formData.append('status', statusContext);
-            formData.append('notes', `Ảnh chứng từ ${statusContext}`);
-            
-            console.log(`Uploading ${files.length} photos for shipment ${shipmentId}`);
-            
-            // Upload photos through API
-            await shipperService.uploadEvidencePhotos(shipmentId, formData);
-            
-            toast.success(`✅ Đã tải lên ${files.length} ảnh thành công!`);
-            
-            // Reload orders to show updated photos
-            await loadOrders(currentUser._id || currentUser.id);
-        } catch (error) {
-            console.error('Error uploading images:', error);
-            const errorMsg = error.response?.data?.message || 'Không thể tải ảnh lên';
-            toast.error(errorMsg);
-        }
-    };
-
     const renderDashboard = () => (
         <div>
             <div className="mb-5">
@@ -996,63 +966,27 @@ function ShipperDashboard() {
                                             <div className="d-flex flex-column gap-2">
                                                 {/* Quick Action Buttons */}
                                                 {order.status === 'ASSIGNED' && (
-                                                    <>
-                                                        <Button 
-                                                            variant="primary" 
-                                                            size="md"
-                                                            onClick={() => handleQuickStatusUpdate(order.id, 'PICKED_UP')}
-                                                            className="w-100"
-                                                            style={{ fontWeight: '700', borderRadius: '8px' }}
-                                                        >
-                                                            📦 Đã lấy hàng
-                                                        </Button>
-                                                        <label 
-                                                            htmlFor={`upload-pickup-${order.id}`}
-                                                            className="btn btn-outline-primary w-100 mb-0"
-                                                            style={{ fontWeight: '600', borderRadius: '8px', cursor: 'pointer' }}
-                                                        >
-                                                            📸 Chụp ảnh lấy hàng
-                                                        </label>
-                                                        <input 
-                                                            id={`upload-pickup-${order.id}`}
-                                                            type="file" 
-                                                            accept="image/*"
-                                                            capture="environment"
-                                                            multiple
-                                                            style={{ display: 'none' }}
-                                                            onChange={(e) => handleImageUpload(order.id, 'PICKED_UP', e.target.files)}
-                                                        />
-                                                    </>
+                                                    <Button 
+                                                        variant="primary" 
+                                                        size="md"
+                                                        onClick={() => handleQuickStatusUpdate(order.id, 'PICKED_UP')}
+                                                        className="w-100"
+                                                        style={{ fontWeight: '700', borderRadius: '8px' }}
+                                                    >
+                                                        📦 Đã lấy hàng
+                                                    </Button>
                                                 )}
                                                 
                                                 {order.status === 'PICKED_UP' && (
-                                                    <>
-                                                        <Button 
-                                                            variant="warning" 
-                                                            size="md"
-                                                            onClick={() => handleQuickStatusUpdate(order.id, 'OUT_FOR_DELIVERY')}
-                                                            className="w-100"
-                                                            style={{ fontWeight: '700', borderRadius: '8px', color: '#fff' }}
-                                                        >
-                                                            🚚 Đang giao hàng
-                                                        </Button>
-                                                        <label 
-                                                            htmlFor={`upload-transit-${order.id}`}
-                                                            className="btn btn-outline-warning w-100 mb-0"
-                                                            style={{ fontWeight: '600', borderRadius: '8px', cursor: 'pointer' }}
-                                                        >
-                                                            📸 Chụp ảnh trên đường
-                                                        </label>
-                                                        <input 
-                                                            id={`upload-transit-${order.id}`}
-                                                            type="file" 
-                                                            accept="image/*"
-                                                            capture="environment"
-                                                            multiple
-                                                            style={{ display: 'none' }}
-                                                            onChange={(e) => handleImageUpload(order.id, 'OUT_FOR_DELIVERY', e.target.files)}
-                                                        />
-                                                    </>
+                                                    <Button 
+                                                        variant="warning" 
+                                                        size="md"
+                                                        onClick={() => handleQuickStatusUpdate(order.id, 'OUT_FOR_DELIVERY')}
+                                                        className="w-100"
+                                                        style={{ fontWeight: '700', borderRadius: '8px', color: '#fff' }}
+                                                    >
+                                                        🚚 Đang giao hàng
+                                                    </Button>
                                                 )}
                                                 
                                                 {order.status === 'OUT_FOR_DELIVERY' && (
@@ -1066,22 +1000,6 @@ function ShipperDashboard() {
                                                         >
                                                             ✅ Giao thành công
                                                         </Button>
-                                                        <label 
-                                                            htmlFor={`upload-delivered-${order.id}`}
-                                                            className="btn btn-outline-success w-100 mb-0"
-                                                            style={{ fontWeight: '600', borderRadius: '8px', cursor: 'pointer' }}
-                                                        >
-                                                            📸 Chụp ảnh bàn giao
-                                                        </label>
-                                                        <input 
-                                                            id={`upload-delivered-${order.id}`}
-                                                            type="file" 
-                                                            accept="image/*"
-                                                            capture="environment"
-                                                            multiple
-                                                            style={{ display: 'none' }}
-                                                            onChange={(e) => handleImageUpload(order.id, 'DELIVERED', e.target.files)}
-                                                        />
                                                         <Button 
                                                             variant="danger" 
                                                             size="sm"
