@@ -4,7 +4,6 @@ import { FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaCheckCircle, Fa
 import styled from 'styled-components';
 import orderService from '../../services/orderService';
 import { toast } from 'react-toastify';
-import CancelOrderModal from './CancelOrderModal';
 
 const ModalHeader = styled(Modal.Header)`
     background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
@@ -191,7 +190,6 @@ const TotalSection = styled.div`
 function OrderDetailModal({ show, onHide, order, onStatusUpdate, shopId }) {
     const [updating, setUpdating] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState('');
-    const [showCancelModal, setShowCancelModal] = useState(false);
 
     if (!order) return null;
 
@@ -243,21 +241,13 @@ function OrderDetailModal({ show, onHide, order, onStatusUpdate, shopId }) {
     const getAvailableStatuses = (currentStatus) => {
         const transitions = {
             'PENDING': [
-                { value: 'PROCESSING', label: 'Đang xử lý' },
-                { value: 'CONFIRMED', label: 'Đã xác nhận' },
-                { value: 'CANCELLED', label: 'Đã hủy' }
+                { value: 'CONFIRMED', label: 'Đã xác nhận' }
             ],
             'PROCESSING': [
-                { value: 'CONFIRMED', label: 'Đã xác nhận' },
-                { value: 'CANCELLED', label: 'Đã hủy' }
+                { value: 'CONFIRMED', label: 'Đã xác nhận' }
             ],
-            'CONFIRMED': [
-                { value: 'SHIPPED', label: 'Đang giao' },
-                { value: 'CANCELLED', label: 'Đã hủy' }
-            ],
-            'SHIPPED': [
-                { value: 'DELIVERED', label: 'Đã giao' }
-            ],
+            'CONFIRMED': [],
+            'SHIPPED': [],
             'DELIVERED': [],
             'CANCELLED': [],
             'REFUNDED': []
@@ -297,7 +287,6 @@ function OrderDetailModal({ show, onHide, order, onStatusUpdate, shopId }) {
     const availableStatuses = getAvailableStatuses(order.status);
 
     return (
-        <>
         <Modal show={show} onHide={onHide} size="lg" centered>
             <ModalHeader closeButton>
                 <Modal.Title>
@@ -352,18 +341,7 @@ function OrderDetailModal({ show, onHide, order, onStatusUpdate, shopId }) {
                         </Alert>
                     )}
 
-                    {/* Cancel Order Button */}
-                    {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && order.status !== 'REFUNDED' && (
-                        <div style={{ marginTop: '1rem' }}>
-                            <Button
-                                variant="danger"
-                                onClick={() => setShowCancelModal(true)}
-                                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                            >
-                                <FaBan /> Hủy đơn hàng
-                            </Button>
-                        </div>
-                    )}
+
                 </Section>
 
                 {/* Customer Information */}
@@ -515,19 +493,6 @@ function OrderDetailModal({ show, onHide, order, onStatusUpdate, shopId }) {
                 </Button>
             </Modal.Footer>
         </Modal>
-
-        {/* Cancel Order Modal */}
-        <CancelOrderModal
-            show={showCancelModal}
-            onHide={() => setShowCancelModal(false)}
-            order={order}
-            onCancelSuccess={() => {
-                setShowCancelModal(false);
-                onStatusUpdate();
-                onHide();
-            }}
-        />
-    </>
     );
 }
 
