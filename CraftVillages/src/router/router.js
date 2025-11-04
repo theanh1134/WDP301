@@ -31,6 +31,8 @@ import ConfirmPage from '../component/ConfirmPage';
 import OrderStaff from '../component/OrderStaff/OrderStaff';
 import ShipperLogin from '../component/ShipperChannel/ShipperLogin';
 import ShipperDashboard from '../component/ShipperChannel/ShipperDashboard';
+import RefundPage from '../component/Refund';
+import RefundHistory from '../component/RefundHistory.js';
 
 // Create router with future flags enabled
 export const router = createBrowserRouter(
@@ -66,6 +68,9 @@ export const router = createBrowserRouter(
             <Route path="add-product" element={<AddProduct />} />
             <Route path="edit-product/:id" element={<EditProduct />} />
             <Route path="product-statistics/:id" element={<ProductStatistics />} />
+            <Route path="/refund" element={<RefundPage />} />
+            <Route path="/refund-history" element={<RefundHistory />} />
+            
             <Route
                 path="profile"
                 element={

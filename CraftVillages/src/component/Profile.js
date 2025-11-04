@@ -8,6 +8,7 @@ import userService from '../services/userService';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { Flex } from 'antd';
+import { useNavigate } from 'react-router-dom';
 
 function Profile() {
     const baseUser = useMemo(() => authService.getCurrentUser?.() || null, []);
@@ -26,6 +27,7 @@ function Profile() {
     const email = profile?.email || '';
     const avatarUrl = (editing ? form.avatarUrl : profile?.avatarUrl) || `https://ui-avatars.com/api/?background=d4af37&color=fff&name=${encodeURIComponent(fullName || email || 'U')}`;
 
+    const navigate = useNavigate();
     useEffect(() => {
         const load = async () => {
             const id = baseUser?._id || baseUser?.id;
@@ -195,7 +197,16 @@ function Profile() {
                         <Card style={styles.card}>
                             <Card.Body style={{display: 'flex', justifyContent:'space-between', alignItems:'center'}}>
                                 <h5>Balance: {balance?.formattedBalance ? balance.formattedBalance : '0 VND' }</h5>
-                                <Button>Rút tiền</Button>
+                                <Button
+                                    variant="light"
+                                    onClick={() => navigate('/refund-history')}
+                                    >
+                                    Lịch sử rút tiền
+                                </Button>
+                                <Button onClick={() => {
+                                    const uid = profile?._id || profile?.id || '';
+                                    navigate('/refund', { state: { userId: uid, balance } }); // gửi kèm state nếu muốn
+                                }}>Rút tiền</Button>
                             </Card.Body>
                         </Card>
                         <div style={{marginBottom:25}}></div>
