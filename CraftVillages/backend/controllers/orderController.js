@@ -2,7 +2,7 @@ const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const nodemailer = require('nodemailer');
-const _return = require('../models/return');
+const _return = require('../models/Return');
 
 // [POST] /api/cart/:userId/checkout
 const checkout = async (req, res) => {

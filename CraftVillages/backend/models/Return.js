@@ -107,4 +107,4 @@ const ReturnSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('Return', ReturnSchema);
+module.exports = mongoose.models.Return || mongoose.model('Return', ReturnSchema);

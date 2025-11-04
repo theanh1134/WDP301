@@ -4,7 +4,17 @@ const shipmentSchema = new mongoose.Schema({
     orderId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Order',
-        required: true
+        required: false
+    },
+    returnId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Return',
+        required: false
+    },
+    shipmentType: {
+        type: String,
+        enum: ['DELIVERY', 'RETURN_PICKUP'],
+        default: 'DELIVERY'
     },
     shipperId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -116,4 +126,4 @@ shipmentSchema.index({ shipperId: 1 });
 shipmentSchema.index({ status: 1 });
 shipmentSchema.index({ createdAt: -1 });
 
-module.exports = mongoose.model('Shipment', shipmentSchema);
+module.exports = mongoose.models.Shipment || mongoose.model('Shipment', shipmentSchema);

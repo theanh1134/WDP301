@@ -3,6 +3,8 @@ const Shipment = require('../models/Shipment');
 const ShipperEarnings = require('../models/ShipperEarnings');
 const ShipperReview = require('../models/ShipperReview');
 const User = require('../models/User');
+const Order = require('../models/Order');
+const Return = require('../models/Return');
 
 // Get Shipper Dashboard Stats
 const getDashboardStats = async (req, res, next) => {
@@ -87,6 +89,14 @@ const getOrders = async (req, res, next) => {
 
         const shipments = await Shipment.find(query)
             .populate('orderId')
+            .populate({
+                path: 'returnId',
+                populate: [
+                    { path: 'buyerId', select: 'fullName phoneNumber address' },
+                    { path: 'shopId', select: 'shopName address contactNumber' },
+                    { path: 'orderId', select: 'orderCode' }
+                ]
+            })
             .sort({ createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
@@ -127,6 +137,14 @@ const getAvailableOrders = async (req, res, next) => {
 
         const shipments = await Shipment.find(query)
             .populate('orderId')
+            .populate({
+                path: 'returnId',
+                populate: [
+                    { path: 'buyerId', select: 'fullName phoneNumber address' },
+                    { path: 'shopId', select: 'shopName address contactNumber' },
+                    { path: 'orderId', select: 'orderCode' }
+                ]
+            })
             .sort({ createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
@@ -215,6 +233,15 @@ const getOrderDetail = async (req, res, next) => {
 
         const shipment = await Shipment.findById(shipmentId)
             .populate('orderId')
+            .populate({
+                path: 'returnId',
+                populate: [
+                    { path: 'buyerId', select: 'fullName phoneNumber address' },
+                    { path: 'shopId', select: 'shopName address contactNumber' },
+                    { path: 'orderId', select: 'orderCode' },
+                    { path: 'items.productId', select: 'name images' }
+                ]
+            })
             .populate('shipperId');
 
         if (!shipment) {
@@ -270,62 +297,123 @@ const updateOrderStatus = async (req, res, next) => {
             };
         }
 
-        // ⭐ Sync shipment status to order status
-        const Order = require('../models/Order');
-        const order = await Order.findById(shipment.orderId);
-        
-        if (order) {
-            let orderStatus = null;
-            let orderMessage = '';
+        // ⭐ Sync shipment status to order/return status
+        if (shipment.shipmentType === 'DELIVERY' && shipment.orderId) {
+            // Xử lý đơn giao hàng
+            const order = await Order.findById(shipment.orderId);
             
-            // Map shipment status to order status
-            switch (status) {
-                case 'PICKED_UP':
-                    if (order.status === 'PENDING' || order.status === 'PROCESSING') {
-                        orderStatus = 'CONFIRMED';
-                        orderMessage = 'Shipper đã nhận hàng từ người bán';
+            if (order) {
+                let orderStatus = null;
+                let orderMessage = '';
+                
+                // Map shipment status to order status
+                switch (status) {
+                    case 'PICKED_UP':
+                        if (order.status === 'PENDING' || order.status === 'PROCESSING') {
+                            orderStatus = 'CONFIRMED';
+                            orderMessage = 'Shipper đã nhận hàng từ người bán';
+                            shipment.actualPickupTime = new Date();
+                        }
+                        break;
+                        
+                    case 'OUT_FOR_DELIVERY':
+                        if (order.status !== 'SHIPPED' && order.status !== 'DELIVERED') {
+                            orderStatus = 'SHIPPED';
+                            orderMessage = 'Đơn hàng đang được vận chuyển bởi shipper';
+                        }
+                        break;
+                        
+                    case 'DELIVERED':
+                        if (order.status !== 'DELIVERED') {
+                            orderStatus = 'DELIVERED';
+                            orderMessage = 'Đơn hàng đã được giao thành công bởi shipper';
+                            shipment.actualDeliveryTime = new Date();
+                            shipment.deliveryProof = {
+                                photos: photos || [],
+                                notes: notes || ''
+                            };
+                        }
+                        break;
+                    
+                    case 'FAILED':
+                        // Không thay đổi order status khi giao thất bại
+                        // Có thể thêm note vào order history
+                        break;
+                        
+                    default:
+                        // Other statuses don't need to sync
+                        break;
+                }
+                
+                // Update order status if mapped
+                if (orderStatus) {
+                    try {
+                        await order.updateStatus(orderStatus, orderMessage);
+                        await order.save();
+                        console.log(`✅ Order ${order.orderNumber} status synced: ${order.status} → ${orderStatus}`);
+                    } catch (error) {
+                        console.error(`❌ Failed to sync order status:`, error.message);
+                        // Continue even if order update fails
+                    }
+                }
+            }
+        } else if (shipment.shipmentType === 'RETURN_PICKUP' && shipment.returnId) {
+            // Xử lý đơn hoàn hàng - shipper lấy hàng từ buyer và giao về shop
+            const returnOrder = await Return.findById(shipment.returnId);
+            
+            if (returnOrder) {
+                let returnStatus = null;
+                let returnMessage = '';
+                
+                switch (status) {
+                    case 'PICKED_UP':
+                        // Shipper đã lấy hàng từ người mua
+                        returnStatus = 'SHIPPED';
+                        returnMessage = 'Shipper đã lấy hàng từ người mua';
                         shipment.actualPickupTime = new Date();
-                    }
-                    break;
-                    
-                case 'OUT_FOR_DELIVERY':
-                    if (order.status !== 'SHIPPED' && order.status !== 'DELIVERED') {
-                        orderStatus = 'SHIPPED';
-                        orderMessage = 'Đơn hàng đang được vận chuyển bởi shipper';
-                    }
-                    break;
-                    
-                case 'DELIVERED':
-                    if (order.status !== 'DELIVERED') {
-                        orderStatus = 'DELIVERED';
-                        orderMessage = 'Đơn hàng đã được giao thành công bởi shipper';
+                        break;
+                        
+                    case 'OUT_FOR_DELIVERY':
+                        // Shipper đang trên đường mang hàng về shop
+                        returnStatus = 'SHIPPED';
+                        returnMessage = 'Hàng hoàn đang được vận chuyển về shop';
+                        break;
+                        
+                    case 'DELIVERED':
+                        // Shipper đã giao hàng về shop thành công
+                        returnStatus = 'RETURNED';
+                        returnMessage = 'Hàng hoàn đã được giao về shop thành công';
                         shipment.actualDeliveryTime = new Date();
                         shipment.deliveryProof = {
                             photos: photos || [],
                             notes: notes || ''
                         };
+                        break;
+                        
+                    case 'FAILED':
+                        // Không lấy được hàng
+                        returnMessage = 'Không thể lấy hàng hoàn từ người mua';
+                        break;
+                        
+                    default:
+                        break;
+                }
+                
+                // Update return status if mapped
+                if (returnStatus) {
+                    try {
+                        returnOrder.status = returnStatus;
+                        returnOrder.statusEvents.push({
+                            status: returnStatus,
+                            at: new Date(),
+                            by: { type: 'SYSTEM', id: shipment.shipperId },
+                            note: returnMessage
+                        });
+                        await returnOrder.save();
+                        console.log(`✅ Return ${returnOrder.rmaCode} status synced to: ${returnStatus}`);
+                    } catch (error) {
+                        console.error(`❌ Failed to sync return status:`, error.message);
                     }
-                    break;
-                    
-                case 'FAILED':
-                    // Không thay đổi order status khi giao thất bại
-                    // Có thể thêm note vào order history
-                    break;
-                    
-                default:
-                    // Other statuses don't need to sync
-                    break;
-            }
-            
-            // Update order status if mapped
-            if (orderStatus) {
-                try {
-                    await order.updateStatus(orderStatus, orderMessage);
-                    await order.save();
-                    console.log(`✅ Order ${order.orderNumber} status synced: ${order.status} → ${orderStatus}`);
-                } catch (error) {
-                    console.error(`❌ Failed to sync order status:`, error.message);
-                    // Continue even if order update fails
                 }
             }
         }

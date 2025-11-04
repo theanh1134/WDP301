@@ -466,37 +466,73 @@ function ShipperDashboard() {
                 // Transform API data to match component format
                 const transformedOrders = (response.data || []).map(shipment => {
                     console.log('Processing shipment:', shipment);
+                    const isReturn = shipment.shipmentType === 'RETURN_PICKUP';
                     
-                    // Get delivery address from order
-                    const deliveryAddr = shipment.orderId?.shippingAddress?.fullAddress || 
-                                        shipment.deliveryLocation?.address || '';
-                    const phone = shipment.orderId?.shippingAddress?.phoneNumber || 
-                                 shipment.orderId?.buyerInfo?.phoneNumber || 'N/A';
-                    
-                    // Format items list
-                    let itemsList = 'N/A';
-                    if (shipment.orderId?.items && Array.isArray(shipment.orderId.items)) {
-                        itemsList = shipment.orderId.items.map(item => 
-                            `${item.productName || 'Sản phẩm'} x${item.quantity}`
-                        ).join(', ');
+                    if (isReturn) {
+                        // Đơn hoàn hàng - lấy từ buyer, giao về shop
+                        const pickupAddr = shipment.returnId?.pickupAddress?.fullAddress || 
+                                          shipment.returnId?.buyerId?.address || 
+                                          shipment.pickupLocation?.address || '';
+                        const deliveryAddr = shipment.returnId?.shopId?.address || 
+                                           shipment.deliveryLocation?.address || '';
+                        const phone = shipment.returnId?.pickupAddress?.phoneNumber || 
+                                     shipment.returnId?.buyerId?.phoneNumber || 'N/A';
+                        
+                        let itemsList = 'N/A';
+                        if (shipment.returnId?.items && Array.isArray(shipment.returnId.items)) {
+                            itemsList = shipment.returnId.items.map(item => 
+                                `${item.productName || 'Sản phẩm'} x${item.quantity}`
+                            ).join(', ');
+                        }
+                        
+                        return {
+                            id: shipment._id,
+                            orderId: shipment.returnId?.rmaCode || shipment.returnId?.orderId?.orderNumber || shipment._id,
+                            shipmentType: 'RETURN_PICKUP',
+                            customerName: shipment.returnId?.buyerId?.fullName || 'Người mua',
+                            shopName: shipment.returnId?.shopId?.shopName || 'Cửa hàng',
+                            pickupLocation: pickupAddr,
+                            address: deliveryAddr,
+                            phone: phone,
+                            items: itemsList,
+                            totalAmount: shipment.returnId?.amounts?.refundTotal || 0,
+                            shippingFee: shipment.shippingFee?.total || shipment.returnId?.shippingFee || 0,
+                            status: shipment.status,
+                            estimatedDelivery: shipment.estimatedDeliveryTime || new Date(),
+                            distance: shipment.distance ? `${shipment.distance.toFixed(1)} km` : 'N/A'
+                        };
+                    } else {
+                        // Đơn giao hàng thông thường
+                        const deliveryAddr = shipment.orderId?.shippingAddress?.fullAddress || 
+                                            shipment.deliveryLocation?.address || '';
+                        const phone = shipment.orderId?.shippingAddress?.phoneNumber || 
+                                     shipment.orderId?.buyerInfo?.phoneNumber || 'N/A';
+                        
+                        let itemsList = 'N/A';
+                        if (shipment.orderId?.items && Array.isArray(shipment.orderId.items)) {
+                            itemsList = shipment.orderId.items.map(item => 
+                                `${item.productName || 'Sản phẩm'} x${item.quantity}`
+                            ).join(', ');
+                        }
+                        
+                        return {
+                            id: shipment._id,
+                            orderId: shipment.orderId?.orderNumber || shipment.orderId?._id || shipment._id,
+                            shipmentType: 'DELIVERY',
+                            customerName: shipment.orderId?.shippingAddress?.recipientName || 
+                                         shipment.orderId?.buyerInfo?.fullName || 'Khách hàng',
+                            address: deliveryAddr,
+                            phone: phone,
+                            items: itemsList,
+                            totalAmount: shipment.orderId?.finalAmount || shipment.orderId?.subtotal || 0,
+                            shippingFee: shipment.shippingFee?.total || 
+                                        shipment.shippingFee?.baseFee || 
+                                        shipment.orderId?.shippingFee || 0,
+                            status: shipment.status,
+                            estimatedDelivery: shipment.estimatedDeliveryTime || new Date(),
+                            distance: shipment.distance ? `${shipment.distance.toFixed(1)} km` : 'N/A'
+                        };
                     }
-                    
-                    return {
-                        id: shipment._id,
-                        orderId: shipment.orderId?.orderNumber || shipment.orderId?._id || shipment._id,
-                        customerName: shipment.orderId?.shippingAddress?.recipientName || 
-                                     shipment.orderId?.buyerInfo?.fullName || 'Khách hàng',
-                        address: deliveryAddr,
-                        phone: phone,
-                        items: itemsList,
-                        totalAmount: shipment.orderId?.finalAmount || shipment.orderId?.subtotal || 0,
-                        shippingFee: shipment.shippingFee?.total || 
-                                    shipment.shippingFee?.baseFee || 
-                                    shipment.orderId?.shippingFee || 0,
-                        status: shipment.status,
-                        estimatedDelivery: shipment.estimatedDeliveryTime || new Date(),
-                        distance: shipment.distance ? `${shipment.distance.toFixed(1)} km` : 'N/A'
-                    };
                 });
                 
                 console.log('Transformed orders:', transformedOrders);
@@ -522,32 +558,70 @@ function ShipperDashboard() {
             if (response && response.success) {
                 // Transform API data
                 const transformedOrders = (response.data || []).map(shipment => {
-                    const deliveryAddr = shipment.orderId?.shippingAddress?.fullAddress || 
-                                        shipment.deliveryLocation?.address || '';
-                    const phone = shipment.orderId?.shippingAddress?.phoneNumber || 
-                                 shipment.orderId?.buyerInfo?.phoneNumber || 'N/A';
+                    const isReturn = shipment.shipmentType === 'RETURN_PICKUP';
                     
-                    let itemsList = 'N/A';
-                    if (shipment.orderId?.items && Array.isArray(shipment.orderId.items)) {
-                        itemsList = shipment.orderId.items.map(item => 
-                            `${item.productName || 'Sản phẩm'} x${item.quantity}`
-                        ).join(', ');
+                    if (isReturn) {
+                        // Đơn hoàn hàng
+                        const pickupAddr = shipment.returnId?.pickupAddress?.fullAddress || 
+                                          shipment.returnId?.buyerId?.address || 
+                                          shipment.pickupLocation?.address || '';
+                        const deliveryAddr = shipment.returnId?.shopId?.address || 
+                                           shipment.deliveryLocation?.address || '';
+                        const phone = shipment.returnId?.pickupAddress?.phoneNumber || 
+                                     shipment.returnId?.buyerId?.phoneNumber || 'N/A';
+                        
+                        let itemsList = 'N/A';
+                        if (shipment.returnId?.items && Array.isArray(shipment.returnId.items)) {
+                            itemsList = shipment.returnId.items.map(item => 
+                                `${item.productName || 'Sản phẩm'} x${item.quantity}`
+                            ).join(', ');
+                        }
+                        
+                        return {
+                            id: shipment._id,
+                            orderId: shipment.returnId?.rmaCode || shipment._id,
+                            shipmentType: 'RETURN_PICKUP',
+                            customerName: shipment.returnId?.buyerId?.fullName || 'Người mua',
+                            shopName: shipment.returnId?.shopId?.shopName || 'Cửa hàng',
+                            address: deliveryAddr,
+                            phone: phone,
+                            items: itemsList,
+                            totalAmount: shipment.returnId?.amounts?.refundTotal || 0,
+                            status: shipment.status,
+                            pickupLocation: pickupAddr,
+                            estimatedDistance: shipment.estimatedDistance || 0,
+                            createdAt: shipment.createdAt
+                        };
+                    } else {
+                        // Đơn giao hàng
+                        const deliveryAddr = shipment.orderId?.shippingAddress?.fullAddress || 
+                                            shipment.deliveryLocation?.address || '';
+                        const phone = shipment.orderId?.shippingAddress?.phoneNumber || 
+                                     shipment.orderId?.buyerInfo?.phoneNumber || 'N/A';
+                        
+                        let itemsList = 'N/A';
+                        if (shipment.orderId?.items && Array.isArray(shipment.orderId.items)) {
+                            itemsList = shipment.orderId.items.map(item => 
+                                `${item.productName || 'Sản phẩm'} x${item.quantity}`
+                            ).join(', ');
+                        }
+                        
+                        return {
+                            id: shipment._id,
+                            orderId: shipment.orderId?.orderNumber || shipment.orderId?._id || shipment._id,
+                            shipmentType: 'DELIVERY',
+                            customerName: shipment.orderId?.shippingAddress?.recipientName || 
+                                         shipment.orderId?.buyerInfo?.fullName || 'Khách hàng',
+                            address: deliveryAddr,
+                            phone: phone,
+                            items: itemsList,
+                            totalAmount: shipment.orderId?.finalAmount || shipment.orderId?.subtotal || 0,
+                            status: shipment.status,
+                            pickupLocation: shipment.pickupLocation?.address || 'N/A',
+                            estimatedDistance: shipment.estimatedDistance || 0,
+                            createdAt: shipment.createdAt
+                        };
                     }
-                    
-                    return {
-                        id: shipment._id,
-                        orderId: shipment.orderId?.orderNumber || shipment.orderId?._id || shipment._id,
-                        customerName: shipment.orderId?.shippingAddress?.recipientName || 
-                                     shipment.orderId?.buyerInfo?.fullName || 'Khách hàng',
-                        address: deliveryAddr,
-                        phone: phone,
-                        items: itemsList,
-                        totalAmount: shipment.orderId?.finalAmount || shipment.orderId?.subtotal || 0,
-                        status: shipment.status,
-                        pickupLocation: shipment.pickupLocation?.address || 'N/A',
-                        estimatedDistance: shipment.estimatedDistance || 0,
-                        createdAt: shipment.createdAt
-                    };
                 });
                 
                 setAvailableOrders(transformedOrders);
@@ -840,8 +914,20 @@ function ShipperDashboard() {
                                 <div className="order-header">
                                     <div className="d-flex justify-content-between align-items-start">
                                         <div>
-                                            <h6 style={{ color: '#4caf50' }}>#{order.orderId}</h6>
-                                            <small className="text-muted">{order.customerName}</small>
+                                            <div className="d-flex align-items-center gap-2 mb-1">
+                                                <h6 className="mb-0" style={{ color: '#4caf50' }}>#{order.orderId}</h6>
+                                                {order.shipmentType === 'RETURN_PICKUP' && (
+                                                    <Badge bg="warning" style={{ fontSize: '0.75rem' }}>
+                                                        🔄 Hoàn hàng
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <small className="text-muted">
+                                                {order.shipmentType === 'RETURN_PICKUP' 
+                                                    ? `${order.customerName} → ${order.shopName}`
+                                                    : order.customerName
+                                                }
+                                            </small>
                                         </div>
                                         <div className="text-end">
                                             <Badge bg="success" style={{ fontSize: '0.9rem' }}>Chưa có shipper</Badge>
@@ -867,9 +953,13 @@ function ShipperDashboard() {
                                                     <p className="mb-3" style={{ fontWeight: '600', color: '#333' }}>{order.phone}</p>
                                                 </div>
                                             </div>
-                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📍 Lấy hàng từ</p>
+                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>
+                                                {order.shipmentType === 'RETURN_PICKUP' ? '📍 Lấy hàng từ (Người mua)' : '📍 Lấy hàng từ'}
+                                            </p>
                                             <p className="mb-3 text-muted" style={{ fontWeight: '500' }}>{order.pickupLocation}</p>
-                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📍 Giao đến</p>
+                                            <p className="mb-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>
+                                                {order.shipmentType === 'RETURN_PICKUP' ? '📍 Giao về (Cửa hàng)' : '📍 Giao đến'}
+                                            </p>
                                             <p className="mb-3 text-muted" style={{ fontWeight: '500' }}>{order.address}</p>
                                         </div>
                                         <div className="col-md-4">
@@ -928,8 +1018,20 @@ function ShipperDashboard() {
                                 <div className="order-header">
                                     <div className="d-flex justify-content-between align-items-start">
                                         <div>
-                                            <h6 style={{ color: '#b8860b' }}>#{order.orderId}</h6>
-                                            <small className="text-muted">{order.customerName}</small>
+                                            <div className="d-flex align-items-center gap-2 mb-1">
+                                                <h6 className="mb-0" style={{ color: '#b8860b' }}>#{order.orderId}</h6>
+                                                {order.shipmentType === 'RETURN_PICKUP' && (
+                                                    <Badge bg="warning" style={{ fontSize: '0.75rem' }}>
+                                                        🔄 Hoàn hàng
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <small className="text-muted">
+                                                {order.shipmentType === 'RETURN_PICKUP' 
+                                                    ? `${order.customerName} → ${order.shopName}`
+                                                    : order.customerName
+                                                }
+                                            </small>
                                         </div>
                                         <div className="text-end">
                                             {getStatusBadge(order.status)}
@@ -959,8 +1061,20 @@ function ShipperDashboard() {
                                                     <p style={{ fontWeight: '700', fontSize: '1.05rem', color: '#b8860b' }}>{order.shippingFee.toLocaleString()} đ</p>
                                                 </div>
                                             </div>
-                                            <p className="mb-2 mt-3" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>📍 Địa chỉ giao hàng</p>
-                                            <p className="text-muted" style={{ fontWeight: '500' }}>{order.address}</p>
+                                            <p className="mb-2 mt-3" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>
+                                                {order.shipmentType === 'RETURN_PICKUP' ? '📍 Lấy hàng từ (Người mua)' : '📍 Địa chỉ giao hàng'}
+                                            </p>
+                                            <p className="text-muted" style={{ fontWeight: '500' }}>
+                                                {order.shipmentType === 'RETURN_PICKUP' ? order.pickupLocation : order.address}
+                                            </p>
+                                            {order.shipmentType === 'RETURN_PICKUP' && (
+                                                <>
+                                                    <p className="mb-2 mt-2" style={{ color: '#999', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase' }}>
+                                                        📍 Giao về (Cửa hàng)
+                                                    </p>
+                                                    <p className="text-muted" style={{ fontWeight: '500' }}>{order.address}</p>
+                                                </>
+                                            )}
                                         </div>
                                         <div className="col-md-4">
                                             <div className="d-flex flex-column gap-2">

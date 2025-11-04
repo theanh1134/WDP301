@@ -1,5 +1,4 @@
-const Return = require('../models/return');
-const User = require('../models/User');
+const Return = require('../models/Return');
 
 
 const getAllReturns = async (req, res) => {
@@ -187,7 +186,94 @@ const updateReturnStatus = async (req, res, newStatus, note = '') => {
 
 // ✅ Xác nhận hoàn hàng
 const approveReturn = async (req, res) => {
-  await updateReturnStatus(req, res, 'APPROVED', req.body.note || 'Đơn hàng đã được duyệt.');
+  try {
+    const { id } = req.params;
+    const staffId = req.user?._id;
+
+    const returnOrder = await Return.findById(id)
+      .populate('buyerId')
+      .populate('shopId')
+      .populate('orderId');
+      
+    if (!returnOrder) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hoàn hàng.' });
+    }
+
+    if (returnOrder.status !== 'REQUESTED') {
+      return res.status(400).json({
+        success: false,
+        message: `Không thể cập nhật. Đơn hoàn hàng hiện đang ở trạng thái ${returnOrder.status}.`
+      });
+    }
+
+    // Cập nhật trạng thái
+    returnOrder.status = 'APPROVED';
+    returnOrder.statusEvents.push({
+      status: 'APPROVED',
+      at: new Date(),
+      by: { type: 'SHOP_STAFF', id: staffId },
+      note: req.body.note || 'Đơn hàng đã được duyệt.'
+    });
+
+    await returnOrder.save();
+
+    // Tạo shipment cho đơn hoàn hàng nếu là PICKUP
+    console.log('📦 Return Method:', returnOrder.returnMethod);
+    console.log('📦 Return ID:', returnOrder._id);
+    
+    if (returnOrder.returnMethod === 'PICKUP') {
+      console.log('✅ Creating shipment for return pickup...');
+      const Shipment = require('../models/Shipment');
+      
+      const newShipment = new Shipment({
+        returnId: returnOrder._id,
+        shipmentType: 'RETURN_PICKUP',
+        status: 'READY_FOR_PICKUP',
+        pickupLocation: {
+          address: returnOrder.pickupAddress?.fullAddress || returnOrder.buyerId.address,
+          timestamp: new Date()
+        },
+        deliveryLocation: {
+          address: returnOrder.shopId.address,
+          timestamp: null
+        },
+        shippingFee: {
+          baseFee: returnOrder.shippingFee || 0,
+          distanceFee: 0,
+          weightFee: 0,
+          bonus: 0,
+          total: returnOrder.shippingFee || 0
+        },
+        trackingHistory: [{
+          status: 'READY_FOR_PICKUP',
+          timestamp: new Date(),
+          notes: 'Đơn hoàn hàng đã được duyệt và sẵn sàng để shipper lấy hàng'
+        }]
+      });
+
+      await newShipment.save();
+      console.log('✅ Shipment created successfully:', newShipment._id);
+
+      // Cập nhật trạng thái return sang APPROVED (đang chờ shipper)
+      returnOrder.status = 'APPROVED';
+      returnOrder.statusEvents.push({
+        status: 'APPROVED',
+        at: new Date(),
+        by: { type: 'SYSTEM' },
+        note: 'Đã tạo đơn lấy hàng cho shipper'
+      });
+      await returnOrder.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Duyệt đơn hoàn hàng thành công.',
+      data: returnOrder
+    });
+  } catch (error) {
+    console.error('Lỗi approve return:', error);
+    res.status(500).json({ success: false, message: 'Lỗi máy chủ.' });
+  }
 };
 
 // ❌ Từ chối hoàn hàng
