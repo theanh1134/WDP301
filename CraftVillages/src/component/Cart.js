@@ -480,9 +480,7 @@ function Cart() {
                             <Col lg={8} className="mb-4">
                                 <div className="d-flex justify-content-between align-items-center mb-4">
                                     <h4 className="mb-0">Giỏ hàng của bạn ({cart?.items?.length || 0} sản phẩm)</h4>
-                                    <Link to="/products" style={styles.continueShoppingBtn}>
-                                        <FaArrowLeft style={{ marginRight: '8px' }} /> Tiếp tục mua sắm
-                                    </Link>
+
                                 </div>
 
                                 <Card className="mb-4 border-0 shadow-sm">
