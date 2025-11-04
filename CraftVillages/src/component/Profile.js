@@ -6,6 +6,8 @@ import Footer from './Footer';
 import authService from '../services/authService';
 import userService from '../services/userService';
 import { toast } from 'react-toastify';
+import axios from 'axios';
+import { Flex } from 'antd';
 
 function Profile() {
     const baseUser = useMemo(() => authService.getCurrentUser?.() || null, []);
@@ -18,6 +20,7 @@ function Profile() {
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [balance, setBalance] = useState();
 
     const fullName = (editing ? form.fullName : (profile?.fullName || profile?.name || profile?.username || ''));
     const email = profile?.email || '';
@@ -35,6 +38,9 @@ function Profile() {
                     phoneNumber: data.phoneNumber || '',
                     avatarUrl: data.avatarUrl || ''
                 });
+                const res = await axios.get(`http://localhost:9999/users/${id}/balance`)
+                console.log(res.data.data)
+                setBalance(res.data.data)
                 setAddresses(Array.isArray(data.addresses) ? data.addresses : []);
             } catch (e) {
                 // ignore
@@ -186,6 +192,13 @@ function Profile() {
                     </Col>
 
                     <Col lg={6}>
+                        <Card style={styles.card}>
+                            <Card.Body style={{display: 'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                <h5>Balance: {balance?.formattedBalance ? balance.formattedBalance : '0 VND' }</h5>
+                                <Button>Rút tiền</Button>
+                            </Card.Body>
+                        </Card>
+                        <div style={{marginBottom:25}}></div>
                         <Card style={styles.card}>
                             <Card.Body>
                                 <h5 style={styles.sectionTitle}>Địa chỉ mặc định</h5>

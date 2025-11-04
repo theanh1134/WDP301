@@ -34,6 +34,34 @@ const updateUser = async (req, res) => {
     }
 };
 
-module.exports = { getUserById, updateUser };
+const getUserBalance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id).select('balance fullName email');
+        
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.json({ 
+            success: true, 
+            data: {
+                userId: user._id,
+                fullName: user.fullName,
+                email: user.email,
+                balance: user.getBalance(),
+                formattedBalance: `${user.getBalance().toLocaleString()} VND`
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to get user balance', 
+            error: error.message 
+        });
+    }
+};
+
+module.exports = { getUserById, updateUser, getUserBalance };
 
 
