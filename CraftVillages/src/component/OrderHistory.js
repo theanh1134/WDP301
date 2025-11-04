@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Container, Card, Table, Badge, Spinner, Form, Modal, Button, Row, Col } from 'react-bootstrap';
-import { FaSearch, FaReceipt, FaCalendarAlt, FaMoneyBillWave, FaTruck, FaCheckCircle, FaTimesCircle, FaClock, FaTrash, FaStar, FaEye } from 'react-icons/fa';
+import { FaSearch, FaReceipt, FaCalendarAlt, FaMoneyBillWave, FaTruck, FaCheckCircle, FaTimesCircle, FaClock, FaTrash, FaStar, FaEye, FaShoppingCart, FaInfoCircle } from 'react-icons/fa';
 import Header from './Header';
 import orderService from '../services/orderService';
 import { toast } from 'react-toastify';
@@ -8,6 +8,7 @@ import { getImageUrl } from '../utils/imageHelper';
 import ProductModal from './ProductModal';
 import { useNavigate } from 'react-router-dom';
 import { RiRefund2Line } from 'react-icons/ri';
+import './OrderHistory.css';
 
 const StatusBadge = ({ status, buyerConfirmed }) => {
     const map = { 
@@ -55,9 +56,10 @@ function OrderHistory() {
     const [deletingReview, setDeletingReview] = useState(false);
     const [orderReviews, setOrderReviews] = useState({}); // Lưu trữ review của từng order
 
-    // refund    
+    // refund
     const [isOpen, setIsOpen] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [selectedOrderForRefund, setSelectedOrderForRefund] = useState(null);
 
     // Confirm delivery
     const [showConfirmDeliveryModal, setShowConfirmDeliveryModal] = useState(false);
@@ -124,10 +126,21 @@ function OrderHistory() {
         return +diffMs >= +sevenDaysMs;
     }
 
+    const handleOpenRefundModal = (order) => {
+        setSelectedOrderForRefund(order);
+        setIsOpen(true);
+    };
+
     const handleConfirm = (ids, orderId) => {
         setSelectedIds(ids);
         setIsOpen(false);
+        setSelectedOrderForRefund(null);
         navigate("/return", { state: { selectedIds: ids, orderId: orderId } });
+    };
+
+    const handleCancelRefund = () => {
+        setIsOpen(false);
+        setSelectedOrderForRefund(null);
     };
 
     function isIdInList(list, id) {
@@ -599,65 +612,98 @@ function OrderHistory() {
                                     </div>
                                 )}
 
-                                <div className="text-end mt-3">
-                                    {
-                                        checkRefund(o) && (
-                                            <button onClick={() => setIsOpen(true)} className="btn btn-sm" style={{marginRight: 10, color: "green", border: "1px solid green"}}>Hoàn hàng</button>
-                                        )
-                                    }
-                                    <a href={`/orders/${o._doc._id}`} className="btn btn-outline-primary btn-sm">Xem chi tiết</a>
-                                    {o._doc.items && o._doc.items.length > 0 && (
-                                        <a href={`/products/${o._doc.items[0].productId}`} className="btn btn-warning btn-sm ms-2">Mua lại</a>
+                                <div className="text-end mt-3" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                                    {checkRefund(o) && (
+                                        <button
+                                            onClick={() => handleOpenRefundModal(o)}
+                                            className="icon-btn btn-refund"
+                                            title="Hoàn hàng"
+                                        >
+                                            <span className="btn-icon">
+                                                <RiRefund2Line />
+                                            </span>
+                                            <span className="btn-text">Hoàn hàng</span>
+                                        </button>
                                     )}
+
+                                    <a
+                                        href={`/orders/${o._doc._id}`}
+                                        className="icon-btn btn-view"
+                                        title="Xem chi tiết"
+                                    >
+                                        <span className="btn-icon">
+                                            <FaInfoCircle />
+                                        </span>
+                                        <span className="btn-text">Xem chi tiết</span>
+                                    </a>
+
+                                    {o._doc.items && o._doc.items.length > 0 && (
+                                        <a
+                                            href={`/products/${o._doc.items[0].productId}`}
+                                            className="icon-btn btn-buy-again"
+                                            title="Mua lại"
+                                        >
+                                            <span className="btn-icon">
+                                                <FaShoppingCart />
+                                            </span>
+                                            <span className="btn-text">Mua lại</span>
+                                        </a>
+                                    )}
+
                                     {canCancelOrder(o) && (
                                         <button
-                                            className="btn btn-outline-danger btn-sm ms-2"
+                                            className="icon-btn btn-cancel"
                                             onClick={() => handleCancelOrder(o)}
+                                            title="Hủy đơn"
                                         >
-                                            <FaTrash className="me-1" />
-                                            Hủy đơn
+                                            <span className="btn-icon">
+                                                <FaTrash />
+                                            </span>
+                                            <span className="btn-text">Hủy đơn</span>
                                         </button>
                                     )}
+
                                     {canConfirmDelivery(o) && (
                                         <button
-                                            className="btn btn-success btn-sm ms-2"
+                                            className="icon-btn btn-confirm"
                                             onClick={() => handleConfirmDelivery(o)}
-                                            style={{ fontWeight: '600' }}
+                                            title="Đã nhận hàng"
                                         >
-                                            <FaCheckCircle className="me-1" />
-                                            Đã nhận hàng
+                                            <span className="btn-icon">
+                                                <FaCheckCircle />
+                                            </span>
+                                            <span className="btn-text">Đã nhận hàng</span>
                                         </button>
                                     )}
+
                                     {canReviewProduct(o) && (
                                         hasReview(o._doc._id) ? (
                                             <button
-                                                className="btn btn-outline-info btn-sm ms-2"
+                                                className="icon-btn btn-view-review"
                                                 onClick={() => handleViewReview(o._doc._id)}
+                                                title="Xem đánh giá"
                                             >
-                                                <FaEye className="me-1" />
-                                                Xem đánh giá
+                                                <span className="btn-icon">
+                                                    <FaEye />
+                                                </span>
+                                                <span className="btn-text">Xem đánh giá</span>
                                             </button>
                                         ) : (
                                             <button
-                                                className="btn btn-outline-success btn-sm ms-2"
+                                                className="icon-btn btn-review"
                                                 onClick={() => handleReviewProduct(o._doc.items[0], o)}
+                                                title="Đánh giá"
                                             >
-                                                <FaStar className="me-1" />
-                                                Đánh giá
+                                                <span className="btn-icon">
+                                                    <FaStar />
+                                                </span>
+                                                <span className="btn-text">Đánh giá</span>
                                             </button>
                                         )
                                     )}
                                 </div>
                             </Card.Body>
                         </Card>
-                        <ProductModal
-                            open={isOpen}
-                            returnids={o.returnedProductIds}
-                            products={o._doc.items}
-                            orderId={o._doc._id}
-                            onCancel={() => setIsOpen(false)}
-                            onConfirm={handleConfirm}
-                            />
                         </>
                     ))
                 )}
@@ -1106,7 +1152,17 @@ function OrderHistory() {
                         </Button>
                     </Modal.Footer>
                 </Modal>
-                
+
+                {/* Modal hoàn hàng */}
+                <ProductModal
+                    open={isOpen}
+                    returnids={selectedOrderForRefund?.returnedProductIds || []}
+                    products={selectedOrderForRefund?._doc?.items || []}
+                    orderId={selectedOrderForRefund?._doc?._id}
+                    onCancel={handleCancelRefund}
+                    onConfirm={handleConfirm}
+                />
+
             </Container>
         </>
     );
