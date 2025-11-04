@@ -1,4 +1,5 @@
 const Return = require('../models/return');
+const User = require('../models/User');
 
 
 const getAllReturns = async (req, res) => {
@@ -94,6 +95,59 @@ const updateReturnStatus = async (req, res, newStatus, note = '') => {
         success: false,
         message: `Không thể cập nhật. Đơn hoàn hàng hiện đang ở trạng thái ${returnOrder.status}.`
       });
+    }
+
+    // 💰 XỬ LÝ HOÀN TIỀN KHI DUYỆT ĐƠN HÀNG
+    if (newStatus === 'APPROVED') {
+      console.log(`💰 Processing refund for return ${id}...`);
+      
+      try {
+        // Tính toán số tiền hoàn lại
+        const itemsTotal = returnOrder.items.reduce((sum, item) => {
+          return sum + (item.unitPrice * item.quantity);
+        }, 0);
+        
+        // Số tiền hoàn lại = tổng tiền sản phẩm - phí ship (nếu có)
+        const shippingFee = returnOrder.shippingFee || 0;
+        const refundAmount = itemsTotal - shippingFee;
+        
+        console.log(`📋 Refund calculation:`, {
+          itemsTotal: itemsTotal.toLocaleString(),
+          shippingFee: shippingFee.toLocaleString(), 
+          refundAmount: refundAmount.toLocaleString(),
+          returnId: id
+        });
+
+        if (refundAmount > 0) {
+          // Tìm user và cập nhật balance
+          const user = await User.findById(returnOrder.buyerId);
+          if (!user) {
+            throw new Error('Không tìm thấy người dùng');
+          }
+
+          // Cập nhật balance
+          await user.addBalance(refundAmount, `Hoàn tiền đơn hàng trả về ${returnOrder.rmaCode}`);
+
+          // Cập nhật amounts trong returnOrder
+          returnOrder.amounts = {
+            subtotal: itemsTotal,
+            shippingFee: shippingFee,
+            restockingFee: 0,
+            refundTotal: refundAmount,
+            currency: 'VND'
+          };
+
+          console.log(`✅ Successfully added ${refundAmount.toLocaleString()} VND to user ${user._id} balance`);
+        } else {
+          console.warn(`⚠️ Refund amount is ${refundAmount}, no money will be added to balance`);
+        }
+      } catch (refundError) {
+        console.error('❌ Error processing refund:', refundError);
+        return res.status(500).json({
+          success: false,
+          message: 'Lỗi khi xử lý hoàn tiền: ' + refundError.message
+        });
+      }
     }
 
     // Cập nhật trạng thái chính

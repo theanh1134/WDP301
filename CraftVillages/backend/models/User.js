@@ -64,6 +64,11 @@ const userSchema = new mongoose.Schema({
     resetPasswordCodeExpires: {
         type: Date,
         default: null
+    },
+    balance: {
+        type: Number,
+        default: 0,
+        min: [0, 'Balance cannot be negative']
     }
 }, {
     timestamps: true
@@ -109,6 +114,32 @@ userSchema.methods.isResetCodeValid = function (code) {
     return this.resetPasswordCode === code &&
         this.resetPasswordCodeExpires &&
         this.resetPasswordCodeExpires > new Date();
+};
+
+// Balance management methods
+userSchema.methods.addBalance = function (amount, description = '') {
+    if (amount <= 0) {
+        throw new Error('Amount must be greater than 0');
+    }
+    this.balance = (this.balance || 0) + amount;
+    console.log(`💰 Added ${amount.toLocaleString()} VND to user ${this._id} balance. New balance: ${this.balance.toLocaleString()} VND. Reason: ${description}`);
+    return this.save();
+};
+
+userSchema.methods.subtractBalance = function (amount, description = '') {
+    if (amount <= 0) {
+        throw new Error('Amount must be greater than 0');
+    }
+    if (this.balance < amount) {
+        throw new Error('Insufficient balance');
+    }
+    this.balance = this.balance - amount;
+    console.log(`💸 Subtracted ${amount.toLocaleString()} VND from user ${this._id} balance. New balance: ${this.balance.toLocaleString()} VND. Reason: ${description}`);
+    return this.save();
+};
+
+userSchema.methods.getBalance = function () {
+    return this.balance || 0;
 };
 
 module.exports = mongoose.model('User', userSchema);
