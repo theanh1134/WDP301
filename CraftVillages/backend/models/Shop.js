@@ -94,6 +94,12 @@ const shopSchema = new mongoose.Schema({
         default: 'trong vài giờ',
         enum: ['trong vài phút', 'trong vài giờ', 'trong vài ngày']
     },
+    amount: {
+        type: Number,
+        default: 0,
+        min: [0, 'Shop amount cannot be negative'],
+        comment: 'Số tiền hiện có của cửa hàng'
+    },
     lastActivityAt: {
         type: Date,
         default: Date.now

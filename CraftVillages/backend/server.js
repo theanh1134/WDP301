@@ -56,6 +56,9 @@ app.use('/api/conversations', conversationRoutes);
 const categoryRoutes = require('./routes/categoryRoutes');
 app.use('/api/categories', categoryRoutes);
 
+const withdrawalRoutes = require('./routes/withdrawalRoutes');
+app.use('/api/withdrawals', withdrawalRoutes);
+
 const indexRoutes = require('./routes/index.js');
 
 app.use("/", indexRoutes);
