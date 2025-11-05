@@ -420,6 +420,57 @@ const updateOrderStatus = async (req, res, next) => {
 
         await shipment.save();
 
+        // ⭐ Create ShipperEarnings record when status is DELIVERED
+        if (status === 'DELIVERED') {
+            try {
+                // Check if earnings record already exists
+                const existingEarnings = await ShipperEarnings.findOne({ shipmentId: shipment._id });
+                
+                if (!existingEarnings) {
+                    const shipper = await Shipper.findById(shipment.shipperId);
+                    const baseFee = shipment.shippingFee?.baseFee || shipment.shippingFee?.total || 0;
+                    const distanceFee = shipment.shippingFee?.distanceFee || 0;
+                    const weightFee = shipment.shippingFee?.weightFee || 0;
+                    const bonus = shipment.shippingFee?.bonus || 0;
+
+                    const totalEarnings = baseFee + distanceFee + weightFee + bonus;
+
+                    const earnings = new ShipperEarnings({
+                        shipperId: shipment.shipperId,
+                        orderId: shipment.orderId || null,
+                        returnId: shipment.returnId || null,
+                        shipmentId: shipment._id,
+                        earnings: {
+                            baseFee,
+                            distanceFee,
+                            weightFee,
+                            bonus,
+                            deductions: 0,
+                            total: totalEarnings
+                        },
+                        status: 'COMPLETED',
+                        date: new Date()
+                    });
+
+                    await earnings.save();
+                    console.log(`✅ Created ShipperEarnings record for shipment ${shipment._id}`);
+
+                    // Update shipper stats
+                    if (shipper) {
+                        shipper.totalDeliveries = (shipper.totalDeliveries || 0) + 1;
+                        shipper.totalEarnings = (shipper.totalEarnings || 0) + totalEarnings;
+                        await shipper.save();
+                        console.log(`✅ Updated shipper stats: totalDeliveries=${shipper.totalDeliveries}, totalEarnings=${shipper.totalEarnings}`);
+                    }
+                } else {
+                    console.log(`ℹ️ ShipperEarnings record already exists for shipment ${shipment._id}`);
+                }
+            } catch (error) {
+                console.error('❌ Error creating ShipperEarnings record:', error);
+                // Don't fail the request if earnings creation fails
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: 'Order status updated successfully',
