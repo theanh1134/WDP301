@@ -69,7 +69,7 @@ export default function RefundHistoryPage() {
   return (
     <>
         <Header />
-        <Container fluid style={{ marginTop: 24, marginBottom: 40 }}>
+        <Container fluid style={{ marginTop: 24, marginBottom: 100, height: '70vh' }}>
             <Button onClick={() => {navigate(-1);}}> Back </Button>
         {/* Wrapper để căn giữa và giới hạn chiều rộng "lý tưởng" lớn hơn mặc định */}
         <div style={{ maxWidth: MAX_WIDTH, margin: '0 auto' }}>
@@ -167,17 +167,7 @@ export default function RefundHistoryPage() {
                     )}
                     </div>
 
-                    {/* Ghi chú xử lý (optional detail) */}
-                    {items.length > 0 && (
-                    <div className="mt-2" style={{ fontSize: 12 }}>
-                        <div className="text-muted">
-                        Ghi chú: di chuột vào thời gian để xem timestamp đầy đủ. Các trường lỗi/ghi chú xử lý (nếu có) sẽ có trong record:
-                        </div>
-                        <ul className="mb-0">
-                        <li><code>processingInfo.notes</code> / <code>processingInfo.failureReason</code> / <code>processingInfo.transactionReference</code></li>
-                        </ul>
-                    </div>
-                    )}
+                    
                 </Card.Body>
                 </Card>
             </Col>
