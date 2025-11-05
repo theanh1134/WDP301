@@ -370,6 +370,39 @@ const updateOrderStatus = async (req, res, next) => {
                         // Shipper đã lấy hàng từ người mua
                         returnStatus = 'SHIPPED';
                         returnMessage = 'Shipper đã lấy hàng từ người mua';
+
+                        const itemsTotal = returnOrder.items.reduce((sum, item) => {
+                            return sum + (item.unitPrice * item.quantity);
+                          }, 0);
+                          
+                          // Số tiền hoàn lại = tổng tiền sản phẩm - phí ship (nếu có)
+                          const shippingFee = returnOrder.shippingFee || 0;
+                          const refundAmount = itemsTotal - shippingFee;
+
+                          if (refundAmount > 0) {
+                            // Tìm user và cập nhật balance
+                            const user = await User.findById(returnOrder.buyerId);
+                            if (!user) {
+                              throw new Error('Không tìm thấy người dùng');
+                            }
+                  
+                            // Cập nhật balance
+                            await user.addBalance(refundAmount, `Hoàn tiền đơn hàng trả về ${returnOrder.rmaCode}`);
+                  
+                            // Cập nhật amounts trong returnOrder
+                            returnOrder.amounts = {
+                              subtotal: itemsTotal,
+                              shippingFee: shippingFee,
+                              restockingFee: 0,
+                              refundTotal: refundAmount,
+                              currency: 'VND'
+                            };
+                  
+                            console.log(`✅ Successfully added ${refundAmount.toLocaleString()} VND to user ${user._id} balance`);
+                          } else {
+                            console.warn(`⚠️ Refund amount is ${refundAmount}, no money will be added to balance`);
+                          }
+
                         shipment.actualPickupTime = new Date();
                         break;
                         

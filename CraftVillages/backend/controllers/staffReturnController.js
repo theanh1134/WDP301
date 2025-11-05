@@ -1,5 +1,5 @@
 const Return = require('../models/Return');
-
+const User = require('../models/User');
 
 const getAllReturns = async (req, res) => {
   try {
@@ -125,7 +125,7 @@ const updateReturnStatus = async (req, res, newStatus, note = '') => {
           }
 
           // Cập nhật balance
-          await user.addBalance(refundAmount, `Hoàn tiền đơn hàng trả về ${returnOrder.rmaCode}`);
+          // await user.addBalance(refundAmount, `Hoàn tiền đơn hàng trả về ${returnOrder.rmaCode}`);
 
           // Cập nhật amounts trong returnOrder
           returnOrder.amounts = {
