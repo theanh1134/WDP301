@@ -131,3 +131,119 @@ exports.getReturnedProductIds = async (req, res) => {
     });
   }
 };
+
+// Get return requests by shop
+exports.getReturnsByShop = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    const { status, page = 1, limit = 20 } = req.query;
+
+    if (!shopId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing shopId'
+      });
+    }
+
+    // Build query
+    let query = { shopId };
+    if (status && status !== 'all') {
+      query.status = status.toUpperCase();
+    }
+
+    // Execute query with pagination
+    const skip = (page - 1) * limit;
+    const returns = await Return.find(query)
+      .populate({
+        path: 'orderId',
+        select: '_id createdAt finalAmount paymentInfo'
+      })
+      .populate({
+        path: 'buyerId',
+        select: 'fullName email phoneNumber'
+      })
+      .populate({
+        path: 'items.productId',
+        select: 'images productName'
+      })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip);
+
+    // Get total count for pagination
+    const total = await Return.countDocuments(query);
+
+    return res.status(200).json({
+      success: true,
+      data: returns,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching returns by shop:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching return requests',
+      error: error.message
+    });
+  }
+};
+
+// Get return statistics by shop
+exports.getReturnStatisticsByShop = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    const mongoose = require('mongoose');
+
+    if (!shopId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing shopId'
+      });
+    }
+
+    const stats = await Return.aggregate([
+      { $match: { shopId: new mongoose.Types.ObjectId(shopId) } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Format statistics
+    const formattedStats = {
+      all: 0,
+      requested: 0,
+      approved: 0,
+      rejected: 0,
+      shipped: 0,
+      returned: 0,
+      refunded: 0,
+      completed: 0,
+      cancelled: 0
+    };
+
+    stats.forEach(stat => {
+      formattedStats[stat._id.toLowerCase()] = stat.count;
+      formattedStats.all += stat.count;
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: formattedStats
+    });
+  } catch (error) {
+    console.error('Error fetching return statistics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching return statistics',
+      error: error.message
+    });
+  }
+};

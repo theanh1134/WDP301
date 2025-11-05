@@ -90,7 +90,7 @@ const PrimaryButton = styled(Button)`
   &:disabled {
     background: #ccc;
     cursor: not-allowed;
-  }
+}
 `;
 
 function SellerRegistration() {

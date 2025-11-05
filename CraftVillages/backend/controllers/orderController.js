@@ -1,6 +1,7 @@
 const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Shop = require('../models/Shop');
 const nodemailer = require('nodemailer');
 const _return = require('../models/Return');
 
@@ -93,6 +94,15 @@ const checkout = async (req, res) => {
       if (!product) {
         return res.status(404).json({
           message: `Sản phẩm ${itemObj.productName} không tồn tại`
+        });
+      }
+
+      // 🚫 Check if user is trying to buy their own product
+      const shop = await Shop.findById(product.shopId);
+      if (shop && shop.sellerId.toString() === userId.toString()) {
+        return res.status(403).json({
+          message: `Bạn không thể mua sản phẩm "${itemObj.productName}" của chính mình`,
+          error: 'CANNOT_BUY_OWN_PRODUCT'
         });
       }
 

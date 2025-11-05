@@ -1,4 +1,5 @@
 const Cart = require('../models/Cart');
+const Shop = require('../models/Shop');
 
 // [POST] /api/carts
 const addCart = async (req, res) => {
@@ -35,6 +36,17 @@ const addCart = async (req, res) => {
       }
     }
 
+    // 🚫 Check if user is trying to buy their own product
+    const itemToAdd = items[0];
+    const shop = await Shop.findById(itemToAdd.shopId);
+
+    if (shop && shop.sellerId.toString() === userId.toString()) {
+      return res.status(403).json({
+        message: 'Bạn không thể mua sản phẩm của chính mình',
+        error: 'CANNOT_BUY_OWN_PRODUCT'
+      });
+    }
+
     // 🔍 Find active cart
     let cart = await Cart.findOne({
       userId,
@@ -53,9 +65,8 @@ const addCart = async (req, res) => {
     }
 
     // ➕ Add items to cart
-    const item = items[0];
     try {
-      await cart.addItem(item);
+      await cart.addItem(itemToAdd);
     } catch (err) {
       console.error('Error adding item to cart:', err);
       return res.status(400).json({

@@ -40,12 +40,23 @@ const Sidebar = styled.div`
 const SidebarHeader = styled.div`
   padding: 1.5rem 1rem;
   border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: #f8f9fa;
+  }
 
   h5 {
     margin: 0;
     font-size: 1rem;
     color: #333;
     font-weight: 600;
+    transition: color 0.2s ease;
+  }
+
+  &:hover h5 {
+    color: #b8860b;
   }
 
   p {
@@ -653,7 +664,7 @@ function SellerStaff() {
         <DashboardWrapper>
             {/* Sidebar */}
             <Sidebar>
-                <SidebarHeader>
+                <SidebarHeader onClick={() => navigate('/')}>
                     <h5>🏺 {sellerData.shopName}</h5>
                     <p>{sellerData.email}</p>
                 </SidebarHeader>
@@ -673,12 +684,11 @@ function SellerStaff() {
                             >
                                 <span>Tất cả</span>
                             </SubMenuItem>
-                            
                             <SubMenuItem
-                                active={activeMenu === 'return-refund'}
-                                onClick={() => handleMenuClick('return-refund')}
+                                active={activeMenu === 'return-orders'}
+                                onClick={() => handleMenuClick('return-orders')}
                             >
-                                <span>Trả hàng/Hoàn tiền</span>
+                                <span>Trả hàng</span>
                             </SubMenuItem>
                         </>
                     )}
@@ -978,6 +988,16 @@ function SellerStaff() {
                         <>
                             <ProductAnalytics shopId={shopData?._id} />
                         </>
+                    ) : activeMenu === 'return-orders' ? (
+                        // Return Orders Management View
+                        <>
+                            <PageHeader>
+                                <h4>Quản lý trả hàng</h4>
+                                <p>Quản lý và theo dõi tất cả yêu cầu trả hàng của shop</p>
+                            </PageHeader>
+
+                            <OrderManagement shopId={shopData?._id} initialTab="returns" />
+                        </>
                     ) : (
                         // Orders Management View - NEW
                         <>
@@ -986,7 +1006,7 @@ function SellerStaff() {
                                 <p>Quản lý và theo dõi tất cả đơn hàng của shop</p>
                             </PageHeader>
 
-                            <OrderManagement shopId={shopData?._id} />
+                            <OrderManagement shopId={shopData?._id} initialTab="orders" />
                         </>
                     )}
                 </ContentArea>
