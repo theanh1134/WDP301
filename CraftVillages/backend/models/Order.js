@@ -281,4 +281,4 @@ orderSchema.statics.getUserOrders = function (userId, status = null) {
     return this.find(query).sort({ createdAt: -1 });
 };
 
-module.exports = mongoose.model('Order', orderSchema);
+module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);

@@ -275,7 +275,7 @@ function Earnings({ userId }) {
     }
   };
 
-  // Calculate totals from actual data
+  // Calculate totals from actual data IN THE SELECTED DATE RANGE
   const totalEarnings = summary.totalEarnings || transactions.reduce((sum, t) => sum + t.total, 0);
   const completedOrders = transactions.filter(t => t.status === 'COMPLETED').length;
   const pendingAmount = transactions
@@ -389,6 +389,11 @@ function Earnings({ userId }) {
         </Card>
 
         {/* Summary Stats */}
+        <div className="mb-3">
+          <small className="text-muted">
+            📅 Hiển thị dữ liệu từ <strong>{new Date(startDate).toLocaleDateString('vi-VN')}</strong> đến <strong>{new Date(endDate).toLocaleDateString('vi-VN')}</strong>
+          </small>
+        </div>
         <div className="summary-cards">
           <StatBox gradient="#e3f2fd" gradient2="#bbdefb">
             <div className="card-body">
@@ -396,7 +401,7 @@ function Earnings({ userId }) {
                 {Math.round(totalEarnings).toLocaleString('vi-VN')}
               </div>
               <div className="stat-label">Tổng thu nhập</div>
-              <small className="text-muted">VND</small>
+              <small className="text-muted">Trong khoảng thời gian đã chọn</small>
             </div>
           </StatBox>
 
@@ -406,6 +411,7 @@ function Earnings({ userId }) {
                 {completedOrders}
               </div>
               <div className="stat-label">Đơn hoàn thành</div>
+              <small className="text-muted">Trong khoảng thời gian đã chọn</small>
             </div>
           </StatBox>
 
@@ -415,7 +421,7 @@ function Earnings({ userId }) {
                 {Math.round(avgPerOrder).toLocaleString('vi-VN')}
               </div>
               <div className="stat-label">Thu nhập trung bình/đơn</div>
-              <small className="text-muted">VND</small>
+              <small className="text-muted">Trong khoảng thời gian đã chọn</small>
             </div>
           </StatBox>
         </div>
