@@ -386,11 +386,11 @@ function ShipperDashboard() {
 
                 // Check if user has shipper role
                 const userRole = user.role || user.roleId?.roleName;
-                if (userRole !== 'SHIPPER') {
-                    toast.error('Bạn không có quyền truy cập trang này');
-                    navigate('/');
-                    return;
-                }
+                // if (userRole !== 'SHIPPER') {
+                //     toast.error('Bạn không có quyền truy cập trang này');
+                //     navigate('/');
+                //     return;
+                // }
 
                 // Set initial user state
                 setCurrentUser(user);
