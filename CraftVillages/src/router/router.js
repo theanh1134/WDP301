@@ -16,6 +16,7 @@ import AddProduct from '../component/SellerChannel/AddProduct';
 import EditProduct from '../component/SellerChannel/EditProduct';
 import ProductStatistics from '../component/SellerChannel/ProductStatistics';
 import ProtectedRoute from '../components/ProtectedRoute';
+import RoleProtectedRoute from '../components/RoleProtectedRoute';
 import Profile from '../component/Profile';
 import OrderSuccess from '../component/OrderSuccess';
 import OrderHistory from '../component/OrderHistory';
@@ -112,21 +113,33 @@ export const router = createBrowserRouter(
                     </ProtectedRoute>
                 }
             />
-            <Route path="/staff" element={<DashboardLayout />}>
+            <Route path="/staff" element={
+                <RoleProtectedRoute allowedRoles={['SELLER_STAFF', 'RETURN_STAFF', 'ADMIN_BUSINESS']}>
+                    <DashboardLayout />
+                </RoleProtectedRoute>
+            }>
                 <Route path="" element={<StaffSeller/>}/>
                 <Route path=":id" element={<ShopDetailPage/>}/>
                 <Route path="returns" element={<StaffReturn/>}/>
                 <Route path="returns/:id" element={<ReturnDetailPage/>}/>
             </Route>
             {/* Staff Dashboard alias routes */}
-            <Route path="/staff-dashboard" element={<DashboardLayout />}>
+            <Route path="/staff-dashboard" element={
+                <RoleProtectedRoute allowedRoles={['SELLER_STAFF', 'RETURN_STAFF', 'ADMIN_BUSINESS']}>
+                    <DashboardLayout />
+                </RoleProtectedRoute>
+            }>
                 <Route path="" element={<StaffSeller/>}/>
                 <Route path=":id" element={<ShopDetailPage/>}/>
                 <Route path="returns" element={<StaffReturn/>}/>
                 <Route path="returns/:id" element={<ReturnDetailPage/>}/>
             </Route>
             {/* Admin Dashboard alias route (same as staff for now) */}
-            <Route path="/admin-dashboard" element={<DashboardLayout />}>
+            <Route path="/admin-dashboard" element={
+                <RoleProtectedRoute allowedRoles={['ADMIN_BUSINESS']}>
+                    <DashboardLayout />
+                </RoleProtectedRoute>
+            }>
                 <Route path="" element={<StaffSeller/>}/>
                 <Route path=":id" element={<ShopDetailPage/>}/>
                 <Route path="returns" element={<StaffReturn/>}/>
