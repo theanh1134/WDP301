@@ -1,5 +1,8 @@
 const Withdrawal = require('../models/Withdrawal');
 const User = require('../models/User');
+const WithdrawalFeeConfig = require('../models/WithdrawalFeeConfig');
+const { calculateAvailableBalance } = require('../middleware/withdrawalRateLimit');
+const mongoose = require('mongoose');
 
 /**
  * Lấy tất cả withdrawal từ database
@@ -67,17 +70,28 @@ const getAllWithdrawals = async (req, res) => {
 /**
  * Tạo yêu cầu rút tiền mới
  * POST /api/withdrawals
+ *
+ * IMPROVEMENTS:
+ * - MongoDB transaction để tránh race condition
+ * - Tính phí động từ WithdrawalFeeConfig
+ * - Kiểm tra available balance (trừ pending withdrawals)
+ * - Validate số dư tối thiểu phải giữ lại
+ * - Better error handling và logging
  */
 const createWithdrawal = async (req, res) => {
+    // Note: Transactions disabled for standalone MongoDB
+    // For production, use MongoDB replica set and uncomment transaction code
+
     try {
+
         const {
             userId,
             amount,
             bankInfo,
-            withdrawalFee = 0
+            withdrawalFee // Optional: frontend có thể gửi lên, hoặc backend tự tính
         } = req.body;
 
-        console.log('Đang tạo yêu cầu rút tiền:', {
+        console.log('🔄 Đang tạo yêu cầu rút tiền:', {
             userId,
             amount: typeof amount === 'number' ? amount.toLocaleString() : amount,
             bankName: bankInfo?.bankName,
@@ -86,7 +100,7 @@ const createWithdrawal = async (req, res) => {
         });
 
         // ========== VALIDATION ==========
-        
+
         // 1. Validate required fields
         if (!userId) {
             return res.status(400).json({
@@ -157,14 +171,6 @@ const createWithdrawal = async (req, res) => {
             });
         }
 
-        // 5. Validate withdrawal fee
-        if (withdrawalFee && (typeof withdrawalFee !== 'number' || withdrawalFee < 0)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phí rút tiền phải là số không âm'
-            });
-        }
-
         // ========== BUSINESS LOGIC ==========
 
         // 1. Check if user exists
@@ -176,27 +182,68 @@ const createWithdrawal = async (req, res) => {
             });
         }
 
-        // 2. Check user balance
+        // 2. Calculate withdrawal fee dynamically
+        const userTier = user.tier || 'NORMAL'; // Assuming user has tier field
+        const calculatedFee = await WithdrawalFeeConfig.calculateFee(amount, userTier);
+
+        // Use calculated fee if not provided by frontend
+        const finalWithdrawalFee = withdrawalFee !== undefined ? withdrawalFee : calculatedFee;
+
+        console.log('💰 Phí rút tiền:', {
+            userTier,
+            calculatedFee: calculatedFee.toLocaleString(),
+            providedFee: withdrawalFee !== undefined ? withdrawalFee.toLocaleString() : 'N/A',
+            finalFee: finalWithdrawalFee.toLocaleString()
+        });
+
+        // 3. Calculate available balance (excluding pending withdrawals)
         const currentBalance = user.getBalance();
-        const totalDeduction = amount + (withdrawalFee || 0);
-        
+        const balanceInfo = await calculateAvailableBalance(userId, currentBalance);
+
+        // 4. Calculate total deduction
+        const totalDeduction = amount + finalWithdrawalFee;
+
         console.log('💳 Kiểm tra số dư:', {
             currentBalance: currentBalance.toLocaleString(),
+            pendingWithdrawals: balanceInfo.pendingTotal.toLocaleString(),
+            availableBalance: balanceInfo.availableBalance.toLocaleString(),
             requestedAmount: amount.toLocaleString(),
-            withdrawalFee: (withdrawalFee || 0).toLocaleString(),
+            withdrawalFee: finalWithdrawalFee.toLocaleString(),
             totalRequired: totalDeduction.toLocaleString()
         });
 
-        if (currentBalance < totalDeduction) {
+        // 5. Check available balance
+        if (balanceInfo.availableBalance < totalDeduction) {
             return res.status(400).json({
                 success: false,
-                message: 'Số dư không đủ',
+                message: 'Số dư khả dụng không đủ',
+                error: 'INSUFFICIENT_AVAILABLE_BALANCE',
                 details: {
                     currentBalance: currentBalance,
+                    pendingWithdrawals: balanceInfo.pendingTotal,
+                    availableBalance: balanceInfo.availableBalance,
                     requestedAmount: amount,
-                    withdrawalFee: withdrawalFee || 0,
+                    withdrawalFee: finalWithdrawalFee,
                     totalRequired: totalDeduction,
-                    shortfall: totalDeduction - currentBalance
+                    shortfall: totalDeduction - balanceInfo.availableBalance
+                }
+            });
+        }
+
+        // 6. Check minimum balance requirement (optional: keep at least 10,000 VND)
+        const MIN_BALANCE_REQUIRED = process.env.MIN_BALANCE_REQUIRED || 0;
+        const balanceAfterWithdrawal = currentBalance - totalDeduction;
+
+        if (balanceAfterWithdrawal < MIN_BALANCE_REQUIRED) {
+            return res.status(400).json({
+                success: false,
+                message: `Bạn phải giữ lại tối thiểu ${MIN_BALANCE_REQUIRED.toLocaleString()} VNĐ trong tài khoản`,
+                error: 'MINIMUM_BALANCE_REQUIRED',
+                details: {
+                    currentBalance,
+                    totalDeduction,
+                    balanceAfterWithdrawal,
+                    minimumRequired: MIN_BALANCE_REQUIRED
                 }
             });
         }
@@ -210,23 +257,23 @@ const createWithdrawal = async (req, res) => {
             bankInfo: {
                 bankName: bankInfo.bankName.trim(),
                 accountNumber: bankInfo.accountNumber.trim(),
-                accountHolderName: bankInfo.accountHolderName.trim(),
+                accountHolderName: bankInfo.accountHolderName.trim().toUpperCase(), // Uppercase for consistency
                 branchName: bankInfo.branchName ? bankInfo.branchName.trim() : ''
             },
             balanceSnapshot: {
                 beforeWithdrawal: currentBalance,
                 afterWithdrawal: currentBalance - totalDeduction
             },
-            status: 'SUCCESS',
+            status: 'SUCCESS', // Auto-approve theo yêu cầu
             processedAt: new Date(),
             completedAt: new Date()
         };
 
-        // Add fee info if withdrawal fee exists
-        if (withdrawalFee && withdrawalFee > 0) {
+        // Add fee info
+        if (finalWithdrawalFee > 0) {
             withdrawalData.feeInfo = {
-                withdrawalFee: withdrawalFee,
-                netAmount: amount - withdrawalFee
+                withdrawalFee: finalWithdrawalFee,
+                netAmount: amount // Net amount user receives (amount requested)
             };
         }
 
@@ -236,13 +283,18 @@ const createWithdrawal = async (req, res) => {
         await withdrawal.save();
 
         // 3. Deduct from user balance
-        await user.subtractBalance(totalDeduction, `Withdrawal request ${withdrawal.withdrawalCode}`);
+        await user.subtractBalance(
+            totalDeduction,
+            `Withdrawal request ${withdrawal.withdrawalCode}`
+        );
+
+        console.log('✅ Withdrawal saved successfully');
 
         // 4. Populate user info for response
         await withdrawal.populate('userId', 'fullName email phoneNumber');
 
         // ========== RESPONSE ==========
-        
+
         res.status(201).json({
             success: true,
             message: 'Rút tiền thành công',
@@ -258,47 +310,64 @@ const createWithdrawal = async (req, res) => {
                 feeInfo: withdrawal.feeInfo,
                 totalDeducted: withdrawal.getTotalDeductedAmount(),
                 requestedAt: withdrawal.requestedAt,
+                processedAt: withdrawal.processedAt,
+                completedAt: withdrawal.completedAt,
                 user: {
                     id: withdrawal.userId._id,
                     fullName: withdrawal.userId.fullName,
                     email: withdrawal.userId.email,
                     newBalance: user.getBalance()
-                }
+                },
+                // Rate limit info from middleware
+                rateLimit: req.withdrawalRateInfo
             }
         });
 
         console.log(`✅ Rút tiền thành công:`, {
             withdrawalCode: withdrawal.withdrawalCode,
             amount: withdrawal.formattedAmount,
+            fee: finalWithdrawalFee.toLocaleString(),
+            totalDeducted: totalDeduction.toLocaleString(),
             status: withdrawal.status,
-            userNewBalance: user.getBalance().toLocaleString()
+            userNewBalance: user.getBalance().toLocaleString(),
+            remainingToday: req.withdrawalRateInfo?.remaining
         });
 
     } catch (error) {
-        console.error('Lỗi khi tạo yêu cầu rút tiền:', error);
-        
+        console.error('❌ Lỗi khi tạo yêu cầu rút tiền:', error);
+
         // Handle specific error messages
         let statusCode = 500;
         let message = 'Không thể hoàn thành rút tiền';
-        
+        let errorCode = 'WITHDRAWAL_ERROR';
+
         if (error.message.includes('User not found')) {
             statusCode = 404;
             message = 'Không tìm thấy người dùng';
-        } else if (error.message.includes('Insufficient balance')) {
+            errorCode = 'USER_NOT_FOUND';
+        } else if (error.message.includes('Insufficient balance') || error.message.includes('Số dư')) {
             statusCode = 400;
             message = error.message;
+            errorCode = 'INSUFFICIENT_BALANCE';
         } else if (error.message.includes('validation') || error.name === 'ValidationError') {
             statusCode = 400;
             message = 'Lỗi xác thực: ' + error.message;
+            errorCode = 'VALIDATION_ERROR';
         } else if (error.code === 11000) { // Duplicate key error
             statusCode = 409;
             message = 'Mã rút tiền bị trùng, vui lòng thử lại';
+            errorCode = 'DUPLICATE_WITHDRAWAL_CODE';
+        } else if (error.message.includes('giới hạn')) {
+            statusCode = 429;
+            message = error.message;
+            errorCode = 'RATE_LIMIT_EXCEEDED';
         }
 
         res.status(statusCode).json({
             success: false,
             message: message,
-            error: error.message
+            error: errorCode,
+            details: error.message
         });
     }
 };

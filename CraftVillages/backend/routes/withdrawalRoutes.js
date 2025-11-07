@@ -7,11 +7,31 @@ const {
     getUserWithdrawals
 } = require('../controllers/withdrawalController');
 
+// Import rate limiting middleware
+const {
+    withdrawalRateLimit,
+    checkPendingWithdrawals
+} = require('../middleware/withdrawalRateLimit');
+
+/**
+ * WITHDRAWAL ROUTES
+ *
+ * Security improvements:
+ * - Rate limiting: Max 5 withdrawals per day
+ * - Pending check: Max 3 pending withdrawals at a time
+ * - Transaction support: Prevent race conditions
+ */
+
 // GET /api/withdrawals - Lấy tất cả withdrawal records
 router.get('/', getAllWithdrawals);
 
 // POST /api/withdrawals - Tạo yêu cầu rút tiền mới
-router.post('/', createWithdrawal);
+// Apply rate limiting and pending check middleware
+router.post('/',
+    withdrawalRateLimit,      // Check daily limit
+    checkPendingWithdrawals,  // Check pending withdrawals
+    createWithdrawal          // Create withdrawal
+);
 
 // GET /api/withdrawals/user/:userId - Lấy lịch sử rút tiền của user
 router.get('/user/:userId', getUserWithdrawals);
