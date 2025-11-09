@@ -123,7 +123,7 @@ userSchema.methods.addBalance = function (amount, description = '') {
     }
     this.balance = (this.balance || 0) + amount;
     console.log(`💰 Added ${amount.toLocaleString()} VND to user ${this._id} balance. New balance: ${this.balance.toLocaleString()} VND. Reason: ${description}`);
-    return this.save();
+    return this.save({ validateModifiedOnly: true });
 };
 
 userSchema.methods.subtractBalance = function (amount, description = '', session = null) {
@@ -138,9 +138,9 @@ userSchema.methods.subtractBalance = function (amount, description = '', session
 
     // Support MongoDB session for transactions
     if (session) {
-        return this.save({ session });
+        return this.save({ session, validateModifiedOnly: true });
     }
-    return this.save();
+    return this.save({ validateModifiedOnly: true });
 };
 
 userSchema.methods.getBalance = function () {

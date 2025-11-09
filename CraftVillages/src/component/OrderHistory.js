@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Container, Card, Table, Badge, Spinner, Form, Modal, Button, Row, Col } from 'react-bootstrap';
-import { FaSearch, FaReceipt, FaCalendarAlt, FaMoneyBillWave, FaTruck, FaCheckCircle, FaTimesCircle, FaClock, FaTrash, FaStar, FaEye, FaShoppingCart, FaInfoCircle } from 'react-icons/fa';
+import { FaSearch, FaReceipt, FaCalendarAlt, FaMoneyBillWave, FaTruck, FaCheckCircle, FaTimesCircle, FaClock, FaTrash, FaStar, FaEye, FaShoppingCart, FaInfoCircle, FaSyncAlt } from 'react-icons/fa';
 import Header from './Header';
 import orderService from '../services/orderService';
 import { toast } from 'react-toastify';
@@ -67,38 +67,57 @@ function OrderHistory() {
 
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const load = async () => {
-            try {
-                const list = await orderService.getOrdersByUser(user?._id || user?.id);
-                setOrders(list);
-                setFiltered(list);
+    // Tách load function ra để có thể gọi lại
+    const loadOrders = useCallback(async () => {
+        try {
+            setLoading(true);
+            console.log('🔄 Fetching fresh order data...');
 
-                // Load reviews cho các order DELIVERED (đã hoàn thành)
-                const reviews = {};
-                for (const order of list) {
-                    if (canReviewProduct(order)) {
-                        try {
-                            // Sử dụng order._doc._id vì cấu trúc có _doc
-                            const orderId = order._doc?._id || order._id;
-                            const review = await orderService.getUserReview(orderId);
-                            reviews[orderId] = review;
-                            console.log(`Loaded review for order ${orderId}`);
-                        } catch (error) {
-                            // Không có review cho order này
-                            const orderId = order._doc?._id || order._id;
-                            console.log(`No review found for order ${orderId}`);
-                        }
+            const list = await orderService.getOrdersByUser(user?._id || user?.id);
+            console.log(`📦 Loaded ${list.length} orders`);
+
+            // Log để debug returnedProductIds
+            list.forEach(order => {
+                const orderId = order._doc?._id || order._id;
+                console.log(`Order ${orderId}:`, {
+                    returnedProductIds: order.returnedProductIds,
+                    status: order._doc?.status || order.status
+                });
+            });
+
+            setOrders(list);
+            setFiltered(list);
+
+            // Load reviews cho các order DELIVERED (đã hoàn thành)
+            const reviews = {};
+            for (const order of list) {
+                if (canReviewProduct(order)) {
+                    try {
+                        const orderId = order._doc?._id || order._id;
+                        const review = await orderService.getUserReview(orderId);
+                        reviews[orderId] = review;
+                        console.log(`Loaded review for order ${orderId}`);
+                    } catch (error) {
+                        const orderId = order._doc?._id || order._id;
+                        console.log(`No review found for order ${orderId}`);
                     }
                 }
-                setOrderReviews(reviews);
-                console.log('Total reviews loaded:', Object.keys(reviews).length);
-            } finally {
-                setLoading(false);
             }
-        };
-        load();
+            setOrderReviews(reviews);
+            console.log('Total reviews loaded:', Object.keys(reviews).length);
+        } catch (error) {
+            console.error('❌ Error loading orders:', error);
+            toast.error('Không thể tải danh sách đơn hàng');
+        } finally {
+            setLoading(false);
+        }
     }, [user]);
+
+    useEffect(() => {
+        if (user?._id || user?.id) {
+            loadOrders();
+        }
+    }, [user, loadOrders]);
 
     useEffect(() => {
         let list = [...orders];
@@ -119,11 +138,21 @@ function OrderHistory() {
     }
 
     function isSevenDaysPassed(dateString) {
-        const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+        const now = new Date();
         const targetDate = new Date(dateString);
-        const diffMs = nowVN.getTime() - targetDate.getTime();
+        const diffMs = now.getTime() - targetDate.getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        return +diffMs >= +sevenDaysMs;
+        const isPassed = diffMs >= sevenDaysMs;
+
+        // Debug log
+        console.log('🔍 Checking 7 days:', {
+            orderDate: targetDate.toLocaleString('vi-VN'),
+            now: now.toLocaleString('vi-VN'),
+            daysPassed: Math.floor(diffMs / (24 * 60 * 60 * 1000)),
+            isPassed
+        });
+
+        return isPassed;
     }
 
     const handleOpenRefundModal = (order) => {
@@ -523,8 +552,28 @@ function OrderHistory() {
             <Header />
             <Container className="my-4">
                 <div className="mb-3 p-4 text-white" style={{ background: 'linear-gradient(135deg, rgba(184,134,11,0.95), rgba(212,175,55,0.95))', borderRadius: 16 }}>
-                    <h2 className="m-0">Đơn hàng của tôi</h2>
-                    <div className="opacity-75">Theo dõi lịch sử và trạng thái đơn hàng</div>
+                    <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 className="m-0">Đơn hàng của tôi</h2>
+                            <div className="opacity-75">Theo dõi lịch sử và trạng thái đơn hàng</div>
+                        </div>
+                        <Button
+                            variant="light"
+                            size="sm"
+                            onClick={loadOrders}
+                            disabled={loading}
+                            style={{
+                                borderRadius: 8,
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8
+                            }}
+                        >
+                            <FaSyncAlt className={loading ? 'fa-spin' : ''} />
+                            {loading ? 'Đang tải...' : 'Làm mới'}
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Tabs giống ảnh tham chiếu nhưng theo màu dự án */}
@@ -565,25 +614,30 @@ function OrderHistory() {
                                 />
                             </div>
                             <Card.Body>
-                                {(o._doc.items || []).map((it, idx) => (
-                                    <div key={idx} style={styles.itemRow}>
-                                        <div className="d-flex align-items-center" style={{ gap: 12 }}>
-                                            {it.thumbnailUrl ? (
-                                                <img src={getImageUrl(it.thumbnailUrl)} alt={it.productName} style={styles.thumb} />
-                                            ) : (
-                                                <div style={{ ...styles.thumb, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 12 }}>No Image</div>
-                                            )}
-                                            <div>
-                                                <div className="fw-semibold">{it.productName}</div>
-                                                <div className="text-muted small">x {it.quantity}</div>
+                                {(o._doc.items || []).map((it, idx) => {
+                                    const returnStatus = isIdInList(o.returnedProductIds, it.productId);
+                                    return (
+                                        <div key={idx} style={styles.itemRow}>
+                                            <div className="d-flex align-items-center" style={{ gap: 12 }}>
+                                                {it.thumbnailUrl ? (
+                                                    <img src={getImageUrl(it.thumbnailUrl)} alt={it.productName} style={styles.thumb} />
+                                                ) : (
+                                                    <div style={{ ...styles.thumb, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 12 }}>No Image</div>
+                                                )}
+                                                <div>
+                                                    <div className="fw-semibold">{it.productName}</div>
+                                                    <div className="text-muted small">x {it.quantity}</div>
+                                                </div>
+                                                {returnStatus && (
+                                                    <div>
+                                                        <span className="badge bg-success">{getMessageReturn(returnStatus)}</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>
-                                                <span class="badge bg-success">{getMessageReturn(isIdInList(o.returnedProductIds, it.productId))}</span>
-                                            </div>
+                                            <div className="text-end">{(it.priceAtPurchase || it.priceAtAdd || 0).toLocaleString()} VND</div>
                                         </div>
-                                        <div className="text-end">{(it.priceAtPurchase || it.priceAtAdd || 0).toLocaleString()} VND</div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
 
                                 <div style={styles.footer}>
                                     <div className="text-muted small">Thanh toán: <span className="d-inline-flex align-items-center"><FaMoneyBillWave className="me-1" />{o._doc.paymentInfo?.method || 'COD'}</span></div>

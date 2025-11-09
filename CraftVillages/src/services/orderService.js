@@ -7,7 +7,12 @@ class OrderService {
         const token = localStorage.getItem('authToken');
         const res = await axios.get(`${API_URL}/orders/user/${userId}`, {
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            },
+            params: {
+                _t: Date.now() // Cache busting
             }
         });
         return res.data.data || [];

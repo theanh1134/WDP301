@@ -351,17 +351,21 @@ async function getReturnedProductIdsByOrderId(orderId) {
 
     if (!returns || returns.length === 0) return [];
 
-    // Lấy tất cả productId từ các items
-    const allIds = returns.flatMap(ret => 
-      ret.items.map(i => {
-        console.log(i)
-        return ({ productId: String(i.productId), status: ret.status })})
+    // Lấy tất cả productId từ các items với status
+    const allIds = returns.flatMap(ret =>
+      ret.items.map(i => ({
+        productId: String(i.productId),
+        status: ret.status
+      }))
     );
 
-    // Loại bỏ trùng lặp
-    const uniqueIds = [...new Set(allIds)];
+    // Loại bỏ trùng lặp dựa trên productId (giữ status mới nhất)
+    const uniqueMap = new Map();
+    allIds.forEach(item => {
+      uniqueMap.set(item.productId, item);
+    });
 
-    console.log(uniqueIds)
+    const uniqueIds = Array.from(uniqueMap.values());
 
     return uniqueIds;
   } catch (error) {
@@ -620,19 +624,19 @@ const updateOrderStatus = async (req, res) => {
       // ⭐ Auto-create shipment when order is CONFIRMED (Option 2 - Tự động hơn)
       if (status === 'CONFIRMED' || status === 'SHIPPED') {
         const Shipment = require('../models/Shipment');
-        
+
         // Check if shipment already exists
         const existingShipment = await Shipment.findOne({ orderId: order._id });
-        
+
         if (!existingShipment) {
           console.log('Creating shipment for order:', order._id);
-          
+
           // Calculate shipping fee for shipper (platform pays)
           const estimatedDistance = 10; // km - TODO: Calculate real distance
           const baseFee = 15000; // 15k base
           const distanceFee = estimatedDistance * 3000; // 3k per km
           const totalFee = baseFee + distanceFee; // Total shipper earnings
-          
+
           const newShipment = new Shipment({
             orderId: order._id,
             status: 'READY_FOR_PICKUP',
@@ -666,13 +670,17 @@ const updateOrderStatus = async (req, res) => {
               timestamp: new Date()
             }]
           });
-          
+
           await newShipment.save();
           console.log(`✅ Shipment created: ${newShipment._id} | Fee: ${totalFee.toLocaleString()}đ`);
         } else {
           console.log('Shipment already exists for this order');
         }
       }
+
+      // Seller payment is now handled automatically in Order.updateStatus()
+      // - If order is >= 7 days old: Payment processed immediately
+      // - If order is < 7 days old: Payment will be processed by scheduled job
 
       await order.save();
       console.log('Status updated successfully to:', status);

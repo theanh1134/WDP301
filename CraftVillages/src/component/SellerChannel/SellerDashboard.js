@@ -19,6 +19,7 @@ import OrderManagement from './OrderManagement';
 import Revenue from './Revenue';
 import Analytics from './Analytics';
 import ProductAnalytics from './ProductAnalytics';
+import TransactionHistory from './TransactionHistory';
 
 // Styled Components
 const DashboardWrapper = styled.div`
@@ -736,7 +737,12 @@ function SellerStaff() {
                             >
                                 <span>Doanh Thu</span>
                             </SubMenuItem>
-
+                            <SubMenuItem
+                                active={activeMenu === 'transactions'}
+                                onClick={() => handleMenuClick('transactions')}
+                            >
+                                <span>Lịch Sử Giao Dịch</span>
+                            </SubMenuItem>
                         </>
                     )}
                 </MenuSection>
@@ -768,14 +774,7 @@ function SellerStaff() {
 
                 
 
-                {/* Cài Đặt */}
-                <MenuSection>
-                    <MenuItem onClick={() => toggleMenu('settings')}>
-                        <FaCog />
-                        <span style={{ flex: 1 }}>Cài Đặt Shop</span>
-                        {expandedMenus.settings ? <FaChevronDown /> : <FaChevronRight />}
-                    </MenuItem>
-                </MenuSection>
+                
             </Sidebar>
 
             {/* Main Content */}
@@ -977,6 +976,11 @@ function SellerStaff() {
                         // Revenue Management View
                         <>
                             <Revenue shopId={shopData?._id} />
+                        </>
+                    ) : activeMenu === 'transactions' ? (
+                        // Transaction History View
+                        <>
+                            <TransactionHistory />
                         </>
                     ) : activeMenu === 'analytics' ? (
                         // Analytics View

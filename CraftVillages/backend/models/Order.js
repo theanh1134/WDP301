@@ -94,6 +94,10 @@ const paymentInfoSchema = new mongoose.Schema({
         required: [true, 'Transaction ID is required'],
         unique: true
     },
+    paidAt: {
+        type: Date,
+        default: null
+    },
     escrowReleaseAt: {
         type: Date,
         default: null
@@ -152,6 +156,7 @@ const orderSchema = new mongoose.Schema({
         enum: ['PENDING', 'PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'],
         default: 'PENDING'
     },
+
     buyerConfirmed: {
         type: Boolean,
         default: false,
@@ -174,6 +179,53 @@ const orderSchema = new mongoose.Schema({
     },
     cancelledAt: {
         type: Date,
+        default: null
+    },
+    // Seller payment tracking
+    sellerPayment: {
+        isPaid: {
+            type: Boolean,
+            default: false,
+            comment: 'True when seller has been paid for this order'
+        },
+        paidAt: {
+            type: Date,
+            default: null,
+            comment: 'Timestamp when seller was paid'
+        },
+        transactionId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'SellerTransaction',
+            default: null,
+            comment: 'Reference to seller transaction record'
+        },
+        platformFee: {
+            type: Number,
+            default: 0,
+            min: [0, 'Platform fee cannot be negative'],
+            comment: 'Platform fee deducted from order amount'
+        },
+        platformFeeRate: {
+            type: Number,
+            default: 0,
+            comment: 'Platform fee rate (%) applied'
+        },
+        netAmount: {
+            type: Number,
+            default: 0,
+            comment: 'Net amount paid to seller (after platform fee)'
+        }
+    },
+    // Refund/Return tracking
+    hasRefundRequest: {
+        type: Boolean,
+        default: false,
+        index: true,
+        comment: 'True if there is a refund/return request for this order'
+    },
+    refundRequestId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Return',
         default: null
     }
 }, {
@@ -257,12 +309,45 @@ orderSchema.methods.updateStatus = async function (newStatus, reason = '') {
     // Handle payment status updates
     if (newStatus === 'DELIVERED') {
         this.paymentInfo.status = 'PAID';
+        this.paymentInfo.paidAt = new Date();
         this.paymentInfo.escrowReleaseAt = new Date();
+
+        const orderAge = Math.floor((new Date() - this.createdAt) / (1000 * 60 * 60 * 24));
+        console.log(`\n📦 Order marked as DELIVERED (${orderAge} days old)`);
+
+        // Save the order first
+        await this.save();
+
+        // ✅ Auto-process seller payment if order is >= 7 days old
+        if (orderAge >= 7) {
+            console.log(`💰 Order is ${orderAge} days old (>= 7 days)`);
+            console.log(`   Processing seller payment immediately...`);
+
+            try {
+                // Dynamic import to avoid circular dependency
+                const SellerPaymentService = require('../services/sellerPaymentService');
+                const result = await SellerPaymentService.processOrderPayment(this._id);
+
+                if (result.success) {
+                    console.log(`✅ Seller payment processed: ${result.data.netAmount.toLocaleString()} VND`);
+                } else {
+                    console.log(`⚠️  Seller payment skipped: ${result.message}`);
+                }
+            } catch (error) {
+                console.error(`❌ Error processing seller payment:`, error.message);
+            }
+        } else {
+            const daysRemaining = 7 - orderAge;
+            console.log(`⏳ Seller payment will be processed in ${daysRemaining} more day(s)`);
+        }
     } else if (newStatus === 'CANCELLED' || newStatus === 'REFUNDED') {
         this.paymentInfo.status = 'REFUNDED';
+        await this.save();
+    } else {
+        await this.save();
     }
 
-    return this.save();
+    return this;
 };
 
 orderSchema.methods.calculateProfit = function () {

@@ -27,7 +27,16 @@ const io = new Server(server, {
     }
 });
 
-connectDB();
+// Initialize auto payment checker after DB connection
+const { initializeAutoPaymentChecker } = require('./jobs/autoPaymentChecker');
+connectDB().then(() => {
+    console.log('✅ Database connected successfully');
+    // Start auto payment checker (runs every hour)
+    initializeAutoPaymentChecker();
+}).catch(err => {
+    console.error('❌ Failed to connect to database:', err);
+    process.exit(1);
+});
 
 app.use(cors());
 app.use(morgan('dev'));
@@ -58,6 +67,15 @@ app.use('/api/categories', categoryRoutes);
 
 const withdrawalRoutes = require('./routes/withdrawalRoutes');
 app.use('/api/withdrawals', withdrawalRoutes);
+
+const platformFeeRoutes = require('./routes/platformFeeRoutes');
+app.use('/api/platform-fees', platformFeeRoutes);
+
+const sellerTransactionRoutes = require('./routes/sellerTransactionRoutes');
+app.use('/api/seller-transactions', sellerTransactionRoutes);
+
+const jobRoutes = require('./routes/jobRoutes');
+app.use('/api/jobs', jobRoutes);
 
 const indexRoutes = require('./routes/index.js');
 
