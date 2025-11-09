@@ -77,6 +77,9 @@ app.use('/api/seller-transactions', sellerTransactionRoutes);
 const jobRoutes = require('./routes/jobRoutes');
 app.use('/api/jobs', jobRoutes);
 
+const adminRoutes = require('./routes/adminRoutes');
+app.use('/api/admin', adminRoutes);
+
 const indexRoutes = require('./routes/index.js');
 
 app.use("/", indexRoutes);

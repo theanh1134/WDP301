@@ -1,0 +1,38 @@
+const express = require('express');
+const router = express.Router();
+const { auth } = require('../middleware/auth');
+const adminRevenueController = require('../controllers/adminRevenueController');
+
+// Middleware to check if user is admin
+const isAdmin = async (req, res, next) => {
+    try {
+        const Role = require('../models/Role');
+        const role = await Role.findById(req.user.roleId);
+        
+        if (!role || role.roleName !== 'ADMIN_BUSINESS') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin only.'
+            });
+        }
+        
+        next();
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error checking admin role',
+            error: error.message
+        });
+    }
+};
+
+// Revenue routes
+router.get('/revenue/overview', auth, isAdmin, adminRevenueController.getRevenueOverview);
+router.get('/revenue/chart', auth, isAdmin, adminRevenueController.getRevenueChart);
+router.get('/revenue/category', auth, isAdmin, adminRevenueController.getRevenueByCategory);
+
+// Seller routes
+router.get('/sellers/top', auth, isAdmin, adminRevenueController.getTopSellers);
+
+module.exports = router;
+

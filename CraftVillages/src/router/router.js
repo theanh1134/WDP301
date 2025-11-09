@@ -33,6 +33,8 @@ import ShipperLogin from '../component/ShipperChannel/ShipperLogin';
 import ShipperDashboard from '../component/ShipperChannel/ShipperDashboard';
 import RefundPage from '../component/Refund';
 import RefundHistory from '../component/RefundHistory.js';
+import AdminLayout from '../component/AdminBusiness/AdminLayout';
+import AdminDashboard from '../component/AdminBusiness/AdminDashboard';
 
 // Create router with future flags enabled
 export const router = createBrowserRouter(
@@ -134,16 +136,25 @@ export const router = createBrowserRouter(
                 <Route path="returns" element={<StaffReturn/>}/>
                 <Route path="returns/:id" element={<ReturnDetailPage/>}/>
             </Route>
-            {/* Admin Dashboard alias route (same as staff for now) */}
+            {/* Admin Business Dashboard */}
             <Route path="/admin-dashboard" element={
                 <RoleProtectedRoute allowedRoles={['ADMIN_BUSINESS']}>
-                    <DashboardLayout />
+                    <AdminLayout />
                 </RoleProtectedRoute>
             }>
-                <Route path="" element={<StaffSeller/>}/>
-                <Route path=":id" element={<ShopDetailPage/>}/>
-                <Route path="returns" element={<StaffReturn/>}/>
-                <Route path="returns/:id" element={<ReturnDetailPage/>}/>
+                <Route index element={<AdminDashboard/>}/>
+                <Route path="revenue" element={<AdminDashboard/>}/>
+                <Route path="commission" element={<AdminDashboard/>}/>
+                <Route path="gmv" element={<AdminDashboard/>}/>
+                <Route path="sellers" element={<AdminDashboard/>}/>
+                <Route path="orders" element={<AdminDashboard/>}/>
+                <Route path="customers" element={<AdminDashboard/>}/>
+                <Route path="products" element={<AdminDashboard/>}/>
+                <Route path="returns" element={<AdminDashboard/>}/>
+                <Route path="reviews" element={<AdminDashboard/>}/>
+                <Route path="marketing" element={<AdminDashboard/>}/>
+                <Route path="reports" element={<AdminDashboard/>}/>
+                <Route path="settings" element={<AdminDashboard/>}/>
             </Route>
             <Route path="shipper-login" element={<ShipperLogin />} />
             <Route
