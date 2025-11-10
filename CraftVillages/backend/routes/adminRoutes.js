@@ -8,14 +8,14 @@ const isAdmin = async (req, res, next) => {
     try {
         const Role = require('../models/Role');
         const role = await Role.findById(req.user.roleId);
-        
+
         if (!role || role.roleName !== 'ADMIN_BUSINESS') {
             return res.status(403).json({
                 success: false,
                 message: 'Access denied. Admin only.'
             });
         }
-        
+
         next();
     } catch (error) {
         res.status(500).json({
@@ -33,6 +33,7 @@ router.get('/revenue/category', auth, isAdmin, adminRevenueController.getRevenue
 
 // Seller routes
 router.get('/sellers/top', auth, isAdmin, adminRevenueController.getTopSellers);
+router.get('/sellers/performance', auth, isAdmin, adminRevenueController.getSellerPerformance);
 
 // Commission routes
 router.get('/commission/analytics', auth, isAdmin, adminRevenueController.getCommissionAnalytics);

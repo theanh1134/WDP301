@@ -81,6 +81,22 @@ const getTopSellers = async (limit = 5, period = 'month') => {
 };
 
 /**
+ * Get Seller Performance Metrics (rankings and scores)
+ * @param {string} period - 'day', 'week', 'month', 'year'
+ * @param {number} limit - Number of sellers to include
+ */
+const getSellerPerformance = async (period = 'month', limit = 10) => {
+    try {
+        const api = createAuthRequest();
+        const response = await api.get(`/api/admin/sellers/performance?period=${period}&limit=${limit}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error getting seller performance:', error);
+        throw error.response?.data || error;
+    }
+};
+
+/**
  * Get Commission Analytics
  * @param {string} period - 'day', 'week', 'month', 'year'
  */
@@ -145,6 +161,7 @@ const adminService = {
     getRevenueChart,
     getRevenueByCategory,
     getTopSellers,
+    getSellerPerformance,
     getCommissionAnalytics,
     getCommissionBySeller,
     getCommissionByRegion,

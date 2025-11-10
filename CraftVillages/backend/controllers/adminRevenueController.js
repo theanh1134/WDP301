@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const SellerTransaction = require('../models/SellerTransaction');
 const User = require('../models/User');
 const Product = require('../models/Product');
+const Shop = require('../models/Shop');
 
 /**
  * Get Revenue Overview
@@ -772,6 +773,195 @@ const getCommissionHistory = async (req, res) => {
 };
 
 
+/**
+ * Get Seller Performance Metrics
+ * Ranking sellers by revenue, orders, rating and combined performance score
+ */
+const getSellerPerformance = async (req, res) => {
+    try {
+        const { period = 'month', limit = 10 } = req.query;
+        const limitNumber = Math.min(parseInt(limit, 10) || 10, 50);
+
+        const now = new Date();
+        let startDate;
+
+        switch (period) {
+            case 'day':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'week':
+                {
+                    const dayOfWeek = now.getDay();
+                    startDate = new Date(now);
+                    startDate.setDate(now.getDate() - dayOfWeek);
+                    startDate.setHours(0, 0, 0, 0);
+                }
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                break;
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+
+        const sellerStats = await SellerTransaction.aggregate([
+            {
+                $match: {
+                    transactionType: 'ORDER_PAYMENT',
+                    status: 'COMPLETED',
+                    createdAt: { $gte: startDate, $lte: now }
+                }
+            },
+            {
+                $group: {
+                    _id: '$sellerId',
+                    totalRevenue: { $sum: '$amounts.platformFee' },
+                    totalGMV: { $sum: '$amounts.grossAmount' },
+                    totalOrders: { $sum: 1 },
+                    avgOrderValue: { $avg: '$amounts.grossAmount' },
+                    lastTransactionAt: { $max: '$createdAt' }
+                }
+            },
+            {
+                $sort: { totalRevenue: -1 }
+            }
+        ]);
+
+        if (!sellerStats.length) {
+            return res.json({
+                success: true,
+                data: {
+                    period,
+                    revenueRanking: [],
+                    orderRanking: [],
+                    ratingRanking: [],
+                    performanceLeaders: []
+                }
+            });
+        }
+
+        const sellerIds = sellerStats.map(item => item._id).filter(Boolean);
+
+        const [shops, sellers, topRatedShops] = await Promise.all([
+            Shop.find({ sellerId: { $in: sellerIds } })
+                .select('sellerId shopName avatarUrl rating statistics.totalOrders updatedAt')
+                .lean(),
+            User.find({ _id: { $in: sellerIds } })
+                .select('fullName email avatarUrl')
+                .lean(),
+            Shop.find({
+                isActive: true,
+                'rating.count': { $gt: 0 }
+            })
+                .sort({ 'rating.average': -1, 'rating.count': -1 })
+                .limit(limitNumber)
+                .populate('sellerId', 'fullName avatarUrl email')
+                .lean()
+        ]);
+
+        const shopMap = new Map(shops.map(shop => [shop.sellerId.toString(), shop]));
+        const sellerMap = new Map(sellers.map(seller => [seller._id.toString(), seller]));
+
+        const enrichedStats = sellerStats.map(item => {
+            const sellerId = item._id?.toString();
+            const shop = shopMap.get(sellerId);
+            const seller = sellerMap.get(sellerId);
+
+            return {
+                sellerId,
+                sellerName: seller?.fullName || 'Không xác định',
+                sellerEmail: seller?.email || '',
+                sellerAvatar: seller?.avatarUrl || '',
+                shopName: shop?.shopName || 'Chưa đặt tên cửa hàng',
+                shopAvatar: shop?.avatarUrl || '',
+                rating: shop?.rating?.average || 0,
+                ratingCount: shop?.rating?.count || 0,
+                totalRevenue: item.totalRevenue,
+                totalGMV: item.totalGMV,
+                totalOrders: item.totalOrders,
+                avgOrderValue: item.avgOrderValue || 0,
+                lastTransactionAt: item.lastTransactionAt,
+                totalOrdersLifetime: shop?.statistics?.totalOrders || 0
+            };
+        });
+
+        const revenueRanking = enrichedStats
+            .slice()
+            .sort((a, b) => b.totalRevenue - a.totalRevenue)
+            .slice(0, limitNumber);
+
+        const orderRanking = enrichedStats
+            .slice()
+            .sort((a, b) => b.totalOrders - a.totalOrders)
+            .slice(0, limitNumber);
+
+        const ratingRanking = topRatedShops.map(shop => ({
+            sellerId: shop.sellerId?._id?.toString() || '',
+            sellerName: shop.sellerId?.fullName || 'Không xác định',
+            sellerAvatar: shop.sellerId?.avatarUrl || '',
+            shopId: shop._id?.toString() || '',
+            shopName: shop.shopName,
+            shopAvatar: shop.avatarUrl,
+            averageRating: shop.rating?.average || 0,
+            reviewCount: shop.rating?.count || 0,
+            totalOrdersLifetime: shop.statistics?.totalOrders || 0,
+            updatedAt: shop.updatedAt
+        }));
+
+        const maxRevenue = Math.max(...enrichedStats.map(item => item.totalRevenue));
+        const maxOrders = Math.max(...enrichedStats.map(item => item.totalOrders));
+        const maxGMV = Math.max(...enrichedStats.map(item => item.totalGMV));
+
+        const performanceLeaders = enrichedStats
+            .map(item => {
+                const revenueScore = maxRevenue > 0 ? item.totalRevenue / maxRevenue : 0;
+                const ordersScore = maxOrders > 0 ? item.totalOrders / maxOrders : 0;
+                const ratingScore = (item.rating || 0) / 5;
+                const gmvScore = maxGMV > 0 ? item.totalGMV / maxGMV : 0;
+
+                const performanceScore = (
+                    revenueScore * 0.4 +
+                    ordersScore * 0.3 +
+                    ratingScore * 0.2 +
+                    gmvScore * 0.1
+                ) * 100;
+
+                return {
+                    ...item,
+                    performanceScore: Math.round(performanceScore * 10) / 10,
+                    revenueScore: Math.round(revenueScore * 100),
+                    ordersScore: Math.round(ordersScore * 100),
+                    ratingScore: Math.round(ratingScore * 100),
+                    gmvScore: Math.round(gmvScore * 100)
+                };
+            })
+            .sort((a, b) => b.performanceScore - a.performanceScore)
+            .slice(0, limitNumber);
+
+        res.json({
+            success: true,
+            data: {
+                period,
+                revenueRanking,
+                orderRanking,
+                ratingRanking,
+                performanceLeaders
+            }
+        });
+    } catch (error) {
+        console.error('Error getting seller performance:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get seller performance metrics',
+            error: error.message
+        });
+    }
+};
+
+
 
 
 
@@ -783,5 +973,6 @@ module.exports = {
     getCommissionAnalytics,
     getCommissionBySeller,
     getCommissionByRegion,
-    getCommissionHistory
+    getCommissionHistory,
+    getSellerPerformance
 };

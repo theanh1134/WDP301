@@ -261,19 +261,11 @@ const AdminLayout = () => {
             section: 'QUẢN LÝ',
             items: [
                 { icon: FaStore, label: 'Quản Lý Sellers', path: '/admin-dashboard/sellers' },
-                { icon: FaShoppingCart, label: 'Quản Lý Đơn Hàng', path: '/admin-dashboard/orders' },
-                { icon: FaUsers, label: 'Quản Lý Khách Hàng', path: '/admin-dashboard/customers' },
-                { icon: FaBoxOpen, label: 'Quản Lý Sản Phẩm', path: '/admin-dashboard/products' },
+                { icon: FaShoppingCart, label: 'Quản Lý Hoa Hồng', path: '/admin-dashboard/orders' },
+                
             ]
         },
-        {
-            section: 'HOẠT ĐỘNG',
-            items: [
-                { icon: FaUndo, label: 'Hoàn Trả & Refund', path: '/admin-dashboard/returns' },
-                { icon: FaStar, label: 'Đánh Giá & Review', path: '/admin-dashboard/reviews' },
-                { icon: FaTags, label: 'Marketing & Khuyến Mãi', path: '/admin-dashboard/marketing' },
-            ]
-        },
+        
         {
             section: 'HỆ THỐNG',
             items: [

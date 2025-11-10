@@ -533,24 +533,7 @@ const CommissionAnalytics = () => {
                     </ChartCard>
                 </Col>
 
-                <Col lg={4}>
-                    <ChartCard>
-                        <ChartCardHeader>
-                            <h5>Hoa Hồng Theo Danh Mục</h5>
-                        </ChartCardHeader>
-                        <ChartCardBody>
-                            <div style={{ height: '350px' }}>
-                                {categoryCommissionData ? (
-                                    <Pie data={categoryCommissionData} options={pieChartOptions} />
-                                ) : (
-                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                                        <Spinner animation="border" variant="primary" />
-                                    </div>
-                                )}
-                            </div>
-                        </ChartCardBody>
-                    </ChartCard>
-                </Col>
+                
             </Row>
 
             {/* Charts Row 2 */}
