@@ -156,6 +156,74 @@ const getCommissionHistory = async () => {
     }
 };
 
+/**
+ * List seller commission overview
+ * @param {Object} params - { page, limit, search, includeInactive }
+ */
+const getSellerCommissionList = async (params = {}) => {
+    try {
+        const api = createAuthRequest();
+        const searchParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                searchParams.append(key, value);
+            }
+        });
+        const query = searchParams.toString();
+        const response = await api.get(`/api/admin/commission/sellers${query ? `?${query}` : ''}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error getting seller commission list:', error);
+        throw error.response?.data || error;
+    }
+};
+
+/**
+ * Update seller commission rate
+ * @param {string} shopId
+ * @param {Object} payload - { percentageRate, reason, note }
+ */
+const updateSellerCommission = async (shopId, payload) => {
+    try {
+        const api = createAuthRequest();
+        const response = await api.put(`/api/admin/commission/sellers/${shopId}`, payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating seller commission:', error);
+        throw error.response?.data || error;
+    }
+};
+
+/**
+ * Get commission history of a seller
+ * @param {string} shopId
+ */
+const getSellerCommissionHistory = async (shopId) => {
+    try {
+        const api = createAuthRequest();
+        const response = await api.get(`/api/admin/commission/sellers/${shopId}/history`);
+        return response.data;
+    } catch (error) {
+        console.error('Error getting seller commission history:', error);
+        throw error.response?.data || error;
+    }
+};
+
+/**
+ * Update global default commission rate
+ * @param {Object} payload - { percentageRate, reason?, note?, overrideShopConfigs? }
+ */
+const updateGlobalCommission = async (payload) => {
+    try {
+        const api = createAuthRequest();
+        const response = await api.put(`/api/admin/commission/global`, payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating global commission:', error);
+        throw error.response?.data || error;
+    }
+};
+
 const adminService = {
     getRevenueOverview,
     getRevenueChart,
@@ -165,7 +233,11 @@ const adminService = {
     getCommissionAnalytics,
     getCommissionBySeller,
     getCommissionByRegion,
-    getCommissionHistory
+    getCommissionHistory,
+    getSellerCommissionList,
+    updateSellerCommission,
+    getSellerCommissionHistory,
+    updateGlobalCommission
 };
 
 export default adminService;

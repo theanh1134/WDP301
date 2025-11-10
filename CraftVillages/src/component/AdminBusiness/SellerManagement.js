@@ -304,6 +304,19 @@ const ScoreBreakdown = styled.div`
         span {
             font-size: 0.8rem;
             color: #7f8c8d;
+            font-weight: 600;
+        }
+
+        .progress {
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+
+            .progress-bar {
+                border-radius: 999px;
+                transition: width 0.6s ease;
+            }
         }
     }
 `;
@@ -620,10 +633,7 @@ const SellerManagement = () => {
                             </option>
                         ))}
                     </Form.Select>
-                    <RefreshButton onClick={() => fetchSellerPerformance(true)} disabled={refreshing} refreshing={refreshing}>
-                        <FaSyncAlt />
-                        Làm mới
-                    </RefreshButton>
+                    
                 </FilterControls>
             </FilterBar>
 
@@ -758,27 +768,87 @@ const SellerManagement = () => {
                                     </ScoreHeader>
                                     <ScoreBreakdown>
                                         <div className="metric">
-                                            <span>Doanh thu</span>
-                                            <OverlayTrigger overlay={<Tooltip id={`tooltip-revenue-${leader.sellerId}`}>Điểm doanh thu</Tooltip>}>
-                                                <ProgressBar now={leader.revenueScore} variant="success" />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span>Doanh thu</span>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#27ae60' }}>
+                                                    {leader.revenueScore?.toFixed(1) || 0}
+                                                </span>
+                                            </div>
+                                            <OverlayTrigger
+                                                overlay={
+                                                    <Tooltip id={`tooltip-revenue-${leader.sellerId}`}>
+                                                        Điểm doanh thu: {leader.revenueScore?.toFixed(1) || 0}/100
+                                                    </Tooltip>
+                                                }
+                                            >
+                                                <ProgressBar
+                                                    now={leader.revenueScore || 0}
+                                                    variant="success"
+                                                    style={{ cursor: 'pointer' }}
+                                                />
                                             </OverlayTrigger>
                                         </div>
                                         <div className="metric">
-                                            <span>Đơn hàng</span>
-                                            <OverlayTrigger overlay={<Tooltip id={`tooltip-orders-${leader.sellerId}`}>Điểm đơn hàng</Tooltip>}>
-                                                <ProgressBar now={leader.ordersScore} variant="info" />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span>Đơn hàng</span>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#3498db' }}>
+                                                    {leader.ordersScore?.toFixed(1) || 0}
+                                                </span>
+                                            </div>
+                                            <OverlayTrigger
+                                                overlay={
+                                                    <Tooltip id={`tooltip-orders-${leader.sellerId}`}>
+                                                        Điểm đơn hàng: {leader.ordersScore?.toFixed(1) || 0}/100
+                                                    </Tooltip>
+                                                }
+                                            >
+                                                <ProgressBar
+                                                    now={leader.ordersScore || 0}
+                                                    variant="info"
+                                                    style={{ cursor: 'pointer' }}
+                                                />
                                             </OverlayTrigger>
                                         </div>
                                         <div className="metric">
-                                            <span>Đánh giá</span>
-                                            <OverlayTrigger overlay={<Tooltip id={`tooltip-rating-${leader.sellerId}`}>Điểm đánh giá</Tooltip>}>
-                                                <ProgressBar now={leader.ratingScore} variant="warning" />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span>Đánh giá</span>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f39c12' }}>
+                                                    {leader.ratingScore?.toFixed(1) || 0}
+                                                </span>
+                                            </div>
+                                            <OverlayTrigger
+                                                overlay={
+                                                    <Tooltip id={`tooltip-rating-${leader.sellerId}`}>
+                                                        Điểm đánh giá: {leader.ratingScore?.toFixed(1) || 0}/100
+                                                    </Tooltip>
+                                                }
+                                            >
+                                                <ProgressBar
+                                                    now={leader.ratingScore || 0}
+                                                    variant="warning"
+                                                    style={{ cursor: 'pointer' }}
+                                                />
                                             </OverlayTrigger>
                                         </div>
                                         <div className="metric">
-                                            <span>GMV</span>
-                                            <OverlayTrigger overlay={<Tooltip id={`tooltip-gmv-${leader.sellerId}`}>Điểm GMV</Tooltip>}>
-                                                <ProgressBar now={leader.gmvScore} variant="primary" />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span>GMV</span>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#667eea' }}>
+                                                    {leader.gmvScore?.toFixed(1) || 0}
+                                                </span>
+                                            </div>
+                                            <OverlayTrigger
+                                                overlay={
+                                                    <Tooltip id={`tooltip-gmv-${leader.sellerId}`}>
+                                                        Điểm GMV: {leader.gmvScore?.toFixed(1) || 0}/100
+                                                    </Tooltip>
+                                                }
+                                            >
+                                                <ProgressBar
+                                                    now={leader.gmvScore || 0}
+                                                    variant="primary"
+                                                    style={{ cursor: 'pointer' }}
+                                                />
                                             </OverlayTrigger>
                                         </div>
                                     </ScoreBreakdown>

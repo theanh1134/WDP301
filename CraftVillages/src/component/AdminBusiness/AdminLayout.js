@@ -5,7 +5,7 @@ import {
     FaHome, FaMoneyBillWave, FaStore, FaShoppingCart, FaUsers,
     FaChartLine, FaCog, FaBell, FaSearch, FaSignOutAlt,
     FaUserCircle, FaChevronDown, FaPercentage, FaFileInvoice,
-    FaBoxOpen, FaUndo, FaTags, FaStar
+    FaBoxOpen, FaUndo, FaTags, FaStar, FaBalanceScale
 } from 'react-icons/fa';
 import { Dropdown } from 'react-bootstrap';
 import authService from '../../services/authService';
@@ -254,18 +254,19 @@ const AdminLayout = () => {
             items: [
                 { icon: FaMoneyBillWave, label: 'Tổng Quan Doanh Thu', path: '/admin-dashboard/revenue' },
                 { icon: FaPercentage, label: 'Phân Tích Hoa Hồng', path: '/admin-dashboard/commission' },
-              
+
             ]
         },
         {
             section: 'QUẢN LÝ',
             items: [
                 { icon: FaStore, label: 'Quản Lý Sellers', path: '/admin-dashboard/sellers' },
-                { icon: FaShoppingCart, label: 'Quản Lý Hoa Hồng', path: '/admin-dashboard/orders' },
+                { icon: FaBalanceScale, label: 'Quản Lý Hoa Hồng', path: '/admin-dashboard/commission-management' },
+        
                 
             ]
         },
-        
+
         {
             section: 'HỆ THỐNG',
             items: [

@@ -1103,7 +1103,7 @@ function HomePage() {
                                 className="explore-button position-relative"
                                 data-animate
                                 id="hero-button"
-                                href='/login'
+                                href='/blog'
                             >
                                 KHÁM PHÁ NGAY <FaArrowRight className="ms-2" />
                             </Button>

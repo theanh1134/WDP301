@@ -772,10 +772,9 @@ const getCommissionHistory = async (req, res) => {
     }
 };
 
-
 /**
  * Get Seller Performance Metrics
- * Ranking sellers by revenue, orders, rating and combined performance score
+ * Ranking sellers by revenue, orders and rating
  */
 const getSellerPerformance = async (req, res) => {
     try {
@@ -784,19 +783,17 @@ const getSellerPerformance = async (req, res) => {
 
         const now = new Date();
         let startDate;
-
         switch (period) {
             case 'day':
                 startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 break;
-            case 'week':
-                {
-                    const dayOfWeek = now.getDay();
-                    startDate = new Date(now);
-                    startDate.setDate(now.getDate() - dayOfWeek);
-                    startDate.setHours(0, 0, 0, 0);
-                }
+            case 'week': {
+                const dayOfWeek = now.getDay();
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - dayOfWeek);
+                startDate.setHours(0, 0, 0, 0);
                 break;
+            }
             case 'month':
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
                 break;
@@ -807,7 +804,8 @@ const getSellerPerformance = async (req, res) => {
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         }
 
-        const sellerStats = await SellerTransaction.aggregate([
+        // Revenue and orders per seller
+        const stats = await SellerTransaction.aggregate([
             {
                 $match: {
                     transactionType: 'ORDER_PAYMENT',
@@ -821,125 +819,84 @@ const getSellerPerformance = async (req, res) => {
                     totalRevenue: { $sum: '$amounts.platformFee' },
                     totalGMV: { $sum: '$amounts.grossAmount' },
                     totalOrders: { $sum: 1 },
-                    avgOrderValue: { $avg: '$amounts.grossAmount' },
                     lastTransactionAt: { $max: '$createdAt' }
                 }
-            },
-            {
-                $sort: { totalRevenue: -1 }
             }
         ]);
 
-        if (!sellerStats.length) {
-            return res.json({
-                success: true,
-                data: {
-                    period,
-                    revenueRanking: [],
-                    orderRanking: [],
-                    ratingRanking: [],
-                    performanceLeaders: []
-                }
-            });
-        }
+        const sellerIds = stats.map(s => s._id).filter(Boolean);
+        const shops = await Shop.find({ sellerId: { $in: sellerIds } })
+            .select('sellerId shopName avatarUrl rating statistics')
+            .lean();
+        const shopBySeller = new Map(shops.map(s => [s.sellerId.toString(), s]));
 
-        const sellerIds = sellerStats.map(item => item._id).filter(Boolean);
-
-        const [shops, sellers, topRatedShops] = await Promise.all([
-            Shop.find({ sellerId: { $in: sellerIds } })
-                .select('sellerId shopName avatarUrl rating statistics.totalOrders updatedAt')
-                .lean(),
-            User.find({ _id: { $in: sellerIds } })
-                .select('fullName email avatarUrl')
-                .lean(),
-            Shop.find({
-                isActive: true,
-                'rating.count': { $gt: 0 }
-            })
-                .sort({ 'rating.average': -1, 'rating.count': -1 })
-                .limit(limitNumber)
-                .populate('sellerId', 'fullName avatarUrl email')
-                .lean()
-        ]);
-
-        const shopMap = new Map(shops.map(shop => [shop.sellerId.toString(), shop]));
-        const sellerMap = new Map(sellers.map(seller => [seller._id.toString(), seller]));
-
-        const enrichedStats = sellerStats.map(item => {
-            const sellerId = item._id?.toString();
-            const shop = shopMap.get(sellerId);
-            const seller = sellerMap.get(sellerId);
-
+        const enriched = stats.map(s => {
+            const shop = shopBySeller.get((s._id || '').toString());
             return {
-                sellerId,
-                sellerName: seller?.fullName || 'Không xác định',
-                sellerEmail: seller?.email || '',
-                sellerAvatar: seller?.avatarUrl || '',
-                shopName: shop?.shopName || 'Chưa đặt tên cửa hàng',
+                sellerId: (s._id || '').toString(),
+                shopName: shop?.shopName || 'Không xác định',
                 shopAvatar: shop?.avatarUrl || '',
                 rating: shop?.rating?.average || 0,
                 ratingCount: shop?.rating?.count || 0,
-                totalRevenue: item.totalRevenue,
-                totalGMV: item.totalGMV,
-                totalOrders: item.totalOrders,
-                avgOrderValue: item.avgOrderValue || 0,
-                lastTransactionAt: item.lastTransactionAt,
-                totalOrdersLifetime: shop?.statistics?.totalOrders || 0
+                totalRevenue: s.totalRevenue,
+                totalGMV: s.totalGMV,
+                totalOrders: s.totalOrders,
+                lastTransactionAt: s.lastTransactionAt
             };
         });
 
-        const revenueRanking = enrichedStats
+        const revenueRanking = enriched.slice().sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, limitNumber);
+        const orderRanking = enriched.slice().sort((a, b) => b.totalOrders - a.totalOrders).slice(0, limitNumber);
+
+        const ratingRanking = shops
             .slice()
-            .sort((a, b) => b.totalRevenue - a.totalRevenue)
-            .slice(0, limitNumber);
+            .sort((a, b) => (b.rating?.average || 0) - (a.rating?.average || 0))
+            .slice(0, limitNumber)
+            .map(s => ({
+                sellerId: s.sellerId?.toString() || '',
+                shopName: s.shopName,
+                shopAvatar: s.avatarUrl,
+                averageRating: s.rating?.average || 0,
+                reviewCount: s.rating?.count || 0,
+                totalOrdersLifetime: s.statistics?.totalOrders || 0,
+                updatedAt: s.updatedAt
+            }));
 
-        const orderRanking = enrichedStats
-            .slice()
-            .sort((a, b) => b.totalOrders - a.totalOrders)
-            .slice(0, limitNumber);
+        // Calculate performance scores for each seller
+        // Find max values for normalization
+        const maxRevenue = Math.max(...enriched.map(s => s.totalRevenue), 1);
+        const maxOrders = Math.max(...enriched.map(s => s.totalOrders), 1);
+        const maxGMV = Math.max(...enriched.map(s => s.totalGMV), 1);
+        const maxRating = 5; // Rating is out of 5
 
-        const ratingRanking = topRatedShops.map(shop => ({
-            sellerId: shop.sellerId?._id?.toString() || '',
-            sellerName: shop.sellerId?.fullName || 'Không xác định',
-            sellerAvatar: shop.sellerId?.avatarUrl || '',
-            shopId: shop._id?.toString() || '',
-            shopName: shop.shopName,
-            shopAvatar: shop.avatarUrl,
-            averageRating: shop.rating?.average || 0,
-            reviewCount: shop.rating?.count || 0,
-            totalOrdersLifetime: shop.statistics?.totalOrders || 0,
-            updatedAt: shop.updatedAt
-        }));
+        // Calculate composite performance score for each seller
+        const performanceLeaders = enriched.map(seller => {
+            // Normalize scores to 0-100 scale
+            const revenueScore = (seller.totalRevenue / maxRevenue) * 100;
+            const ordersScore = (seller.totalOrders / maxOrders) * 100;
+            const gmvScore = (seller.totalGMV / maxGMV) * 100;
+            const ratingScore = (seller.rating / maxRating) * 100;
 
-        const maxRevenue = Math.max(...enrichedStats.map(item => item.totalRevenue));
-        const maxOrders = Math.max(...enrichedStats.map(item => item.totalOrders));
-        const maxGMV = Math.max(...enrichedStats.map(item => item.totalGMV));
+            // Weighted composite score
+            // Revenue: 35%, Orders: 25%, GMV: 25%, Rating: 15%
+            const performanceScore = (
+                revenueScore * 0.35 +
+                ordersScore * 0.25 +
+                gmvScore * 0.25 +
+                ratingScore * 0.15
+            );
 
-        const performanceLeaders = enrichedStats
-            .map(item => {
-                const revenueScore = maxRevenue > 0 ? item.totalRevenue / maxRevenue : 0;
-                const ordersScore = maxOrders > 0 ? item.totalOrders / maxOrders : 0;
-                const ratingScore = (item.rating || 0) / 5;
-                const gmvScore = maxGMV > 0 ? item.totalGMV / maxGMV : 0;
-
-                const performanceScore = (
-                    revenueScore * 0.4 +
-                    ordersScore * 0.3 +
-                    ratingScore * 0.2 +
-                    gmvScore * 0.1
-                ) * 100;
-
-                return {
-                    ...item,
-                    performanceScore: Math.round(performanceScore * 10) / 10,
-                    revenueScore: Math.round(revenueScore * 100),
-                    ordersScore: Math.round(ordersScore * 100),
-                    ratingScore: Math.round(ratingScore * 100),
-                    gmvScore: Math.round(gmvScore * 100)
-                };
-            })
-            .sort((a, b) => b.performanceScore - a.performanceScore)
-            .slice(0, limitNumber);
+            return {
+                ...seller,
+                revenueScore: Math.round(revenueScore * 10) / 10,
+                ordersScore: Math.round(ordersScore * 10) / 10,
+                gmvScore: Math.round(gmvScore * 10) / 10,
+                ratingScore: Math.round(ratingScore * 10) / 10,
+                performanceScore: Math.round(performanceScore * 10) / 10
+            };
+        })
+        .sort((a, b) => b.performanceScore - a.performanceScore)
+        .slice(0, limitNumber);
 
         res.json({
             success: true,
