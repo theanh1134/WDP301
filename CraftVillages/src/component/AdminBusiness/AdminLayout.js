@@ -254,7 +254,7 @@ const AdminLayout = () => {
             items: [
                 { icon: FaMoneyBillWave, label: 'Tổng Quan Doanh Thu', path: '/admin-dashboard/revenue' },
                 { icon: FaPercentage, label: 'Phân Tích Hoa Hồng', path: '/admin-dashboard/commission' },
-                { icon: FaChartLine, label: 'GMV Analytics', path: '/admin-dashboard/gmv' },
+              
             ]
         },
         {

@@ -433,10 +433,355 @@ const getTopSellers = async (req, res) => {
     }
 };
 
+/**
+ * Get Commission Analytics
+ * Phân tích hoa hồng chi tiết
+ */
+const getCommissionAnalytics = async (req, res) => {
+    try {
+        const { period = 'month' } = req.query;
+
+        const now = new Date();
+        let startDate;
+
+        switch (period) {
+            case 'day':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'week':
+                const dayOfWeek = now.getDay();
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - dayOfWeek);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                break;
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+
+        // Get commission stats
+        const commissionStats = await SellerTransaction.aggregate([
+            {
+                $match: {
+                    transactionType: 'ORDER_PAYMENT',
+                    status: 'COMPLETED',
+                    createdAt: { $gte: startDate, $lte: now }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalCommission: { $sum: '$amounts.platformFee' },
+                    totalOrders: { $sum: 1 },
+                    avgCommissionRate: { $avg: '$amounts.platformFeeRate' }
+                }
+            }
+        ]);
+
+        // Count unique sellers
+        const uniqueSellers = await SellerTransaction.distinct('sellerId', {
+            transactionType: 'ORDER_PAYMENT',
+            status: 'COMPLETED',
+            createdAt: { $gte: startDate, $lte: now }
+        });
+
+        const stats = commissionStats[0] || {
+            totalCommission: 0,
+            totalOrders: 0,
+            avgCommissionRate: 5.0
+        };
+
+        res.json({
+            success: true,
+            data: {
+                avgCommissionRate: stats.avgCommissionRate || 5.0,
+                totalCommission: Math.round(stats.totalCommission),
+                totalSellers: uniqueSellers.length,
+                totalOrders: stats.totalOrders
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting commission analytics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get commission analytics',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get Commission by Seller
+ * Hoa hồng theo từng seller
+ */
+const getCommissionBySeller = async (req, res) => {
+    try {
+        const { limit = 5, period = 'month' } = req.query;
+
+        const now = new Date();
+        let startDate;
+
+        switch (period) {
+            case 'day':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'week':
+                const dayOfWeek = now.getDay();
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - dayOfWeek);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                break;
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+
+        const sellerCommission = await SellerTransaction.aggregate([
+            {
+                $match: {
+                    transactionType: 'ORDER_PAYMENT',
+                    status: 'COMPLETED',
+                    createdAt: { $gte: startDate, $lte: now }
+                }
+            },
+            {
+                $group: {
+                    _id: '$sellerId',
+                    totalCommission: { $sum: '$amounts.platformFee' },
+                    totalOrders: { $sum: 1 },
+                    avgRate: { $avg: '$amounts.platformFeeRate' }
+                }
+            },
+            { $sort: { totalCommission: -1 } },
+            { $limit: parseInt(limit) },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'seller'
+                }
+            },
+            { $unwind: { path: '$seller', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'shops',
+                    localField: 'seller._id',
+                    foreignField: 'userId',
+                    as: 'shop'
+                }
+            },
+            { $unwind: { path: '$shop', preserveNullAndEmptyArrays: true } }
+        ]);
+
+        const labels = sellerCommission.map(item => item.shop?.shopName || item.seller?.fullName || 'Unknown');
+        const data = sellerCommission.map(item => Math.round(item.totalCommission / 1000000 * 100) / 100);
+
+        const details = sellerCommission.map((item, index) => ({
+            id: item._id,
+            name: item.seller?.fullName || 'Unknown',
+            shop: item.shop?.shopName || 'No Shop',
+            commission: Math.round(item.totalCommission),
+            rate: item.avgRate || 5.0,
+            orders: item.totalOrders
+        }));
+
+        res.json({
+            success: true,
+            data: {
+                labels,
+                data,
+                details
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting commission by seller:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get commission by seller',
+            error: error.message
+        });
+    }
+};
+
+
+/**
+ * Get Commission by Region
+ * Hoa hồng theo khu vực địa lý
+ */
+const getCommissionByRegion = async (req, res) => {
+    try {
+        const { period = 'month' } = req.query;
+
+        const now = new Date();
+        let startDate;
+
+        switch (period) {
+            case 'day':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'week':
+                const dayOfWeek = now.getDay();
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - dayOfWeek);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                break;
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+
+        const regionCommission = await SellerTransaction.aggregate([
+            {
+                $match: {
+                    transactionType: 'ORDER_PAYMENT',
+                    status: 'COMPLETED',
+                    createdAt: { $gte: startDate, $lte: now }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'sellerId',
+                    foreignField: '_id',
+                    as: 'seller'
+                }
+            },
+            { $unwind: { path: '$seller', preserveNullAndEmptyArrays: true } },
+            {
+                $addFields: {
+                    city: {
+                        $cond: {
+                            if: { $gt: [{ $size: { $ifNull: ['$seller.addresses', []] } }, 0] },
+                            then: { $arrayElemAt: ['$seller.addresses.city', 0] },
+                            else: 'Không xác định'
+                        }
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: '$city',
+                    totalCommission: { $sum: '$amounts.platformFee' },
+                    totalOrders: { $sum: 1 }
+                }
+            },
+            { $sort: { totalCommission: -1 } },
+            { $limit: 10 }
+        ]);
+
+        const labels = regionCommission.map(item => item._id || 'Không xác định');
+        const data = regionCommission.map(item => Math.round(item.totalCommission / 1000000 * 100) / 100);
+
+        res.json({
+            success: true,
+            data: {
+                labels,
+                data
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting commission by region:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get commission by region',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get Commission History
+ * Lịch sử hoa hồng theo tháng (12 tháng gần nhất)
+ */
+const getCommissionHistory = async (req, res) => {
+    try {
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+
+        const commissionHistory = await SellerTransaction.aggregate([
+            {
+                $match: {
+                    transactionType: 'ORDER_PAYMENT',
+                    status: 'COMPLETED',
+                    createdAt: { $gte: startDate, $lte: now }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$createdAt' },
+                        month: { $month: '$createdAt' }
+                    },
+                    totalCommission: { $sum: '$amounts.platformFee' }
+                }
+            },
+            { $sort: { '_id.year': 1, '_id.month': 1 } }
+        ]);
+
+        const labels = [];
+        const data = [];
+
+        for (let i = 11; i >= 0; i--) {
+            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+
+            const found = commissionHistory.find(item =>
+                item._id.year === year && item._id.month === month
+            );
+
+            labels.push(`T${month}`);
+            data.push(found ? Math.round(found.totalCommission / 1000000 * 100) / 100 : 0);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                labels,
+                data
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting commission history:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get commission history',
+            error: error.message
+        });
+    }
+};
+
+
+
+
+
 module.exports = {
     getRevenueOverview,
     getRevenueChart,
     getRevenueByCategory,
-    getTopSellers
+    getTopSellers,
+    getCommissionAnalytics,
+    getCommissionBySeller,
+    getCommissionByRegion,
+    getCommissionHistory
 };
-

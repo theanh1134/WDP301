@@ -34,5 +34,11 @@ router.get('/revenue/category', auth, isAdmin, adminRevenueController.getRevenue
 // Seller routes
 router.get('/sellers/top', auth, isAdmin, adminRevenueController.getTopSellers);
 
+// Commission routes
+router.get('/commission/analytics', auth, isAdmin, adminRevenueController.getCommissionAnalytics);
+router.get('/commission/by-seller', auth, isAdmin, adminRevenueController.getCommissionBySeller);
+router.get('/commission/by-region', auth, isAdmin, adminRevenueController.getCommissionByRegion);
+router.get('/commission/history', auth, isAdmin, adminRevenueController.getCommissionHistory);
+
 module.exports = router;
 

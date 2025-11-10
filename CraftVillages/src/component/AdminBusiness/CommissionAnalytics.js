@@ -18,6 +18,7 @@ import {
     Tooltip,
     Legend
 } from 'chart.js';
+import adminService from '../../services/adminService';
 
 // Register ChartJS components
 ChartJS.register(
@@ -244,8 +245,13 @@ const CommissionAnalytics = () => {
         avgCommissionRate: 5.0,
         totalCommission: 0,
         totalSellers: 0,
-        totalCategories: 0
+        totalOrders: 0
     });
+    const [sellerCommissionData, setSellerCommissionData] = useState(null);
+    const [categoryCommissionData, setCategoryCommissionData] = useState(null);
+    const [regionCommissionData, setRegionCommissionData] = useState(null);
+    const [commissionHistoryData, setCommissionHistoryData] = useState(null);
+    const [topSellersCommission, setTopSellersCommission] = useState([]);
 
     useEffect(() => {
         fetchCommissionData();
@@ -254,78 +260,100 @@ const CommissionAnalytics = () => {
     const fetchCommissionData = async () => {
         try {
             setLoading(true);
-            // TODO: Call API to fetch real data
-            setTimeout(() => {
-                setLoading(false);
-            }, 1000);
+
+            // Fetch commission analytics stats
+            const analyticsResponse = await adminService.getCommissionAnalytics(period);
+            if (analyticsResponse.success) {
+                setStats(analyticsResponse.data);
+            }
+
+            // Fetch commission by seller
+            const sellerResponse = await adminService.getCommissionBySeller(5, period);
+            if (sellerResponse.success) {
+                const { labels, data, details } = sellerResponse.data;
+                setSellerCommissionData({
+                    labels,
+                    datasets: [{
+                        label: 'Hoa hồng (triệu VND)',
+                        data,
+                        backgroundColor: 'rgba(243, 156, 18, 0.8)',
+                        borderColor: '#f39c12',
+                        borderWidth: 1
+                    }]
+                });
+
+                // Set top sellers for table
+                const colors = ['#3498db', '#2ecc71', '#9b59b6', '#f39c12', '#e74c3c'];
+                setTopSellersCommission(details.map((seller, index) => ({
+                    ...seller,
+                    color: colors[index % colors.length]
+                })));
+            }
+
+            // Fetch commission by category
+            const categoryResponse = await adminService.getRevenueByCategory(period);
+            if (categoryResponse.success) {
+                const { labels, data } = categoryResponse.data;
+                setCategoryCommissionData({
+                    labels,
+                    datasets: [{
+                        label: 'Hoa hồng',
+                        data,
+                        backgroundColor: [
+                            'rgba(52, 152, 219, 0.8)',
+                            'rgba(46, 204, 113, 0.8)',
+                            'rgba(155, 89, 182, 0.8)',
+                            'rgba(241, 196, 15, 0.8)',
+                            'rgba(231, 76, 60, 0.8)'
+                        ],
+                        borderWidth: 0
+                    }]
+                });
+            }
+
+            // Fetch commission by region
+            const regionResponse = await adminService.getCommissionByRegion(period);
+            if (regionResponse.success) {
+                const { labels, data } = regionResponse.data;
+                setRegionCommissionData({
+                    labels,
+                    datasets: [{
+                        label: 'Hoa hồng (triệu VND)',
+                        data,
+                        backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                        borderColor: '#3498db',
+                        borderWidth: 1
+                    }]
+                });
+            }
+
+            // Fetch commission history
+            const historyResponse = await adminService.getCommissionHistory();
+            if (historyResponse.success) {
+                const { labels, data } = historyResponse.data;
+                setCommissionHistoryData({
+                    labels,
+                    datasets: [{
+                        label: 'Hoa hồng (triệu VND)',
+                        data,
+                        borderColor: '#27ae60',
+                        backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                });
+            }
+
+            setLoading(false);
         } catch (error) {
             console.error('Error fetching commission data:', error);
             setLoading(false);
         }
     };
 
-    // Mock data - will be replaced with real API data
-    const sellerCommissionData = {
-        labels: ['Shop A', 'Shop B', 'Shop C', 'Shop D', 'Shop E'],
-        datasets: [{
-            label: 'Hoa hồng (triệu VND)',
-            data: [12.5, 10.2, 8.7, 7.3, 6.1],
-            backgroundColor: 'rgba(243, 156, 18, 0.8)',
-            borderColor: '#f39c12',
-            borderWidth: 1
-        }]
-    };
-
-
-
-    const categoryCommissionData = {
-        labels: ['Gốm sứ', 'Thủ công mỹ nghệ', 'Trang sức', 'Tranh vẽ', 'Khác'],
-        datasets: [{
-            label: 'Hoa hồng',
-            data: [25, 20, 18, 15, 12],
-            backgroundColor: [
-                'rgba(52, 152, 219, 0.8)',
-                'rgba(46, 204, 113, 0.8)',
-                'rgba(155, 89, 182, 0.8)',
-                'rgba(241, 196, 15, 0.8)',
-                'rgba(231, 76, 60, 0.8)'
-            ],
-            borderWidth: 0
-        }]
-    };
-
-    const regionCommissionData = {
-        labels: ['Hà Nội', 'TP.HCM', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ'],
-        datasets: [{
-            label: 'Hoa hồng (triệu VND)',
-            data: [15.5, 18.2, 9.8, 7.5, 6.3],
-            backgroundColor: 'rgba(52, 152, 219, 0.8)',
-            borderColor: '#3498db',
-            borderWidth: 1
-        }]
-    };
-
-    const commissionHistoryData = {
-        labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
-        datasets: [{
-            label: 'Hoa hồng (triệu VND)',
-            data: [8.5, 9.2, 10.5, 11.8, 12.3, 13.5, 14.2, 15.8, 16.5, 17.2, 18.5, 19.8],
-            borderColor: '#27ae60',
-            backgroundColor: 'rgba(39, 174, 96, 0.1)',
-            fill: true,
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6
-        }]
-    };
-
-    const topSellersCommission = [
-        { id: 1, name: 'Nguyễn Văn A', shop: 'Gốm Sứ Bát Tràng', commission: 12500000, rate: 5.0, orders: 250, color: '#3498db' },
-        { id: 2, name: 'Trần Thị B', shop: 'Thủ Công Mỹ Nghệ', commission: 10200000, rate: 5.0, orders: 204, color: '#2ecc71' },
-        { id: 3, name: 'Lê Văn C', shop: 'Trang Sức Handmade', commission: 8700000, rate: 5.0, orders: 174, color: '#9b59b6' },
-        { id: 4, name: 'Phạm Thị D', shop: 'Tranh Vẽ Nghệ Thuật', commission: 7300000, rate: 5.0, orders: 146, color: '#f39c12' },
-        { id: 5, name: 'Hoàng Văn E', shop: 'Đồ Gỗ Mỹ Nghệ', commission: 6100000, rate: 5.0, orders: 122, color: '#e74c3c' }
-    ];
+    // Mock data for commission rate history (this would come from a separate collection in real app)
 
     const commissionRateHistory = [
         { date: '2024-01-01', oldRate: 4.5, newRate: 5.0, reason: 'Điều chỉnh chính sách mới', appliedTo: 'Tất cả sellers' },
@@ -428,9 +456,8 @@ const CommissionAnalytics = () => {
                                 <FaPercentage />
                             </StatsIcon>
                             <StatsLabel>Tỷ Lệ Hoa Hồng TB</StatsLabel>
-                            <StatsValue>{stats.avgCommissionRate}%</StatsValue>
+                            <StatsValue>{stats.avgCommissionRate.toFixed(1)}%</StatsValue>
                             <StatsChange positive={true}>
-                                <FaArrowUp />
                                 Ổn định
                             </StatsChange>
                         </StatsCardBody>
@@ -444,10 +471,10 @@ const CommissionAnalytics = () => {
                                 <FaChartPie />
                             </StatsIcon>
                             <StatsLabel>Tổng Hoa Hồng</StatsLabel>
-                            <StatsValue>₫57.3M</StatsValue>
+                            <StatsValue>₫{(stats.totalCommission / 1000000).toFixed(1)}M</StatsValue>
                             <StatsChange positive={true}>
                                 <FaArrowUp />
-                                +12.5% so với tháng trước
+                                Kỳ {period === 'day' ? 'hôm nay' : period === 'week' ? 'tuần này' : period === 'month' ? 'tháng này' : 'năm nay'}
                             </StatsChange>
                         </StatsCardBody>
                     </StatsCard>
@@ -460,10 +487,10 @@ const CommissionAnalytics = () => {
                                 <FaStore />
                             </StatsIcon>
                             <StatsLabel>Sellers Đóng Góp</StatsLabel>
-                            <StatsValue>156</StatsValue>
+                            <StatsValue>{stats.totalSellers}</StatsValue>
                             <StatsChange positive={true}>
                                 <FaArrowUp />
-                                +8 sellers mới
+                                {stats.totalOrders} đơn hàng
                             </StatsChange>
                         </StatsCardBody>
                     </StatsCard>
@@ -494,7 +521,13 @@ const CommissionAnalytics = () => {
                         </ChartCardHeader>
                         <ChartCardBody>
                             <div style={{ height: '350px' }}>
-                                <Bar data={sellerCommissionData} options={chartOptions} />
+                                {sellerCommissionData ? (
+                                    <Bar data={sellerCommissionData} options={chartOptions} />
+                                ) : (
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                        <Spinner animation="border" variant="primary" />
+                                    </div>
+                                )}
                             </div>
                         </ChartCardBody>
                     </ChartCard>
@@ -507,7 +540,13 @@ const CommissionAnalytics = () => {
                         </ChartCardHeader>
                         <ChartCardBody>
                             <div style={{ height: '350px' }}>
-                                <Pie data={categoryCommissionData} options={pieChartOptions} />
+                                {categoryCommissionData ? (
+                                    <Pie data={categoryCommissionData} options={pieChartOptions} />
+                                ) : (
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                        <Spinner animation="border" variant="primary" />
+                                    </div>
+                                )}
                             </div>
                         </ChartCardBody>
                     </ChartCard>
@@ -523,7 +562,13 @@ const CommissionAnalytics = () => {
                         </ChartCardHeader>
                         <ChartCardBody>
                             <div style={{ height: '300px' }}>
-                                <Bar data={regionCommissionData} options={chartOptions} />
+                                {regionCommissionData ? (
+                                    <Bar data={regionCommissionData} options={chartOptions} />
+                                ) : (
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                        <Spinner animation="border" variant="primary" />
+                                    </div>
+                                )}
                             </div>
                         </ChartCardBody>
                     </ChartCard>
@@ -536,7 +581,13 @@ const CommissionAnalytics = () => {
                         </ChartCardHeader>
                         <ChartCardBody>
                             <div style={{ height: '300px' }}>
-                                <Line data={commissionHistoryData} options={lineChartOptions} />
+                                {commissionHistoryData ? (
+                                    <Line data={commissionHistoryData} options={lineChartOptions} />
+                                ) : (
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                        <Spinner animation="border" variant="primary" />
+                                    </div>
+                                )}
                             </div>
                         </ChartCardBody>
                     </ChartCard>
