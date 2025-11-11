@@ -70,29 +70,6 @@ export default function RefundHistoryPage() {
 
   return (
     <>
-<<<<<<< HEAD
-        <Header />
-        <Container fluid style={{ marginTop: 24, marginBottom: 100, height: '70vh' }}>
-            <Button onClick={() => {navigate(-1);}}> Back </Button>
-        {/* Wrapper để căn giữa và giới hạn chiều rộng "lý tưởng" lớn hơn mặc định */}
-        <div style={{ maxWidth: MAX_WIDTH, margin: '0 auto' }}>
-            <Row className="justify-content-center">
-            <Col xs={12}>
-                <Card style={{ border: 'none', borderRadius: 12, boxShadow: '0 8px 25px rgba(0,0,0,0.06)' }}>
-                <Card.Body>
-                    <div className="d-flex align-items-center justify-content-between mb-3">
-                    <h4 className="m-0">Lịch sử hoàn tiền</h4>
-                    <div className="d-flex gap-2">
-                        <Button
-                        variant="dark"
-                        size="sm"
-                        onClick={() => navigate('/refund', { state: { userId } })}
-                        >
-                        Tạo yêu cầu
-                        </Button>
-                    </div>
-                    </div>
-=======
       <Header />
       <Container fluid style={{
         backgroundColor: '#f8f9fa',
@@ -112,7 +89,6 @@ export default function RefundHistoryPage() {
             >
               <FaArrowLeft className="me-2" /> Quay lại
             </Button>
->>>>>>> 375b519d2ebe9dd5545188a149a111da565d99a2
 
             <Card style={styles.headerCard}>
               <Card.Body>
@@ -178,40 +154,6 @@ export default function RefundHistoryPage() {
             </Card>
           )}
 
-<<<<<<< HEAD
-                            return (
-                                <tr key={it?.id || it?._id || it?.withdrawalCode || idx}>
-                                <td>{idx + 1}</td>
-                                <td title={String(it?.requestedAt || '')}>{requestedAt}</td>
-                                <td title={String(it?.processedAt || it?.completedAt || '')}>{processedAt}</td>
-                                <td title={String(it?.amount || '')}>{amountText}</td>
-                                <td>
-                                    <div>Fee: {fee}</div>
-                                    {net && <div>Net: {net}</div>}
-                                </td>
-                                <td>{bankName}</td>
-                                <td>{accNumber}</td>
-                                <td>{holder || '-'}</td>
-                                <td>
-                                    <div>{beforeBal}</div>
-                                    <div className="text-muted">→ {afterBal}</div>
-                                </td>
-                                <td><StatusBadge value={it?.status} /></td>
-                                <td className="text-truncate" style={{ maxWidth: 260 }}>{code}</td>
-                                </tr>
-                            );
-                            })}
-                        </tbody>
-                        </Table>
-                    )}
-                    </div>
-
-                    
-                </Card.Body>
-                </Card>
-            </Col>
-            </Row>
-=======
           {/* Withdrawal List */}
           {!loading && !error && items.length > 0 && (
             <div className="withdrawal-list">
@@ -227,7 +169,6 @@ export default function RefundHistoryPage() {
               ))}
             </div>
           )}
->>>>>>> 375b519d2ebe9dd5545188a149a111da565d99a2
         </div>
       </Container>
       <Footer />
