@@ -351,6 +351,10 @@ const updateOrderStatus = async (req, res, next) => {
                         await order.updateStatus(orderStatus, orderMessage);
                         await order.save();
                         console.log(`✅ Order ${order.orderNumber} status synced: ${order.status} → ${orderStatus}`);
+
+                        // Seller payment is now handled automatically in Order.updateStatus()
+                        // - If order is >= 7 days old: Payment processed immediately
+                        // - If order is < 7 days old: Payment will be processed by scheduled job
                     } catch (error) {
                         console.error(`❌ Failed to sync order status:`, error.message);
                         // Continue even if order update fails
@@ -878,6 +882,10 @@ const confirmDelivery = async (req, res, next) => {
             await order.updateStatus('DELIVERED', 'Đơn hàng đã được giao thành công bởi shipper');
             await order.save();
             console.log(`✅ Order ${order.orderNumber} status synced to DELIVERED`);
+
+            // Seller payment is now handled automatically in Order.updateStatus()
+            // - If order is >= 7 days old: Payment processed immediately
+            // - If order is < 7 days old: Payment will be processed by scheduled job
         }
 
         // Create earnings record

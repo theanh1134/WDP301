@@ -32,6 +32,7 @@ function ProductDetail() {
   const [loadingReviews, setLoadingReviews] = useState(false); // Loading state cho reviews
   const [reviewStats, setReviewStats] = useState({ totalReviews: 0, averageRating: 0 }); // Stats cho reviews
   const [selectedImage, setSelectedImage] = useState(null); // State cho ảnh được chọn
+  const [isOwnProduct, setIsOwnProduct] = useState(false); // State để kiểm tra sản phẩm của chính mình
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -115,6 +116,25 @@ function ProductDetail() {
 
     loadReviews();
   }, [id]);
+
+  // Kiểm tra xem user có phải là chủ shop không
+  useEffect(() => {
+    const checkOwnership = () => {
+      const user = authService.getCurrentUser();
+      if (!user || !productDetail?.shop?.sellerId) {
+        setIsOwnProduct(false);
+        return;
+      }
+
+      // So sánh userId với sellerId của shop
+      const userId = user._id || user.id;
+      const sellerId = productDetail.shop.sellerId;
+
+      setIsOwnProduct(userId === sellerId || userId === sellerId.toString());
+    };
+
+    checkOwnership();
+  }, [productDetail]);
 
   const increaseQuantity = () => {
     const maxQty = productDetail?.maxQuantityPerOrder || productDetail?.stock || 999;
@@ -656,11 +676,11 @@ function ProductDetail() {
                 <button
                   style={{
                     ...styles.quantityBtn,
-                    opacity: (!productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
-                    cursor: (!productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'pointer'
+                    opacity: (isOwnProduct || !productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
+                    cursor: (isOwnProduct || !productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'pointer'
                   }}
                   onClick={decreaseQuantity}
-                  disabled={!productDetail?.stock || productDetail.stock === 0}
+                  disabled={isOwnProduct || !productDetail?.stock || productDetail.stock === 0}
                 >
                   -
                 </button>
@@ -679,21 +699,21 @@ function ProductDetail() {
                   }}
                   style={{
                     ...styles.quantityInput,
-                    opacity: (!productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
-                    cursor: (!productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'text'
+                    opacity: (isOwnProduct || !productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
+                    cursor: (isOwnProduct || !productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'text'
                   }}
                   min="1"
                   max={productDetail?.maxQuantityPerOrder || productDetail?.stock || 999}
-                  disabled={!productDetail?.stock || productDetail.stock === 0}
+                  disabled={isOwnProduct || !productDetail?.stock || productDetail.stock === 0}
                 />
                 <button
                   style={{
                     ...styles.quantityBtn,
-                    opacity: (!productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
-                    cursor: (!productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'pointer'
+                    opacity: (isOwnProduct || !productDetail?.stock || productDetail.stock === 0) ? 0.5 : 1,
+                    cursor: (isOwnProduct || !productDetail?.stock || productDetail.stock === 0) ? 'not-allowed' : 'pointer'
                   }}
                   onClick={increaseQuantity}
-                  disabled={!productDetail?.stock || productDetail.stock === 0}
+                  disabled={isOwnProduct || !productDetail?.stock || productDetail.stock === 0}
                 >
                   +
                 </button>
@@ -717,8 +737,22 @@ function ProductDetail() {
               )}
 
               <div style={{ marginBottom: "30px" }}>
-                {/* Check if product is out of stock */}
-                {(!productDetail?.stock || productDetail.stock === 0 || productDetail.maxQuantityPerOrder === 0) ? (
+                {/* Check if user is trying to buy their own product */}
+                {isOwnProduct ? (
+                  <div style={{
+                    padding: '15px 30px',
+                    backgroundColor: '#fff3cd',
+                    color: '#856404',
+                    border: '2px solid #ffc107',
+                    borderRadius: '8px',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    marginBottom: '15px'
+                  }}>
+                    🚫 Bạn không thể mua sản phẩm của chính mình
+                  </div>
+                ) : (!productDetail?.stock || productDetail.stock === 0 || productDetail.maxQuantityPerOrder === 0) ? (
                   <div style={{
                     padding: '15px 30px',
                     backgroundColor: '#f8d7da',

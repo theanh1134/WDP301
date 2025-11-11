@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Button, Badge, Form, Row, Col, Table, Alert } from 'react-bootstrap';
-import { FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaCheckCircle, FaTimesCircle, FaBan } from 'react-icons/fa';
+import { FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaCheckCircle, FaTimesCircle, FaBan, FaMoneyBillWave } from 'react-icons/fa';
 import styled from 'styled-components';
 import orderService from '../../services/orderService';
 import { toast } from 'react-toastify';
@@ -438,6 +438,14 @@ function OrderDetailModal({ show, onHide, order, onStatusUpdate, shopId }) {
                             </Badge>
                         </div>
                     </InfoRow>
+                    {order.paymentInfo.paidAt && (
+                        <InfoRow>
+                            <div className="label">Thời gian thanh toán:</div>
+                            <div className="value" style={{ color: '#27ae60', fontWeight: '500' }}>
+                                {formatDate(order.paymentInfo.paidAt)}
+                            </div>
+                        </InfoRow>
+                    )}
                     <InfoRow>
                         <div className="label">Mã giao dịch:</div>
                         <div className="value" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
@@ -486,6 +494,50 @@ function OrderDetailModal({ show, onHide, order, onStatusUpdate, shopId }) {
                         </Alert>
                     )}
                 </Section>
+
+                {/* Seller Payment Information */}
+                {order.sellerPayment && order.sellerPayment.isPaid && (
+                    <Section>
+                        <div className="section-title">
+                            <FaMoneyBillWave /> Thông tin thanh toán cho Seller
+                        </div>
+                        <Alert variant="success" style={{ marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                <FaCheckCircle style={{ color: '#27ae60' }} />
+                                <strong>Đã thanh toán cho seller</strong>
+                            </div>
+                            {order.sellerPayment.paidAt && (
+                                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                                    Thời gian: {formatDate(order.sellerPayment.paidAt)}
+                                </div>
+                            )}
+                        </Alert>
+                        <InfoRow>
+                            <div className="label">Tổng tiền đơn hàng:</div>
+                            <div className="value">{formatCurrency(order.finalAmount)}</div>
+                        </InfoRow>
+                        <InfoRow>
+                            <div className="label">Phí sàn ({order.sellerPayment.platformFeeRate}%):</div>
+                            <div className="value" style={{ color: '#e74c3c' }}>
+                                - {formatCurrency(order.sellerPayment.platformFee)}
+                            </div>
+                        </InfoRow>
+                        <InfoRow style={{ borderTop: '2px solid #dee2e6', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+                            <div className="label" style={{ fontWeight: '600', fontSize: '1rem' }}>Seller thực nhận:</div>
+                            <div className="value" style={{ fontWeight: '700', fontSize: '1.1rem', color: '#27ae60' }}>
+                                {formatCurrency(order.sellerPayment.netAmount)}
+                            </div>
+                        </InfoRow>
+                        {order.sellerPayment.transactionId && (
+                            <InfoRow>
+                                <div className="label">Mã giao dịch seller:</div>
+                                <div className="value" style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: '#667eea' }}>
+                                    {order.sellerPayment.transactionId}
+                                </div>
+                            </InfoRow>
+                        )}
+                    </Section>
+                )}
             </Modal.Body>
             <Modal.Footer>
                 <Button variant="secondary" onClick={onHide}>

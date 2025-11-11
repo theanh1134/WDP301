@@ -564,7 +564,8 @@ const getDetailProduct = async (req, res) => {
                         responseTime: '$shop.responseTime',
                         createdAt: '$shop.createdAt',
                         lastActivityAt: '$shop.lastActivityAt',
-                        isActive: '$shop.isActive'
+                        isActive: '$shop.isActive',
+                        sellerId: '$shop.sellerId'
                     },
                     image: { $arrayElemAt: ['$images.url', 0] },
                     images: {

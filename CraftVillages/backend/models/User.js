@@ -123,10 +123,10 @@ userSchema.methods.addBalance = function (amount, description = '') {
     }
     this.balance = (this.balance || 0) + amount;
     console.log(`💰 Added ${amount.toLocaleString()} VND to user ${this._id} balance. New balance: ${this.balance.toLocaleString()} VND. Reason: ${description}`);
-    return this.save();
+    return this.save({ validateModifiedOnly: true });
 };
 
-userSchema.methods.subtractBalance = function (amount, description = '') {
+userSchema.methods.subtractBalance = function (amount, description = '', session = null) {
     if (amount <= 0) {
         throw new Error('Amount must be greater than 0');
     }
@@ -135,7 +135,12 @@ userSchema.methods.subtractBalance = function (amount, description = '') {
     }
     this.balance = this.balance - amount;
     console.log(`💸 Subtracted ${amount.toLocaleString()} VND from user ${this._id} balance. New balance: ${this.balance.toLocaleString()} VND. Reason: ${description}`);
-    return this.save();
+
+    // Support MongoDB session for transactions
+    if (session) {
+        return this.save({ session, validateModifiedOnly: true });
+    }
+    return this.save({ validateModifiedOnly: true });
 };
 
 userSchema.methods.getBalance = function () {

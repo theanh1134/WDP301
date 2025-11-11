@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Table, Badge, Button, Form, InputGroup, Spinner, Pagination, Dropdown } from 'react-bootstrap';
-import { FaSearch, FaEye, FaFilter, FaDownload, FaShippingFast, FaCheckCircle, FaTimesCircle, FaBox, FaClock } from 'react-icons/fa';
+import { Card, Table, Badge, Button, Form, InputGroup, Spinner, Pagination, Dropdown, Nav } from 'react-bootstrap';
+import { FaSearch, FaEye, FaFilter, FaDownload, FaShippingFast, FaCheckCircle, FaTimesCircle, FaBox, FaClock, FaUndo } from 'react-icons/fa';
 import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom';
 import orderService from '../../services/orderService';
+import returnService from '../../services/returnService';
 import OrderDetailModal from './OrderDetailModal';
+import ReturnDetailModal from './ReturnDetailModal';
 import { toast } from 'react-toastify';
 
 const OrderManagementWrapper = styled.div`
@@ -181,23 +184,38 @@ const EmptyState = styled.div`
     }
 `;
 
-function OrderManagement({ shopId }) {
+function OrderManagement({ shopId, initialTab = 'orders' }) {
+    const [activeTab, setActiveTab] = useState(initialTab); // 'orders' or 'returns'
     const [orders, setOrders] = useState([]);
+    const [returns, setReturns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [statistics, setStatistics] = useState(null);
+    const [returnStatistics, setReturnStatistics] = useState(null);
     const [activeFilter, setActiveFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [selectedReturn, setSelectedReturn] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showReturnDetailModal, setShowReturnDetailModal] = useState(false);
+
+    // Update activeTab when initialTab changes
+    useEffect(() => {
+        setActiveTab(initialTab);
+    }, [initialTab]);
 
     useEffect(() => {
         if (shopId) {
-            loadOrders();
-            loadStatistics();
+            if (activeTab === 'orders') {
+                loadOrders();
+                loadStatistics();
+            } else {
+                loadReturns();
+                loadReturnStatistics();
+            }
         }
-    }, [shopId, activeFilter, searchQuery, currentPage]);
+    }, [shopId, activeTab, activeFilter, searchQuery, currentPage]);
 
     const loadOrders = async () => {
         setLoading(true);
@@ -228,14 +246,54 @@ function OrderManagement({ shopId }) {
         }
     };
 
+    const loadReturns = async () => {
+        setLoading(true);
+        try {
+            const params = {
+                status: activeFilter,
+                page: currentPage,
+                limit: 20
+            };
+            const response = await returnService.getReturnsByShop(shopId, params);
+            setReturns(response.data || []);
+            setTotalPages(response.pagination?.totalPages || 1);
+        } catch (error) {
+            console.error('Error loading returns:', error);
+            toast.error('Không thể tải danh sách yêu cầu hoàn hàng');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadReturnStatistics = async () => {
+        try {
+            const stats = await returnService.getReturnStatisticsByShop(shopId);
+            setReturnStatistics(stats);
+        } catch (error) {
+            console.error('Error loading return statistics:', error);
+        }
+    };
+
     const handleViewDetail = (order) => {
         setSelectedOrder(order);
         setShowDetailModal(true);
     };
 
+    const handleViewReturnDetail = (returnRequest) => {
+        setSelectedReturn(returnRequest);
+        setShowReturnDetailModal(true);
+    };
+
     const handleStatusUpdate = async () => {
         await loadOrders();
         await loadStatistics();
+    };
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setActiveFilter('all');
+        setSearchQuery('');
+        setCurrentPage(1);
     };
 
     const getStatusBadge = (status) => {
@@ -250,6 +308,26 @@ function OrderManagement({ shopId }) {
         };
 
         const config = statusConfig[status] || statusConfig['PENDING'];
+        return (
+            <Badge bg={config.bg} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: 'fit-content' }}>
+                {config.icon} {config.text}
+            </Badge>
+        );
+    };
+
+    const getReturnStatusBadge = (status) => {
+        const statusConfig = {
+            'REQUESTED': { bg: 'warning', text: 'Chờ duyệt', icon: <FaClock /> },
+            'APPROVED': { bg: 'info', text: 'Đã duyệt', icon: <FaCheckCircle /> },
+            'REJECTED': { bg: 'danger', text: 'Từ chối', icon: <FaTimesCircle /> },
+            'SHIPPED': { bg: 'primary', text: 'Đang gửi trả', icon: <FaShippingFast /> },
+            'RETURNED': { bg: 'success', text: 'Đã nhận hàng', icon: <FaCheckCircle /> },
+            'REFUNDED': { bg: 'success', text: 'Đã hoàn tiền', icon: <FaCheckCircle /> },
+            'COMPLETED': { bg: 'success', text: 'Hoàn tất', icon: <FaCheckCircle /> },
+            'CANCELLED': { bg: 'secondary', text: 'Đã hủy', icon: <FaTimesCircle /> }
+        };
+
+        const config = statusConfig[status] || statusConfig['REQUESTED'];
         return (
             <Badge bg={config.bg} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: 'fit-content' }}>
                 {config.icon} {config.text}
@@ -273,8 +351,18 @@ function OrderManagement({ shopId }) {
 
     return (
         <OrderManagementWrapper>
+            {/* Tab Navigation */}
+            <Nav variant="tabs" activeKey={activeTab} onSelect={handleTabChange} style={{ marginBottom: '1.5rem', background: 'white', borderRadius: '12px 12px 0 0', padding: '0.5rem 1rem' }}>
+                <Nav.Item>
+                    <Nav.Link eventKey="orders" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: activeTab === 'orders' ? '700' : '500' }}>
+                        <FaBox /> Quản lý đơn hàng
+                    </Nav.Link>
+                </Nav.Item>
+                
+            </Nav>
+
             {/* Statistics Cards */}
-            {statistics && (
+            {activeTab === 'orders' && statistics && (
                 <StatsRow>
                     <StatCard className={activeFilter === 'all' ? 'active' : ''} onClick={() => setActiveFilter('all')}>
                         <StatCardBody>
@@ -326,6 +414,59 @@ function OrderManagement({ shopId }) {
                 </StatsRow>
             )}
 
+            {/* Return Statistics Cards */}
+            {activeTab === 'returns' && returnStatistics && (
+                <StatsRow>
+                    <StatCard className={activeFilter === 'all' ? 'active' : ''} onClick={() => setActiveFilter('all')}>
+                        <StatCardBody>
+                            <StatIcon bg="#e3f2fd" color="#1976d2">
+                                <FaUndo />
+                            </StatIcon>
+                            <StatInfo>
+                                <div className="stat-label">Tất cả yêu cầu</div>
+                                <div className="stat-value">{returnStatistics.all}</div>
+                            </StatInfo>
+                        </StatCardBody>
+                    </StatCard>
+
+                    <StatCard className={activeFilter === 'requested' ? 'active' : ''} onClick={() => setActiveFilter('requested')}>
+                        <StatCardBody>
+                            <StatIcon bg="#fff3e0" color="#f57c00">
+                                <FaClock />
+                            </StatIcon>
+                            <StatInfo>
+                                <div className="stat-label">Chờ duyệt</div>
+                                <div className="stat-value">{returnStatistics.requested}</div>
+                            </StatInfo>
+                        </StatCardBody>
+                    </StatCard>
+
+                    <StatCard className={activeFilter === 'approved' ? 'active' : ''} onClick={() => setActiveFilter('approved')}>
+                        <StatCardBody>
+                            <StatIcon bg="#e8f5e9" color="#388e3c">
+                                <FaCheckCircle />
+                            </StatIcon>
+                            <StatInfo>
+                                <div className="stat-label">Đã duyệt</div>
+                                <div className="stat-value">{returnStatistics.approved}</div>
+                            </StatInfo>
+                        </StatCardBody>
+                    </StatCard>
+
+                    <StatCard className={activeFilter === 'completed' ? 'active' : ''} onClick={() => setActiveFilter('completed')}>
+                        <StatCardBody>
+                            <StatIcon bg="#e1f5fe" color="#0288d1">
+                                <FaCheckCircle />
+                            </StatIcon>
+                            <StatInfo>
+                                <div className="stat-label">Hoàn tất</div>
+                                <div className="stat-value">{returnStatistics.completed}</div>
+                            </StatInfo>
+                        </StatCardBody>
+                    </StatCard>
+                </StatsRow>
+            )}
+
             {/* Filter Bar */}
             <FilterBar>
                 <InputGroup style={{ flex: '1', maxWidth: '400px' }}>
@@ -348,35 +489,46 @@ function OrderManagement({ shopId }) {
                         <FaFilter /> Lọc
                     </Dropdown.Toggle>
                     <Dropdown.Menu>
-                        <Dropdown.Item onClick={() => setActiveFilter('all')}>Tất cả</Dropdown.Item>
-                        <Dropdown.Item onClick={() => setActiveFilter('pending')}>Chờ xác nhận</Dropdown.Item>
-                        <Dropdown.Item onClick={() => setActiveFilter('confirmed')}>Đã xác nhận</Dropdown.Item>
-                        <Dropdown.Item onClick={() => setActiveFilter('shipping')}>Đang giao</Dropdown.Item>
-                        <Dropdown.Item onClick={() => setActiveFilter('delivered')}>Đã giao</Dropdown.Item>
-                        <Dropdown.Item onClick={() => setActiveFilter('cancelled')}>Đã hủy</Dropdown.Item>
+                        {activeTab === 'orders' ? (
+                            <>
+                                <Dropdown.Item onClick={() => setActiveFilter('all')}>Tất cả</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('pending')}>Chờ xác nhận</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('confirmed')}>Đã xác nhận</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('shipping')}>Đang giao</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('delivered')}>Đã giao</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('cancelled')}>Đã hủy</Dropdown.Item>
+                            </>
+                        ) : (
+                            <>
+                                <Dropdown.Item onClick={() => setActiveFilter('all')}>Tất cả</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('requested')}>Chờ duyệt</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('approved')}>Đã duyệt</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('rejected')}>Từ chối</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setActiveFilter('completed')}>Hoàn tất</Dropdown.Item>
+                            </>
+                        )}
                     </Dropdown.Menu>
                 </Dropdown>
 
-                <Button variant="outline-success" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <FaDownload /> Xuất Excel
-                </Button>
+
             </FilterBar>
 
             {/* Orders Table */}
-            <Card style={{ border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-                <Card.Body style={{ padding: 0 }}>
-                    {loading ? (
-                        <div style={{ textAlign: 'center', padding: '3rem' }}>
-                            <Spinner animation="border" variant="primary" />
-                            <p style={{ marginTop: '1rem', color: '#666' }}>Đang tải đơn hàng...</p>
-                        </div>
-                    ) : orders.length === 0 ? (
-                        <EmptyState>
-                            <FaBox />
-                            <h5>Không có đơn hàng nào</h5>
-                            <p>Chưa có đơn hàng nào phù hợp với bộ lọc hiện tại</p>
-                        </EmptyState>
-                    ) : (
+            {activeTab === 'orders' && (
+                <Card style={{ border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+                    <Card.Body style={{ padding: 0 }}>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '3rem' }}>
+                                <Spinner animation="border" variant="primary" />
+                                <p style={{ marginTop: '1rem', color: '#666' }}>Đang tải đơn hàng...</p>
+                            </div>
+                        ) : orders.length === 0 ? (
+                            <EmptyState>
+                                <FaBox />
+                                <h5>Không có đơn hàng nào</h5>
+                                <p>Chưa có đơn hàng nào phù hợp với bộ lọc hiện tại</p>
+                            </EmptyState>
+                        ) : (
                         <>
                             <OrderTable hover responsive>
                                 <thead>
@@ -500,6 +652,157 @@ function OrderManagement({ shopId }) {
                     )}
                 </Card.Body>
             </Card>
+            )}
+
+            {/* Returns Table */}
+            {activeTab === 'returns' && (
+                <Card style={{ border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+                    <Card.Body style={{ padding: 0 }}>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '3rem' }}>
+                                <Spinner animation="border" variant="primary" />
+                                <p style={{ marginTop: '1rem', color: '#666' }}>Đang tải yêu cầu hoàn hàng...</p>
+                            </div>
+                        ) : returns.length === 0 ? (
+                            <EmptyState>
+                                <FaUndo />
+                                <h5>Không có yêu cầu hoàn hàng nào</h5>
+                                <p>Chưa có yêu cầu hoàn hàng nào phù hợp với bộ lọc hiện tại</p>
+                            </EmptyState>
+                        ) : (
+                            <>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <OrderTable hover responsive>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ minWidth: '180px', maxWidth: '180px' }}>Mã RMA</th>
+                                                <th style={{ minWidth: '120px', maxWidth: '150px' }}>Mã đơn hàng</th>
+                                                <th style={{ minWidth: '150px' }}>Khách hàng</th>
+                                                <th style={{ minWidth: '100px' }}>Sản phẩm</th>
+                                                <th style={{ minWidth: '150px' }}>Lý do</th>
+                                                <th style={{ minWidth: '120px' }}>Số tiền hoàn</th>
+                                                <th style={{ minWidth: '120px' }}>Trạng thái</th>
+                                                <th style={{ minWidth: '130px' }}>Ngày yêu cầu</th>
+                                                <th style={{ minWidth: '100px' }}>Thao tác</th>
+                                            </tr>
+                                        </thead>
+                                    <tbody>
+                                        {returns.map((returnRequest) => (
+                                            <tr key={returnRequest._id}>
+                                                <td>
+                                                    <div style={{
+                                                        fontWeight: '600',
+                                                        color: '#b8860b',
+                                                        fontSize: '0.85rem',
+                                                        wordBreak: 'break-all',
+                                                        maxWidth: '180px',
+                                                        lineHeight: '1.4'
+                                                    }}>
+                                                        {returnRequest.rmaCode}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div style={{
+                                                        fontWeight: '600',
+                                                        color: '#666',
+                                                        fontSize: '0.9rem',
+                                                        wordBreak: 'break-all',
+                                                        maxWidth: '150px'
+                                                    }}>
+                                                        #{returnRequest.orderId?._id?.slice(-8).toUpperCase() || 'N/A'}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <CustomerInfo>
+                                                        <div className="customer-name">
+                                                            {returnRequest.buyerId?.fullName || 'N/A'}
+                                                        </div>
+                                                        <div className="customer-phone">
+                                                            {returnRequest.buyerId?.phoneNumber || 'N/A'}
+                                                        </div>
+                                                    </CustomerInfo>
+                                                </td>
+                                                <td>
+                                                    <div style={{ fontSize: '0.9rem', color: '#333' }}>
+                                                        {returnRequest.items?.length || 0} sản phẩm
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div style={{ fontSize: '0.85rem', color: '#666', maxWidth: '150px' }}>
+                                                        {returnRequest.reasonCode === 'DAMAGED_ITEM' && 'Sản phẩm bị hư hỏng'}
+                                                        {returnRequest.reasonCode === 'NOT_AS_DESCRIBED' && 'Không đúng mô tả'}
+                                                        {returnRequest.reasonCode === 'WRONG_ITEM' && 'Gửi sai sản phẩm'}
+                                                        {returnRequest.reasonCode === 'OTHER' && 'Lý do khác'}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div style={{ fontWeight: '700', color: '#28a745', fontSize: '1rem' }}>
+                                                        {formatCurrency(returnRequest.amounts?.refundTotal || 0)}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    {getReturnStatusBadge(returnRequest.status)}
+                                                </td>
+                                                <td>
+                                                    <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                                                        {formatDate(returnRequest.createdAt)}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <Button
+                                                        variant="outline-primary"
+                                                        size="sm"
+                                                        onClick={() => handleViewReturnDetail(returnRequest)}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                                    >
+                                                        <FaEye /> Chi tiết
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    </OrderTable>
+                                </div>
+
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                                        <Pagination>
+                                            <Pagination.First onClick={() => setCurrentPage(1)} disabled={currentPage === 1} />
+                                            <Pagination.Prev onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} />
+
+                                            {[...Array(totalPages)].map((_, idx) => {
+                                                const page = idx + 1;
+                                                if (
+                                                    page === 1 ||
+                                                    page === totalPages ||
+                                                    (page >= currentPage - 2 && page <= currentPage + 2)
+                                                ) {
+                                                    return (
+                                                        <Pagination.Item
+                                                            key={page}
+                                                            active={page === currentPage}
+                                                            onClick={() => setCurrentPage(page)}
+                                                        >
+                                                            {page}
+                                                        </Pagination.Item>
+                                                    );
+                                                } else if (page === currentPage - 3 || page === currentPage + 3) {
+                                                    return <Pagination.Ellipsis key={page} />;
+                                                }
+                                                return null;
+                                            })}
+
+                                            <Pagination.Next onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} />
+                                            <Pagination.Last onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} />
+                                        </Pagination>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </Card.Body>
+                </Card>
+            )}
 
             {/* Order Detail Modal */}
             <OrderDetailModal
@@ -508,6 +811,13 @@ function OrderManagement({ shopId }) {
                 order={selectedOrder}
                 onStatusUpdate={handleStatusUpdate}
                 shopId={shopId}
+            />
+
+            {/* Return Detail Modal */}
+            <ReturnDetailModal
+                show={showReturnDetailModal}
+                onHide={() => setShowReturnDetailModal(false)}
+                returnRequest={selectedReturn}
             />
         </OrderManagementWrapper>
     );

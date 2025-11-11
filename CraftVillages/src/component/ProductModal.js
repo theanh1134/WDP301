@@ -20,7 +20,7 @@ const ProductModal = ({ open, products, onCancel, onConfirm, orderId, returnids 
 
   const handleConfirm = () => {
     if(checkedList.length < 1 ) {
-      alert("hãy chọn ít nhất 1 sản phẩm")
+      alert("Hãy chọn ít nhất 1 sản phẩm")
       return
     }
     onConfirm(checkedList, orderId);

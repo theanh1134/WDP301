@@ -1,11 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Form, Button } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FaArrowLeft, FaWallet, FaMoneyBillWave, FaUniversity, FaUserCircle, FaMapMarkerAlt, FaInfoCircle } from 'react-icons/fa';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-// (tuỳ chọn) nếu bạn có Header/Footer chung:
-// import Header from './Header';
-// import Footer from './Footer';
 import authService from '../services/authService';
 import Header from './Header';
 import Footer from './Footer';
@@ -131,108 +129,282 @@ export default function RefundPage() {
   return (
     <>
       <Header />
-      <Container style={{ marginTop: 24, marginBottom: 40 }}>
-        <Row className="justify-content-center">
-          <Col md={8} lg={7} xl={6}>
-            <Card style={{ border: 'none', borderRadius: 12, boxShadow: '0 8px 25px rgba(0,0,0,0.06)' }}>
-              <Card.Body>
-                <h4 className="mb-3">Yêu cầu rút tiền</h4>
-                <Form onSubmit={handleSubmit}>
+      <Container fluid style={{
+        backgroundColor: '#f8f9fa',
+        minHeight: '100vh',
+        paddingTop: 24,
+        paddingBottom: 40
+      }}>
+        <div style={{ maxWidth: 800, margin: '0 auto', padding: '0 15px' }}>
+          {/* Back Button */}
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => navigate(-1)}
+            className="mb-3"
+            style={{ borderRadius: 8 }}
+          >
+            <FaArrowLeft className="me-2" /> Quay lại
+          </Button>
 
-                  <Form.Group className="mb-3">
-                    <Form.Label>Số dư</Form.Label>
-                    <div>
-                    <strong>{balance?.balance.toLocaleString() } VND</strong>
+          {/* Header Card */}
+          <Card style={styles.headerCard} className="mb-4">
+            <Card.Body>
+              <div className="text-center">
+                <h3 className="mb-2" style={{ fontWeight: 600 }}>
+                  <FaMoneyBillWave className="me-2 text-primary" />
+                  Yêu cầu rút tiền
+                </h3>
+                <p className="text-muted mb-0 small">
+                  Vui lòng điền đầy đủ thông tin để tạo yêu cầu rút tiền
+                </p>
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* Balance Display Card */}
+          <Card style={styles.balanceCard} className="mb-4">
+            <Card.Body>
+              <div className="d-flex align-items-center justify-content-between">
+                <div className="d-flex align-items-center gap-3">
+                  <div style={styles.balanceIcon}>
+                    <FaWallet size={24} className="text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-muted small mb-1">Số dư khả dụng</div>
+                    <div style={styles.balanceAmount}>
+                      {balance?.balance?.toLocaleString('vi-VN') || '0'} VND
                     </div>
-                  </Form.Group>
+                  </div>
+                </div>
+              </div>
+            </Card.Body>
+          </Card>
 
+          {/* Main Form Card */}
+          <Card style={styles.formCard}>
+            <Card.Body>
+              <Form onSubmit={handleSubmit}>
+                {/* Amount Input */}
+                <div style={styles.section}>
+                  <div style={styles.sectionHeader}>
+                    <FaMoneyBillWave className="me-2 text-primary" />
+                    <span>Số tiền rút</span>
+                  </div>
                   <Form.Group className="mb-3">
-                    <Form.Label>Số tiền rút (VND)</Form.Label>
+                    <Form.Label className="small text-muted">Số tiền rút (VND)</Form.Label>
                     <Form.Control
+                      size="lg"
                       inputMode="numeric"
                       value={form.amountText}
                       onChange={(e) => setField('amountText', e.target.value)}
                       isInvalid={!!errors.amountText}
-                      placeholder="500,000"
+                      placeholder="Nhập số tiền, ví dụ: 500000"
+                      style={styles.input}
                     />
                     <Form.Control.Feedback type="invalid">{errors.amountText}</Form.Control.Feedback>
+                    {parsedAmount > 0 && (
+                      <Form.Text className="text-success">
+                        <FaInfoCircle className="me-1" />
+                        Số tiền: {parsedAmount.toLocaleString('vi-VN')} VND
+                      </Form.Text>
+                    )}
+                  </Form.Group>
+                </div>
+
+                {/* Bank Information Section */}
+                <div style={styles.section}>
+                  <div style={styles.sectionHeader}>
+                    <FaUniversity className="me-2 text-primary" />
+                    <span>Thông tin ngân hàng</span>
+                  </div>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label className="small text-muted">Ngân hàng</Form.Label>
+                    <Form.Select
+                      size="lg"
+                      value={form.bankName}
+                      onChange={(e) => setField('bankName', e.target.value)}
+                      isInvalid={!!errors.bankName}
+                      style={styles.input}
+                    >
+                      <option value="">-- Chọn ngân hàng --</option>
+                      {bankOptions.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </Form.Select>
+                    <Form.Control.Feedback type="invalid">{errors.bankName}</Form.Control.Feedback>
                   </Form.Group>
 
-                  <fieldset className="mb-2" style={{ border: '1px solid #eee', borderRadius: 12, padding: 16 }}>
-                    <legend className="px-2" style={{ fontSize: 14, fontWeight: 600 }}>Thông tin ngân hàng</legend>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>Ngân hàng</Form.Label>
-                      <Form.Select
-                        value={form.bankName}
-                        onChange={(e) => setField('bankName', e.target.value)}
-                        isInvalid={!!errors.bankName}
-                      >
-                        <option value="">-- Chọn ngân hàng --</option>
-                        {bankOptions.map((b) => (
-                          <option key={b} value={b}>{b}</option>
-                        ))}
-                      </Form.Select>
-                      <Form.Control.Feedback type="invalid">{errors.bankName}</Form.Control.Feedback>
-                    </Form.Group>
-
-                    <Row>
-                      <Col md={6} className="mb-3">
-                        <Form.Label>Số tài khoản</Form.Label>
+                  <Row>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label className="small text-muted">Số tài khoản</Form.Label>
                         <Form.Control
+                          size="lg"
                           inputMode="numeric"
                           value={form.accountNumber}
                           onChange={(e) => setField('accountNumber', e.target.value.replace(/[^\d]/g, ''))}
                           isInvalid={!!errors.accountNumber}
                           placeholder="1234567890123"
+                          style={styles.input}
                         />
                         <Form.Control.Feedback type="invalid">{errors.accountNumber}</Form.Control.Feedback>
-                      </Col>
-                      <Col md={6} className="mb-3">
-                        <Form.Label>Chủ tài khoản</Form.Label>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label className="small text-muted">Chủ tài khoản</Form.Label>
                         <Form.Control
+                          size="lg"
                           value={form.accountHolderName}
                           onChange={(e) => setField('accountHolderName', e.target.value)}
                           isInvalid={!!errors.accountHolderName}
                           placeholder="NGUYEN VAN A"
+                          style={styles.input}
                         />
                         <Form.Control.Feedback type="invalid">{errors.accountHolderName}</Form.Control.Feedback>
-                      </Col>
-                    </Row>
+                      </Form.Group>
+                    </Col>
+                  </Row>
 
-                    <Form.Group className="mb-1">
-                      <Form.Label>Chi nhánh (tuỳ chọn)</Form.Label>
-                      <Form.Control
-                        value={form.branchName}
-                        onChange={(e) => setField('branchName', e.target.value)}
-                        placeholder="Chi nhánh Hà Nội"
-                      />
-                    </Form.Group>
-                  </fieldset>
-
-                  <Form.Group className="mb-4">
-                    <Form.Label>Phí rút (VND)</Form.Label>
+                  <Form.Group className="mb-3">
+                    <Form.Label className="small text-muted">
+                      <FaMapMarkerAlt className="me-1" />
+                      Chi nhánh (tuỳ chọn)
+                    </Form.Label>
                     <Form.Control
-                      inputMode="numeric"
-                      value={form.withdrawalFeeText}
-                      isInvalid={!!errors.withdrawalFeeText}
-                      // placeholder="5,000"
-                      readOnly
+                      size="lg"
+                      value={form.branchName}
+                      onChange={(e) => setField('branchName', e.target.value)}
+                      placeholder="Chi nhánh Hà Nội"
+                      style={styles.input}
                     />
-                    <Form.Control.Feedback type="invalid">{errors.withdrawalFeeText}</Form.Control.Feedback>
                   </Form.Group>
+                </div>
 
-                  <div className="d-flex justify-content-end gap-2">
-                    <Button variant="outline-secondary" onClick={() => navigate(-1)} disabled={busy}>Huỷ</Button>
-                    <Button variant="dark" type="submit" disabled={busy}>{busy ? 'Đang gửi...' : 'Gửi yêu cầu'}</Button>
+                {/* Fee Section */}
+                <div style={styles.feeSection}>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="text-muted">Phí rút tiền</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                      {parsedFee.toLocaleString('vi-VN')} VND
+                    </span>
                   </div>
-                </Form>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+                </div>
+
+                {/* Info Alert */}
+                <Alert variant="info" className="mb-4" style={{ borderRadius: 8, border: 'none' }}>
+                  <FaInfoCircle className="me-2" />
+                  <small>
+                    Yêu cầu rút tiền sẽ được xử lý trong vòng 24h. Vui lòng kiểm tra kỹ thông tin trước khi gửi.
+                  </small>
+                </Alert>
+
+                {/* Action Buttons */}
+                <div className="d-flex justify-content-end gap-2">
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => navigate(-1)}
+                    disabled={busy}
+                    style={styles.cancelButton}
+                  >
+                    Huỷ
+                  </Button>
+                  <Button
+                    variant="primary"
+                    type="submit"
+                    disabled={busy}
+                    style={styles.submitButton}
+                  >
+                    {busy ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" />
+                        Đang gửi...
+                      </>
+                    ) : (
+                      <>
+                        <FaMoneyBillWave className="me-2" />
+                        Gửi yêu cầu
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Form>
+            </Card.Body>
+          </Card>
+        </div>
       </Container>
       <Footer />
     </>
   );
 }
+
+// Styles
+const styles = {
+  headerCard: {
+    border: 'none',
+    borderRadius: 12,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: 'white'
+  },
+  balanceCard: {
+    border: 'none',
+    borderRadius: 12,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    color: 'white'
+  },
+  balanceIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  balanceAmount: {
+    fontSize: '1.5rem',
+    fontWeight: 700
+  },
+  formCard: {
+    border: 'none',
+    borderRadius: 12,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+  },
+  section: {
+    marginBottom: 24,
+    paddingBottom: 24,
+    borderBottom: '1px solid #e9ecef'
+  },
+  sectionHeader: {
+    fontSize: '1rem',
+    fontWeight: 600,
+    marginBottom: 16,
+    display: 'flex',
+    alignItems: 'center'
+  },
+  input: {
+    borderRadius: 8,
+    border: '1px solid #dee2e6',
+    padding: '10px 14px'
+  },
+  feeSection: {
+    backgroundColor: '#fff3cd',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20
+  },
+  cancelButton: {
+    borderRadius: 8,
+    padding: '10px 24px',
+    fontWeight: 500
+  },
+  submitButton: {
+    borderRadius: 8,
+    padding: '10px 24px',
+    fontWeight: 500
+  }
+};
