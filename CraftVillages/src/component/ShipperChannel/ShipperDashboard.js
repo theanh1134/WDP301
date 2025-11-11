@@ -520,9 +520,11 @@ function ShipperDashboard() {
                         // Đơn hoàn hàng - lấy từ buyer, giao về shop
                         const pickupAddr = shipment.returnId?.pickupAddress?.fullAddress || 
                                           shipment.returnId?.buyerId?.address || 
-                                          shipment.pickupLocation?.address || '';
+                                          shipment.pickupLocation?.address || 
+                                          'Chưa có địa chỉ lấy hàng';
                         const deliveryAddr = shipment.returnId?.shopId?.address || 
-                                           shipment.deliveryLocation?.address || '';
+                                           shipment.deliveryLocation?.address || 
+                                           'Chưa có địa chỉ giao hàng';
                         const phone = shipment.returnId?.pickupAddress?.phoneNumber || 
                                      shipment.returnId?.buyerId?.phoneNumber || 'N/A';
                         
@@ -533,6 +535,9 @@ function ShipperDashboard() {
                             ).join(', ');
                         }
                         
+                        // For return orders, show pickup address as main address (where to pick up from buyer)
+                        const displayAddress = pickupAddr;
+                        
                         return {
                             id: shipment._id,
                             orderId: shipment.returnId?.rmaCode || shipment.returnId?.orderId?.orderNumber || shipment._id,
@@ -540,20 +545,34 @@ function ShipperDashboard() {
                             customerName: shipment.returnId?.buyerId?.fullName || 'Người mua',
                             shopName: shipment.returnId?.shopId?.shopName || 'Cửa hàng',
                             pickupLocation: pickupAddr,
-                            address: deliveryAddr,
+                            deliveryLocation: deliveryAddr,
+                            address: displayAddress,
                             phone: phone,
                             items: itemsList,
                             totalAmount: shipment.returnId?.amounts?.refundTotal || 0,
                             shippingFee: shipment.shippingFee?.total || shipment.returnId?.shippingFee || 0,
                             status: shipment.status,
                             estimatedDelivery: shipment.estimatedDeliveryTime || new Date(),
-                            distance: shipment.distance ? `${shipment.distance.toFixed(1)} km` : 'N/A'
+                            distance: shipment.distance ? `${shipment.distance.toFixed(1)} km` : 'Chưa có thông tin'
                         };
                     } else {
                         // Đơn giao hàng thông thường
+                        console.log('=== PROCESSING DELIVERY ORDER ===');
+                        console.log('shipment.orderId:', shipment.orderId);
+                        console.log('shippingAddress:', shipment.orderId?.shippingAddress);
+                        console.log('deliveryLocation:', shipment.deliveryLocation);
+                        
+                        // Try multiple address sources
                         const deliveryAddr = shipment.orderId?.shippingAddress?.fullAddress || 
-                                            shipment.deliveryLocation?.address || '';
+                                            shipment.orderId?.shippingAddress?.address ||
+                                            shipment.orderId?.deliveryAddress?.fullAddress ||
+                                            shipment.orderId?.deliveryAddress ||
+                                            shipment.deliveryLocation?.address || 
+                                            'Chưa có thông tin địa chỉ';
+                        console.log('Final deliveryAddr:', deliveryAddr);
+                        
                         const phone = shipment.orderId?.shippingAddress?.phoneNumber || 
+                                     shipment.orderId?.shippingAddress?.phone ||
                                      shipment.orderId?.buyerInfo?.phoneNumber || 'N/A';
                         
                         let itemsList = 'N/A';

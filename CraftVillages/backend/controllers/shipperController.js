@@ -109,7 +109,10 @@ const getOrders = async (req, res, next) => {
         }
 
         const shipments = await Shipment.find(query)
-            .populate('orderId')
+            .populate({
+                path: 'orderId',
+                select: 'orderNumber finalAmount subtotal shippingAddress buyerInfo items shippingFee'
+            })
             .populate({
                 path: 'returnId',
                 populate: [
@@ -121,6 +124,12 @@ const getOrders = async (req, res, next) => {
             .sort({ createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
+
+        console.log('[getOrders] Found shipments:', shipments.length);
+        if (shipments.length > 0) {
+            console.log('[getOrders] Sample shipment orderId:', shipments[0].orderId);
+            console.log('[getOrders] Has shippingAddress:', !!shipments[0].orderId?.shippingAddress);
+        }
 
         const total = await Shipment.countDocuments(query);
 
@@ -157,7 +166,10 @@ const getAvailableOrders = async (req, res, next) => {
         console.log('[getAvailableOrders] Query:', JSON.stringify(query));
 
         const shipments = await Shipment.find(query)
-            .populate('orderId')
+            .populate({
+                path: 'orderId',
+                select: 'orderNumber finalAmount subtotal shippingAddress buyerInfo items shippingFee'
+            })
             .populate({
                 path: 'returnId',
                 populate: [
