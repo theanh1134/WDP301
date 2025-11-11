@@ -166,20 +166,56 @@ function Earnings({ userId }) {
       if (response && response.success) {
         // Set transactions data
         const earningsRecords = response.data || [];
+        console.log('Earnings records count:', earningsRecords.length);
+        console.log('Raw earnings records:', earningsRecords);
         
         // Transform API data to match table format
-        const transformedTransactions = earningsRecords.map(record => ({
-          id: record._id,
-          date: new Date(record.date || record.createdAt).toLocaleDateString('vi-VN'),
-          orderId: record.orderId?.orderNumber || record.orderId?._id || 'N/A',
-          customerName: record.orderId?.shippingAddress?.recipientName || 
-                       record.orderId?.buyerInfo?.fullName || 'Khách hàng',
-          amount: record.orderId?.finalAmount || record.orderId?.subtotal || 0,
-          shippingFee: record.earnings?.baseFee || 0,
-          bonus: record.earnings?.bonus || 0,
-          total: record.earnings?.total || 0,
-          status: record.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
-        }));
+        const transformedTransactions = earningsRecords.map(record => {
+          console.log('Processing record:', record);
+          console.log('orderId data:', record.orderId);
+          console.log('returnId data:', record.returnId);
+          console.log('shipmentId data:', record.shipmentId);
+          
+          // Get order reference - prioritize direct orderId, then shipmentId.orderId
+          const orderRef = record.orderId || record.shipmentId?.orderId;
+          const returnRef = record.returnId || record.shipmentId?.returnId;
+          
+          // Get order ID from multiple possible sources
+          const orderId = orderRef?.orderNumber || 
+                         orderRef?._id || 
+                         returnRef?.rmaCode ||
+                         returnRef?._id ||
+                         record._id ||
+                         'N/A';
+          
+          // Get customer name
+          const customerName = orderRef?.shippingAddress?.recipientName || 
+                              orderRef?.buyerInfo?.fullName || 
+                              returnRef?.buyerId?.fullName ||
+                              'Khách hàng';
+          
+          // Get amount - try multiple paths
+          let amount = 0;
+          if (orderRef) {
+            amount = orderRef.finalAmount || orderRef.subtotal || 0;
+            console.log('Amount from orderRef:', amount);
+          } else if (returnRef) {
+            amount = returnRef.amounts?.refundTotal || 0;
+            console.log('Amount from returnRef:', amount);
+          }
+          
+          return {
+            id: record._id,
+            date: new Date(record.date || record.createdAt).toLocaleDateString('vi-VN'),
+            orderId: orderId,
+            customerName: customerName,
+            amount: amount,
+            shippingFee: record.earnings?.baseFee || record.earnings?.total || 0,
+            bonus: record.earnings?.bonus || 0,
+            total: record.earnings?.total || 0,
+            status: record.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
+          };
+        });
         
         console.log('Transformed transactions:', transformedTransactions);
         setTransactions(transformedTransactions);
@@ -470,11 +506,11 @@ function Earnings({ userId }) {
               <p className="text-muted">Không có dữ liệu biểu đồ</p>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={chartData} barSize={40}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
-                <YAxis />
+                <YAxis allowDecimals={false} />
                 <ChartTooltip />
                 <Legend />
                 <Bar dataKey="completedOrders" fill="#2e7d32" name="Số đơn hoàn thành" />

@@ -15,6 +15,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import OrderDetail from './OrderDetail';
 import Earnings from './Earnings';
 import EditShipperProfile from './EditShipperProfile';
+import { io } from 'socket.io-client'; // Import Socket.IO
 
 // Animations
 const slideIn = keyframes`
@@ -417,6 +418,53 @@ function ShipperDashboard() {
         loadDashboardData();
     }, [navigate]);
 
+    // ⭐ Setup Socket.IO for real-time shipment updates
+    useEffect(() => {
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:9999';
+        const socket = io(API_URL, {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
+
+        console.log('🔌 Socket.IO connecting to:', API_URL);
+
+        socket.on('connect', () => {
+            console.log('✅ Socket.IO connected, ID:', socket.id);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('❌ Socket.IO disconnected');
+        });
+
+        // ⭐ Listen for shipment accepted event
+        socket.on('shipment:accepted', (data) => {
+            console.log('📦 Shipment accepted event received:', data);
+            
+            // Remove the accepted shipment from available orders
+            setAvailableOrders(prevOrders => {
+                const filteredOrders = prevOrders.filter(order => order.id !== data.shipmentId);
+                console.log(`Removed shipment ${data.shipmentId} from available orders`);
+                return filteredOrders;
+            });
+
+            // Show notification if another shipper accepted the order
+            if (currentUser && (currentUser._id !== data.shipperId && currentUser.id !== data.shipperId)) {
+                toast.info(`Đơn hàng đã được shipper ${data.shipperName} nhận`, {
+                    autoClose: 3000
+                });
+            }
+        });
+
+        // Cleanup on unmount
+        return () => {
+            console.log('🔌 Cleaning up Socket.IO connection');
+            socket.off('shipment:accepted');
+            socket.disconnect();
+        };
+    }, [currentUser]); // Re-run if currentUser changes
+
     const loadShipperStats = async (userId) => {
         try {
             console.log('Loading real dashboard stats for userId:', userId);
@@ -472,9 +520,11 @@ function ShipperDashboard() {
                         // Đơn hoàn hàng - lấy từ buyer, giao về shop
                         const pickupAddr = shipment.returnId?.pickupAddress?.fullAddress || 
                                           shipment.returnId?.buyerId?.address || 
-                                          shipment.pickupLocation?.address || '';
+                                          shipment.pickupLocation?.address || 
+                                          'Chưa có địa chỉ lấy hàng';
                         const deliveryAddr = shipment.returnId?.shopId?.address || 
-                                           shipment.deliveryLocation?.address || '';
+                                           shipment.deliveryLocation?.address || 
+                                           'Chưa có địa chỉ giao hàng';
                         const phone = shipment.returnId?.pickupAddress?.phoneNumber || 
                                      shipment.returnId?.buyerId?.phoneNumber || 'N/A';
                         
@@ -485,6 +535,9 @@ function ShipperDashboard() {
                             ).join(', ');
                         }
                         
+                        // For return orders, show pickup address as main address (where to pick up from buyer)
+                        const displayAddress = pickupAddr;
+                        
                         return {
                             id: shipment._id,
                             orderId: shipment.returnId?.rmaCode || shipment.returnId?.orderId?.orderNumber || shipment._id,
@@ -492,20 +545,34 @@ function ShipperDashboard() {
                             customerName: shipment.returnId?.buyerId?.fullName || 'Người mua',
                             shopName: shipment.returnId?.shopId?.shopName || 'Cửa hàng',
                             pickupLocation: pickupAddr,
-                            address: deliveryAddr,
+                            deliveryLocation: deliveryAddr,
+                            address: displayAddress,
                             phone: phone,
                             items: itemsList,
                             totalAmount: shipment.returnId?.amounts?.refundTotal || 0,
                             shippingFee: shipment.shippingFee?.total || shipment.returnId?.shippingFee || 0,
                             status: shipment.status,
                             estimatedDelivery: shipment.estimatedDeliveryTime || new Date(),
-                            distance: shipment.distance ? `${shipment.distance.toFixed(1)} km` : 'N/A'
+                            distance: shipment.distance ? `${shipment.distance.toFixed(1)} km` : 'Chưa có thông tin'
                         };
                     } else {
                         // Đơn giao hàng thông thường
+                        console.log('=== PROCESSING DELIVERY ORDER ===');
+                        console.log('shipment.orderId:', shipment.orderId);
+                        console.log('shippingAddress:', shipment.orderId?.shippingAddress);
+                        console.log('deliveryLocation:', shipment.deliveryLocation);
+                        
+                        // Try multiple address sources
                         const deliveryAddr = shipment.orderId?.shippingAddress?.fullAddress || 
-                                            shipment.deliveryLocation?.address || '';
+                                            shipment.orderId?.shippingAddress?.address ||
+                                            shipment.orderId?.deliveryAddress?.fullAddress ||
+                                            shipment.orderId?.deliveryAddress ||
+                                            shipment.deliveryLocation?.address || 
+                                            'Chưa có thông tin địa chỉ';
+                        console.log('Final deliveryAddr:', deliveryAddr);
+                        
                         const phone = shipment.orderId?.shippingAddress?.phoneNumber || 
+                                     shipment.orderId?.shippingAddress?.phone ||
                                      shipment.orderId?.buyerInfo?.phoneNumber || 'N/A';
                         
                         let itemsList = 'N/A';
@@ -642,9 +709,19 @@ function ShipperDashboard() {
             const response = await shipperService.acceptOrder(currentUser._id || currentUser.id, shipmentId);
             
             if (response && response.success) {
-                toast.success('Đã nhận đơn hàng thành công!');
-                // Reload both lists
-                await loadAvailableOrders();
+                toast.success('Đã nhận đơn hàng thành công!', {
+                    autoClose: 2000
+                });
+                
+                // ⭐ No need to reload page - Socket.IO will handle real-time update
+                // The shipment:accepted event will automatically remove this order from all shipper screens
+                
+                // Remove from local state immediately for faster UI response
+                setAvailableOrders(prevOrders => 
+                    prevOrders.filter(order => order.id !== shipmentId)
+                );
+                
+                // Reload orders list to show in "Tất cả đơn hàng"
                 await loadOrders(currentUser._id || currentUser.id);
             }
         } catch (error) {
@@ -931,12 +1008,14 @@ function ShipperDashboard() {
                                         </div>
                                         <div className="text-end">
                                             <Badge bg="success" style={{ fontSize: '0.9rem' }}>Chưa có shipper</Badge>
-                                            <div className="mt-2">
-                                                <small className="text-muted d-block" style={{ fontWeight: '600' }}>
-                                                    <FaMapMarkerAlt className="me-1" />
-                                                    {order.estimatedDistance ? `${order.estimatedDistance} km` : 'N/A'}
-                                                </small>
-                                            </div>
+                                            {order.estimatedDistance && order.estimatedDistance !== 'N/A' && order.estimatedDistance !== 0 && (
+                                                <div className="mt-2">
+                                                    <small className="text-muted d-block" style={{ fontWeight: '600' }}>
+                                                        <FaMapMarkerAlt className="me-1" />
+                                                        {order.estimatedDistance} km
+                                                    </small>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1035,12 +1114,14 @@ function ShipperDashboard() {
                                         </div>
                                         <div className="text-end">
                                             {getStatusBadge(order.status)}
-                                            <div className="mt-2">
-                                                <small className="text-muted d-block" style={{ fontWeight: '600' }}>
-                                                    <FaMapMarkerAlt className="me-1" />
-                                                    {order.distance}
-                                                </small>
-                                            </div>
+                                            {order.distance && order.distance !== 'N/A' && order.distance !== '0 km' && (
+                                                <div className="mt-2">
+                                                    <small className="text-muted d-block" style={{ fontWeight: '600' }}>
+                                                        <FaMapMarkerAlt className="me-1" />
+                                                        {order.distance}
+                                                    </small>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

@@ -12,16 +12,37 @@ const getDashboardStats = async (req, res, next) => {
         const { userId } = req.params;
         console.log('[getDashboardStats] Received request for userId:', userId);
 
-        // Find shipper
-        const shipper = await Shipper.findOne({ userId });
+        // Find or create shipper record
+        let shipper = await Shipper.findOne({ userId });
         console.log('[getDashboardStats] Found shipper:', shipper ? shipper._id : 'NOT FOUND');
         
         if (!shipper) {
-            console.log('[getDashboardStats] No shipper found for userId:', userId);
-            return res.status(404).json({
-                success: false,
-                message: 'Shipper not found'
+            console.log('[getDashboardStats] No shipper found for userId, creating default profile...');
+            // Get user info first
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+            
+            // Create a default shipper profile with unique values
+            const timestamp = Date.now();
+            shipper = new Shipper({
+                userId: user._id,
+                licenseNumber: `TEMP-${userId.toString().slice(-8)}-${timestamp}`,
+                vehicleType: 'MOTORBIKE',
+                vehicleNumber: `TEMP-${userId.toString().slice(-6)}`,
+                maxWeight: 50,
+                maxVolume: 100,
+                serviceAreas: [],
+                workingHours: { start: '06:00', end: '22:00' },
+                status: 'PENDING',
+                isOnline: false
             });
+            await shipper.save();
+            console.log('[getDashboardStats] Created new shipper profile:', shipper._id);
         }
 
         // Get shipments statistics
@@ -88,7 +109,10 @@ const getOrders = async (req, res, next) => {
         }
 
         const shipments = await Shipment.find(query)
-            .populate('orderId')
+            .populate({
+                path: 'orderId',
+                select: 'orderNumber finalAmount subtotal shippingAddress buyerInfo items shippingFee'
+            })
             .populate({
                 path: 'returnId',
                 populate: [
@@ -100,6 +124,12 @@ const getOrders = async (req, res, next) => {
             .sort({ createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
+
+        console.log('[getOrders] Found shipments:', shipments.length);
+        if (shipments.length > 0) {
+            console.log('[getOrders] Sample shipment orderId:', shipments[0].orderId);
+            console.log('[getOrders] Has shippingAddress:', !!shipments[0].orderId?.shippingAddress);
+        }
 
         const total = await Shipment.countDocuments(query);
 
@@ -136,7 +166,10 @@ const getAvailableOrders = async (req, res, next) => {
         console.log('[getAvailableOrders] Query:', JSON.stringify(query));
 
         const shipments = await Shipment.find(query)
-            .populate('orderId')
+            .populate({
+                path: 'orderId',
+                select: 'orderNumber finalAmount subtotal shippingAddress buyerInfo items shippingFee'
+            })
             .populate({
                 path: 'returnId',
                 populate: [
@@ -184,36 +217,52 @@ const acceptOrder = async (req, res, next) => {
             });
         }
 
-        // Find shipment
-        const shipment = await Shipment.findById(shipmentId);
-        if (!shipment) {
-            return res.status(404).json({
-                success: false,
-                message: 'Shipment not found'
-            });
-        }
+        // ⭐ Use atomic operation to prevent race condition
+        // This ensures only one shipper can accept the order
+        const shipment = await Shipment.findOneAndUpdate(
+            {
+                _id: shipmentId,
+                $or: [
+                    { shipperId: null },
+                    { shipperId: { $exists: false } }
+                ],
+                status: { $in: ['CREATED', 'PENDING', 'READY_FOR_PICKUP'] }
+            },
+            {
+                $set: {
+                    shipperId: shipper._id,
+                    status: 'ASSIGNED',
+                    assignedAt: new Date()
+                },
+                $push: {
+                    trackingHistory: {
+                        status: 'ASSIGNED',
+                        notes: `Đơn hàng đã được shipper ${shipper.licenseNumber} nhận`,
+                        timestamp: new Date()
+                    }
+                }
+            },
+            { new: true }
+        );
 
-        // Check if already assigned
-        if (shipment.shipperId) {
+        if (!shipment) {
             return res.status(400).json({
                 success: false,
-                message: 'Đơn hàng đã được shipper khác nhận'
+                message: 'Đơn hàng đã được shipper khác nhận hoặc không còn khả dụng'
             });
         }
 
-        // Assign shipper
-        shipment.shipperId = shipper._id;
-        shipment.status = 'ASSIGNED';
-        shipment.assignedAt = new Date();
-        
-        // Add to tracking history
-        shipment.trackingHistory.push({
-            status: 'ASSIGNED',
-            notes: `Đơn hàng đã được shipper ${shipper.licenseNumber} nhận`,
-            timestamp: new Date()
-        });
-
-        await shipment.save();
+        // ⭐ Emit Socket.IO event to notify all shippers
+        // This will trigger real-time update on all shipper dashboards
+        if (global.io) {
+            global.io.emit('shipment:accepted', {
+                shipmentId: shipment._id.toString(),
+                shipperId: shipper._id.toString(),
+                shipperName: shipper.licenseNumber,
+                timestamp: new Date()
+            });
+            console.log('✅ Emitted shipment:accepted event for shipmentId:', shipment._id);
+        }
 
         res.status(200).json({
             success: true,
@@ -546,8 +595,26 @@ const getEarnings = async (req, res, next) => {
                 select: 'orderNumber finalAmount subtotal shippingAddress buyerInfo'
             })
             .populate({
+                path: 'returnId',
+                select: 'rmaCode amounts',
+                populate: {
+                    path: 'buyerId',
+                    select: 'fullName'
+                }
+            })
+            .populate({
                 path: 'shipmentId',
-                select: 'status distance actualDeliveryTime'
+                select: 'status distance actualDeliveryTime orderId returnId',
+                populate: [
+                    {
+                        path: 'orderId',
+                        select: 'orderNumber finalAmount subtotal shippingAddress'
+                    },
+                    {
+                        path: 'returnId',
+                        select: 'rmaCode amounts'
+                    }
+                ]
             })
             .sort({ date: -1 })
             .limit(limit * 1)
@@ -606,15 +673,28 @@ const getProfile = async (req, res, next) => {
             });
         }
 
-        const shipper = await Shipper.findOne({ userId });
+        //Find or create shipper record
+        let shipper = await Shipper.findOne({ userId });
         console.log('[getProfile] Found shipper:', shipper ? shipper._id : 'NOT FOUND');
         
         if (!shipper) {
-            console.log('[getProfile] Shipper profile not found for userId:', userId);
-            return res.status(404).json({
-                success: false,
-                message: 'Shipper profile not found'
+            console.log('[getProfile] Shipper profile not found, creating default profile...');
+            // Create a default shipper profile if it doesn't exist with unique values
+            const timestamp = Date.now();
+            shipper = new Shipper({
+                userId: user._id,
+                licenseNumber: `TEMP-${user._id.toString().slice(-8)}-${timestamp}`,
+                vehicleType: 'MOTORBIKE',
+                vehicleNumber: `TEMP-${user._id.toString().slice(-6)}`,
+                maxWeight: 50,
+                maxVolume: 100,
+                serviceAreas: [],
+                workingHours: { start: '06:00', end: '22:00' },
+                status: 'PENDING',
+                isOnline: false
             });
+            await shipper.save();
+            console.log('[getProfile] Created new shipper profile:', shipper._id);
         }
 
         console.log('[getProfile] Sending success response');
@@ -743,19 +823,38 @@ const updateProfile = async (req, res, next) => {
             console.log('Updated documents:', updateData.documents);
         }
 
-        const shipper = await Shipper.findOneAndUpdate(
-            { userId },
-            updateData,
-            { new: true }
-        ).populate('userId', '-password');
-
-        // Ensure we have the shipper object
+        // ⭐ Find or create shipper record
+        let shipper = await Shipper.findOne({ userId });
+        
         if (!shipper) {
-            return res.status(404).json({
-                success: false,
-                message: 'Shipper not found'
+            // If shipper doesn't exist, create a new one with unique values
+            console.log('Shipper not found, creating new shipper record...');
+            const timestamp = Date.now();
+            shipper = new Shipper({
+                userId,
+                licenseNumber: licenseNumber || `TEMP-${userId.slice(-8)}-${timestamp}`,
+                vehicleType: vehicleType || 'MOTORBIKE',
+                vehicleNumber: vehicleNumber || `TEMP-${userId.slice(-6)}`,
+                maxWeight: maxWeight || 50,
+                maxVolume: maxVolume || 100,
+                serviceAreas: parsedServiceAreas || [],
+                workingHours: parsedWorkingHours || { start: '06:00', end: '22:00' },
+                bankInfo: parsedBankInfo || {},
+                documents: documentPaths,
+                status: 'APPROVED', // Changed from 'ACTIVE' to valid enum value
+                isOnline: false
             });
+            await shipper.save();
+            console.log('New shipper created:', shipper._id);
+        } else {
+            // Update existing shipper
+            Object.assign(shipper, updateData);
+            await shipper.save();
+            console.log('Shipper updated:', shipper._id);
         }
+
+        // Populate userId
+        await shipper.populate('userId', '-password');
 
         console.log('Updated shipper:', shipper);
 
