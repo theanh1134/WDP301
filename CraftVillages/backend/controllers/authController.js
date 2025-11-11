@@ -1,10 +1,30 @@
 const User = require('../models/User');
 const Role = require('../models/Role');
+const Shipper = require('../models/Shipper');
 const { generateToken } = require('../utils/generateToken');
 
 const register = async (req, res, next) => {
     try {
-        const { fullName, email, phoneNumber, address, password, accountType, shopName, businessType } = req.body;
+        const { 
+            fullName, 
+            email, 
+            phoneNumber, 
+            address, 
+            password, 
+            accountType, 
+            shopName, 
+            businessType,
+            // Shipper fields
+            licenseNumber,
+            vehicleType,
+            vehicleNumber,
+            maxWeight,
+            maxVolume,
+            serviceAreas,
+            bankAccountName,
+            bankAccountNumber,
+            bankName
+        } = req.body;
 
         const existingUser = await User.findOne({ email });
         if (existingUser) {
@@ -61,9 +81,45 @@ const register = async (req, res, next) => {
             userData.addresses.push(`Shop: ${shopName}, Type: ${businessType}`);
         }
 
+        // Validate shipper required fields
+        if (accountType.toLowerCase() === 'shipper') {
+            if (!licenseNumber || !vehicleType || !vehicleNumber) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'License number, vehicle type, and vehicle number are required for shippers'
+                });
+            }
+        }
+
         const user = new User(userData);
         const verificationCode = user.generateVerificationCode();
         await user.save();
+
+        // Create Shipper record if account type is shipper
+        if (accountType.toLowerCase() === 'shipper') {
+            const shipperData = {
+                userId: user._id,
+                licenseNumber,
+                vehicleType,
+                vehicleNumber,
+                maxWeight: maxWeight || 50,
+                maxVolume: maxVolume || 100,
+                serviceAreas: serviceAreas || [],
+                status: 'PENDING'
+            };
+
+            // Add bank info if provided
+            if (bankAccountName || bankAccountNumber || bankName) {
+                shipperData.bankInfo = {
+                    accountName: bankAccountName,
+                    accountNumber: bankAccountNumber,
+                    bankName: bankName
+                };
+            }
+
+            const shipper = new Shipper(shipperData);
+            await shipper.save();
+        }
 
         res.status(201).json({
             success: true,

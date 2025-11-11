@@ -27,6 +27,9 @@ const io = new Server(server, {
     }
 });
 
+//Make io accessible globally for shipment updates
+global.io = io;
+
 // Initialize auto payment checker after DB connection
 const { initializeAutoPaymentChecker } = require('./jobs/autoPaymentChecker');
 connectDB().then(() => {

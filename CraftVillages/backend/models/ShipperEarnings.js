@@ -10,6 +10,10 @@ const shipperEarningsSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Order'
     },
+    returnId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Return'
+    },
     shipmentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Shipment'
