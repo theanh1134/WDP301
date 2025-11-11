@@ -15,6 +15,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const shopRoutes = require('./routes/shopRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const setupChatSocket = require('./socket/chatSocket');
+const { setupReturnNotificationSocket } = require('./socket/returnNotificationSocket');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -86,11 +87,16 @@ app.use("/", indexRoutes);
 
 app.use(errorHandler);
 
-// Setup Socket.IO for real-time chat
+// Make io available globally for controllers
+app.set('io', io);
+
+// Setup Socket.IO for real-time features
 setupChatSocket(io);
+setupReturnNotificationSocket(io);
 
 const PORT = process.env.PORT || 9999;
 server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`💬 Socket.IO ready for real-time chat`);
+    console.log(`🔔 Socket.IO ready for return notifications`);
 });

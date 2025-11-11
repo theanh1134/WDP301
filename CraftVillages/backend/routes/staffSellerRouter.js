@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getAllShopsWithUsers, getShopDetailById, adminToggleShop } = require('../controllers/staffSellerController');
-const { getAllReturns, getReturnById, approveReturn, rejectReturn } = require('../controllers/staffReturnController');
+const { getAllReturns, getReturnById, approveReturn, rejectReturn, getPendingReturnsCount } = require('../controllers/staffReturnController');
 
 router.get('/shops', async (req, res) => {
   try {
@@ -42,6 +42,7 @@ router.patch('/shops/:shopId/toggle', async (req, res) => {
 });
 
 router.get('/returns', getAllReturns)
+router.get('/returns/pending-count', getPendingReturnsCount)
 router.get('/returns/:id', getReturnById)
 
 router.patch('/returns/:id/approve', approveReturn);

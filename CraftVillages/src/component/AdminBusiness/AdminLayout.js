@@ -262,8 +262,12 @@ const AdminLayout = () => {
             items: [
                 { icon: FaStore, label: 'Quản Lý Sellers', path: '/admin-dashboard/sellers' },
                 { icon: FaBalanceScale, label: 'Quản Lý Hoa Hồng', path: '/admin-dashboard/commission-management' },
-        
-                
+            ]
+        },
+        {
+            section: 'PHÂN TÍCH',
+            items: [
+                { icon: FaUsers, label: 'Phân Tích Khách Hàng', path: '/admin-dashboard/customer-analytics' },
             ]
         },
 

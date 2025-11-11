@@ -2,6 +2,7 @@ const Return = require("../models/Return");
 const path = require("path");
 const fs = require("fs");
 const Product = require("../models/Product");
+const { notifyNewReturnRequest } = require("../socket/returnNotificationSocket");
 
 exports.createReturns = async (req, res) => {
   try {
@@ -37,7 +38,29 @@ exports.createReturns = async (req, res) => {
 
       const newReturn = new Return(record);
       const saved = await newReturn.save();
+
+      // Populate data for notification
+      await saved.populate([
+        { path: 'buyerId', select: 'fullName email phoneNumber' },
+        { path: 'shopId', select: 'shopName' },
+        { path: 'orderId', select: 'orderCode' }
+      ]);
+
       createdReturns.push(saved);
+
+      // 🔔 Send real-time notification to staff
+      try {
+        const io = req.app.get('io');
+        if (io) {
+          notifyNewReturnRequest(io, saved);
+          console.log('✅ Return notification sent to staff');
+        } else {
+          console.warn('⚠️ Socket.IO not available, notification not sent');
+        }
+      } catch (notifyError) {
+        console.error('❌ Error sending notification:', notifyError);
+        // Don't fail the request if notification fails
+      }
     }
 
     res.status(201).json({

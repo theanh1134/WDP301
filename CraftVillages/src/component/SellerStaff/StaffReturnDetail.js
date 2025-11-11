@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { useStaffNotification } from "../../contexts/StaffNotificationContext";
 
 const { Title } = Typography;
 
@@ -12,6 +13,7 @@ const ReturnDetailPage = () => {
   const navigate = useNavigate();
   const [returnData, setReturnData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { refreshPendingCount } = useStaffNotification();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -32,6 +34,7 @@ const ReturnDetailPage = () => {
     const res = await axios.patch(`http://localhost:9999/staff/returns/${id}/approve`);
     console.log(res)
     toast.success('Chấp nhận hoàn hàng thành công!')
+    refreshPendingCount(); // Update badge count
     navigate(-1)
 }
 
@@ -39,6 +42,7 @@ const rejectReturn = async () => {
     const res = await axios.patch(`http://localhost:9999/staff/returns/${id}/reject`);
     console.log(res)
     toast.success('Từ chối hoàn hàng thành công!')
+    refreshPendingCount(); // Update badge count
     navigate(-1)
   }
 

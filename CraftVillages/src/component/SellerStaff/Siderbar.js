@@ -4,6 +4,7 @@ import styled from "styled-components";
 import {
   FaBox, FaShoppingCart,  FaChevronDown, FaChevronRight
 } from "react-icons/fa";
+import NotificationBadge from "./NotificationBadge";
 
 const SidebarWrapper = styled.div`
   width: 220px;
@@ -87,11 +88,12 @@ const Sidebar = ({
         )}
       </MenuSection>
 
-      {/* Quản Lý Sản Phẩm */}
+      {/* Quản Lý Hoàn Hàng */}
       <MenuSection>
         <MenuItem onClick={() => toggleMenu("productManagement")}>
           <FaBox />
           <span style={{ flex: 1 }}>Quản Lý Hoàn Hàng</span>
+          <NotificationBadge />
           {expandedMenus.productManagement ? <FaChevronDown /> : <FaChevronRight />}
         </MenuItem>
         {expandedMenus.productManagement && (
@@ -99,7 +101,7 @@ const Sidebar = ({
             <SubMenuItem
               onClick={() => navigate('/staff/returns')}
             >
-              <span>Tất Cả Sản Phẩm</span>
+              <span>Tất Cả Đơn Hoàn Hàng</span>
             </SubMenuItem>
           </>
         )}

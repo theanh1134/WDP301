@@ -4,6 +4,7 @@ import { SearchOutlined, EyeOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useStaffNotification } from '../../contexts/StaffNotificationContext';
 import './StaffSeller.scss';
 
 const StaffReturn = () => {
@@ -16,6 +17,7 @@ const StaffReturn = () => {
   });
 
   const navigate = useNavigate();
+  const { socket, refreshPendingCount, setPendingReturnsCount } = useStaffNotification();
 
   const getVietnameseStatus = (status) => {
     switch (status) {
@@ -159,6 +161,31 @@ const StaffReturn = () => {
       skipLoading: true
     });
   }, []);
+
+  // 🔔 Listen for real-time notifications
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewReturnNotification = (notification) => {
+      console.log('📢 Received new return notification in StaffReturn:', notification);
+
+      // Auto-refresh the return list
+      fetchReturns({
+        pagination,
+        searchText,
+        skipLoading: true
+      });
+
+      // Refresh pending count
+      refreshPendingCount();
+    };
+
+    socket.on('new-return-notification', handleNewReturnNotification);
+
+    return () => {
+      socket.off('new-return-notification', handleNewReturnNotification);
+    };
+  }, [socket, pagination, searchText, refreshPendingCount]);
 
   return (
     <div className="user-admin-container">

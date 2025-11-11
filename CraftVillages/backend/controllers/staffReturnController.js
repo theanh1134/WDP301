@@ -332,4 +332,29 @@ const rejectReturn = async (req, res) => {
   await updateReturnStatus(req, res, 'REJECTED', req.body.note || 'Đơn hàng bị từ chối.');
 };
 
-module.exports = { getAllReturns, getReturnById, approveReturn, rejectReturn };
+// 📊 Lấy số lượng return requests đang chờ xử lý
+const getPendingReturnsCount = async (req, res) => {
+  try {
+    const count = await Return.countDocuments({ status: 'REQUESTED' });
+
+    res.status(200).json({
+      success: true,
+      count: count
+    });
+  } catch (error) {
+    console.error('Error getting pending returns count:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while getting pending returns count',
+      error: error.message
+    });
+  }
+};
+
+module.exports = {
+  getAllReturns,
+  getReturnById,
+  approveReturn,
+  rejectReturn,
+  getPendingReturnsCount
+};

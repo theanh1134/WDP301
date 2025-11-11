@@ -224,6 +224,57 @@ const updateGlobalCommission = async (payload) => {
     }
 };
 
+/**
+ * Customer Analytics APIs
+ */
+const getCustomerOverview = async (params = {}) => {
+    try {
+        const api = createAuthRequest();
+        const queryString = new URLSearchParams(params).toString();
+        const response = await api.get(`/api/admin/analytics/customers/overview?${queryString}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error getting customer overview:', error);
+        throw error.response?.data || error;
+    }
+};
+
+const getTopCustomersByOrders = async (params = {}) => {
+    try {
+        const api = createAuthRequest();
+        const queryString = new URLSearchParams(params).toString();
+        const response = await api.get(`/api/admin/analytics/customers/top-by-orders?${queryString}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error getting top customers by orders:', error);
+        throw error.response?.data || error;
+    }
+};
+
+const getTopCustomersByRevenue = async (params = {}) => {
+    try {
+        const api = createAuthRequest();
+        const queryString = new URLSearchParams(params).toString();
+        const response = await api.get(`/api/admin/analytics/customers/top-by-revenue?${queryString}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error getting top customers by revenue:', error);
+        throw error.response?.data || error;
+    }
+};
+
+const getCustomerList = async (params = {}) => {
+    try {
+        const api = createAuthRequest();
+        const queryString = new URLSearchParams(params).toString();
+        const response = await api.get(`/api/admin/analytics/customers/list?${queryString}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error getting customer list:', error);
+        throw error.response?.data || error;
+    }
+};
+
 const adminService = {
     getRevenueOverview,
     getRevenueChart,
@@ -237,7 +288,12 @@ const adminService = {
     getSellerCommissionList,
     updateSellerCommission,
     getSellerCommissionHistory,
-    updateGlobalCommission
+    updateGlobalCommission,
+    // Customer Analytics
+    getCustomerOverview,
+    getTopCustomersByOrders,
+    getTopCustomersByRevenue,
+    getCustomerList
 };
 
 export default adminService;

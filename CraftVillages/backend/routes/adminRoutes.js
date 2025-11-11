@@ -3,6 +3,7 @@ const router = express.Router();
 const { auth } = require('../middleware/auth');
 const adminRevenueController = require('../controllers/adminRevenueController');
 const adminCommissionController = require('../controllers/adminCommissionController');
+const adminCustomerAnalyticsController = require('../controllers/adminCustomerAnalyticsController');
 
 // Middleware to check if user is admin
 const isAdmin = async (req, res, next) => {
@@ -45,6 +46,12 @@ router.get('/commission/sellers', auth, isAdmin, adminCommissionController.listS
 router.get('/commission/sellers/:shopId/history', auth, isAdmin, adminCommissionController.getSellerCommissionHistory);
 router.put('/commission/sellers/:shopId', auth, isAdmin, adminCommissionController.updateSellerCommission);
 router.put('/commission/global', auth, isAdmin, adminCommissionController.updateGlobalCommission);
+
+// Customer Analytics routes
+router.get('/analytics/customers/overview', auth, isAdmin, adminCustomerAnalyticsController.getCustomerOverview);
+router.get('/analytics/customers/top-by-orders', auth, isAdmin, adminCustomerAnalyticsController.getTopCustomersByOrders);
+router.get('/analytics/customers/top-by-revenue', auth, isAdmin, adminCustomerAnalyticsController.getTopCustomersByRevenue);
+router.get('/analytics/customers/list', auth, isAdmin, adminCustomerAnalyticsController.getCustomerList);
 
 module.exports = router;
 

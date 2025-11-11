@@ -38,6 +38,7 @@ import AdminDashboard from '../component/AdminBusiness/AdminDashboard';
 import CommissionAnalytics from '../component/AdminBusiness/CommissionAnalytics';
 import SellerManagement from '../component/AdminBusiness/SellerManagement';
 import CommissionManagement from '../component/AdminBusiness/CommissionManagement';
+import CustomerAnalytics from '../component/AdminBusiness/CustomerAnalytics';
 
 // Create router with future flags enabled
 export const router = createBrowserRouter(
@@ -151,6 +152,7 @@ export const router = createBrowserRouter(
                 <Route path="commission-management" element={<CommissionManagement />} />
                 <Route path="gmv" element={<AdminDashboard />} />
                 <Route path="sellers" element={<SellerManagement />} />
+                <Route path="customer-analytics" element={<CustomerAnalytics />} />
                 <Route path="orders" element={<AdminDashboard />} />
                 <Route path="customers" element={<AdminDashboard />} />
                 <Route path="products" element={<AdminDashboard />} />

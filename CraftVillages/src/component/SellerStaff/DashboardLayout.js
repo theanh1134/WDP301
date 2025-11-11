@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { Outlet, useNavigate } from "react-router-dom";
 import Sidebar from "./Siderbar";
 import Header from "./Header";
+import { StaffNotificationProvider } from "../../contexts/StaffNotificationContext";
 
 const DashboardWrapper = styled.div`
   display: flex;
@@ -48,28 +49,30 @@ const DashboardLayout = () => {
   };
 
   return (
-    <DashboardWrapper>
-      <Sidebar
-        sellerData={sellerData}
-        expandedMenus={expandedMenus}
-        toggleMenu={toggleMenu}
-        activeMenu={activeMenu}
-        handleMenuClick={handleMenuClick}
-        navigate={navigate}
-      />
-
-      <MainContent>
-        <Header
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          currentUser={currentUser}
+    <StaffNotificationProvider>
+      <DashboardWrapper>
+        <Sidebar
+          sellerData={sellerData}
+          expandedMenus={expandedMenus}
+          toggleMenu={toggleMenu}
+          activeMenu={activeMenu}
+          handleMenuClick={handleMenuClick}
+          navigate={navigate}
         />
-        <ContentArea>
-          {/* Đây là nơi các trang con được render */}
-          <Outlet />
-        </ContentArea>
-      </MainContent>
-    </DashboardWrapper>
+
+        <MainContent>
+          <Header
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            currentUser={currentUser}
+          />
+          <ContentArea>
+            {/* Đây là nơi các trang con được render */}
+            <Outlet />
+          </ContentArea>
+        </MainContent>
+      </DashboardWrapper>
+    </StaffNotificationProvider>
   );
 };
 
