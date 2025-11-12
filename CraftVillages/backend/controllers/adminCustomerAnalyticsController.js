@@ -32,7 +32,7 @@ const getCustomerOverview = async (req, res) => {
             ...(Object.keys(dateFilter).length > 0 ? [{ $match: { createdAt: dateFilter } }] : []),
             {
                 $match: {
-                    status: { $in: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'COMPLETED'] }
+                    status: { $nin: ['CANCELLED', 'REFUNDED'] }
                 }
             },
             {
@@ -50,7 +50,7 @@ const getCustomerOverview = async (req, res) => {
             ...(Object.keys(dateFilter).length > 0 ? [{ $match: { createdAt: dateFilter } }] : []),
             {
                 $match: {
-                    status: { $in: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'COMPLETED'] }
+                    status: { $nin: ['CANCELLED', 'REFUNDED'] }
                 }
             },
             {
@@ -113,7 +113,7 @@ const getTopCustomersByOrders = async (req, res) => {
             ...(Object.keys(dateFilter).length > 0 ? [{ $match: { createdAt: dateFilter } }] : []),
             {
                 $match: {
-                    status: { $in: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'COMPLETED'] },
+                    status: { $nin: ['CANCELLED', 'REFUNDED'] },
                     'buyerInfo.userId': { $exists: true, $ne: null }
                 }
             },
@@ -200,7 +200,7 @@ const getTopCustomersByRevenue = async (req, res) => {
             ...(Object.keys(dateFilter).length > 0 ? [{ $match: { createdAt: dateFilter } }] : []),
             {
                 $match: {
-                    status: { $in: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'COMPLETED'] }
+                    status: { $nin: ['CANCELLED', 'REFUNDED'] }
                 }
             },
             {
